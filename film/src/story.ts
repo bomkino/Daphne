@@ -59,14 +59,19 @@ export const wordTimes = (text: string) => {
   return { words, starts: out, length: PACE.base + t };
 };
 
+// Words on screen with no voice arrive a little faster than they'd be said:
+// reading runs ahead of speech, and it leaves each line time to be read whole.
+export const READ = 0.8;
+
 // When a line is on screen: from its beat until it has been said and read,
-// and always gone before the next one starts.
-export const lineSpan = (i: number, voice: Voice) => {
+// and always gone before the next one starts. `pace` scales the speaking time.
+export const lineSpan = (i: number, voice: Voice, pace = 1) => {
   const l = LINES[i];
   const from = beat(l.beat);
-  const said = from + wordTimes(l[voice]).length;
+  // a line set in phrases on beats ("Poets. Athletes. Artists.") is said when its last phrase is
+  const said = Math.max(from + wordTimes(l[voice]).length * pace, l.words ? beat(l.words[l.words.length - 1]) + 0.9 : 0);
   const next = i + 1 < LINES.length ? beat(LINES[i + 1].beat) : END;
-  const to = Math.min(next - 0.3, said + 1.5);
+  const to = Math.min(next - 0.15, said + 1.5);
   return { from, said, to, next };
 };
 

@@ -4,9 +4,9 @@ Everything sits on the film's clock (src/story.json): 52 beats a minute, her
 heartbeat. The harmony follows the story. D minor and a lament bass (D, C, Bb, A)
 for the myth; the river is a harp; the chase is cellos running in sixteenths
 and stops dead when she does; her heart is a heartbeat and nothing else; the
-crown gets the theme in full. The first major chord in the film is the word
-"free". It lands on the outro's D minor drone, so the intro/outro sting can take
-the last five seconds.
+crown gets the theme in full. D minor turns to D major for the first time on the
+word "free". It ends on G minor, so the outro's D drone can take the last five
+seconds.
 
     npm run samples     once: fetches the instruments into vendor/vsco
     npm run score       writes public/audio/score.flac (the lead mix) and
@@ -34,12 +34,34 @@ N = int((END + 1.0) * SR)
 rng = np.random.default_rng(52)
 
 
-def B(n):
-    """A beat's time in seconds."""
+def secs(n):
+    """A beat of the film (as src/story.json counts them) in seconds."""
     return STORY["firstBeat"] + n * SPB
 
 
-ACT = {k: B(v) for k, v in STORY["acts"].items()}
+# The cue below was written before the film took its breaths: a few rests were
+# added later so every line has time to be said and read. W moves a beat of the
+# cue, as written, to the film's beat; a note held across a rest is held through
+# it. To retime the film, add the rest here and to story.json together: the
+# check below refuses to score a film whose acts no longer match.
+RESTS = [(37.5, 0.5), (48.75, 0.5), (50, 1.5), (56, 0.5), (67.5, 1), (76.5, 1), (79.5, 1), (83.5, 1)]
+WRITTEN = {"prologue": 0, "dive": 8, "river": 12, "god": 23, "chase": 24, "ran": 28, "still": 36, "roots": 36.5, "branches": 38, "leaves": 40,
+           "hand": 44, "kiss": 49, "crown": 52, "since": 56.5, "chosen": 60, "today": 64, "ask": 68, "free": 72, "make": 74, "facts": 77, "earned": 80, "outro": 84}
+
+
+def W(n):
+    return n + sum(extra for at, extra in RESTS if at <= n)
+
+
+def B(n):
+    """A beat of the cue, as written, in seconds of the film."""
+    return secs(W(n))
+
+
+off = {k: (v, W(WRITTEN[k])) for k, v in STORY["acts"].items() if abs(W(WRITTEN[k]) - v) > 1e-6}
+if off:
+    sys.exit(f"story.json's acts and the score's rests disagree (act: film beat, scored beat): {off}")
+ACT = {k: secs(v) for k, v in STORY["acts"].items()}
 NOTE = {"C": 0, "D": 2, "E": 4, "F": 5, "G": 7, "A": 9, "B": 11}
 
 
@@ -184,7 +206,7 @@ def note(inst, name, beat, beats, vel=0.5, pan=0.0, attack=0.02, release=0.6, bu
     x, sr = load(path)
     ratio = 2 ** ((m - root) / 12) * sr / SR
     t0 = B(beat) if at is None else at
-    dur = beats * SPB
+    dur = beats * SPB if at is not None else (W(beat + beats) - W(beat)) * SPB
     n_out = int((dur + release) * SR)
     src = np.arange(n_out) * ratio
     if src[-1] + 2 >= sustain_end(path):  # held past the recording's sustain: loop it smoothly
@@ -372,12 +394,12 @@ def score():
     note("violin", "F5", 45, 4, 0.28, 0.1, attack=1.4, release=1.0, bus="solo", gain=0.42)
     note("violin", "E5", 49, 2.5, 0.3, 0.1, attack=0.3, release=1.5, bus="solo", gain=0.42)
     for b in STORY["heart"]:
-        heartbeat(B(b), 0.8)
+        heartbeat(secs(b), 0.8)
     god_tone(ACT["hand"] - 0.5, ACT["crown"] + 3, 0.006, lambda tt: np.clip((tt - ACT["hand"]) / 1.5, 0, 1) * np.clip((ACT["since"] - tt) / 2, 0, 1))
     # THE KISS: the wood pulls away. A shiver of a semitone.
-    note("viola_trem", "Eb4", 50, 1.5, 0.5, -0.2, attack=0.05, release=1.0, gain=0.4)
-    note("viola_trem", "D4", 50, 1.5, 0.5, 0.2, attack=0.05, release=1.0, gain=0.4)
-    note("violins_trem", "A4", 50.05, 1.4, 0.45, 0.3, attack=0.05, release=1.0, gain=0.3)
+    note("viola_trem", "Eb4", 50.75, 1.25, 0.5, -0.2, attack=0.05, release=1.0, gain=0.4)
+    note("viola_trem", "D4", 50.75, 1.25, 0.5, 0.2, attack=0.05, release=1.0, gain=0.4)
+    note("violins_trem", "A4", 50.8, 1.2, 0.45, 0.3, attack=0.05, release=1.0, gain=0.3)
 
     # THE CROWN: he wears her leaves. The theme in full, low in the cellos, the horn behind.
     crown = [(52, ["D2", "A2"], ["D3", "A3", "F4"], ["A4", "D5"]), (54, ["C2", "G2"], ["C3", "G3", "E4"], ["G4", "C5"]),
@@ -424,7 +446,7 @@ def score():
     note("piano", "A4", 68.5, 1.5, 0.3, 0.1, bus=P, release=3)
     note("piano", "E5", 70.5, 1.5, 0.28, 0.1, bus=P, release=3)
 
-    # FREE: the film's first major chord.
+    # FREE: D minor turns to D major, for the first time.
     note("bass", "D2", 72, 2, 0.45, -0.1, attack=0.6, release=1.0, gain=0.65)
     chord("cello", ["D3", "A3"], 72, 2, 0.45, attack=0.7, release=1.0, gain=0.55)
     note("viola", "F#4", 72, 2, 0.42, 0.2, attack=0.8, release=1.0, gain=0.5)
@@ -578,7 +600,7 @@ def vo_windows():
     w = np.ones(N, np.float32)
     t = np.arange(N) / SR
     for i, l in enumerate(STORY["lines"]):
-        a = B(l["beat"])
+        a = secs(l["beat"])
         words = l["her"].split()
         dur = 0.25 + sum(0.2 * max(1, len(re.findall(r"[aeiouy]+", re.sub(r"[^a-z]", "", x.lower())))) + (0.32 if re.search(r"[.,:;?!]$", x) else 0.02) for x in words)
         b = a + dur

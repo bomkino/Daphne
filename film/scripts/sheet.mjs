@@ -1,8 +1,8 @@
 // A contact sheet: stills of one composition at the moments you name, at half
 // size, tiled into one image to look at before anyone else does.
 //
-//   npm run sheet -- EndCard-1080x1920 0.5 1.2 2 3.4      seconds
-//   npm run sheet -- EndCard-1920x1080 --fps=24 1 2 3     another frame rate
+//   npm run sheet -- Daphne-1080x1920 0.5 12 42 98      seconds
+//   npm run sheet -- Daphne-1920x1080 --fps=24 1 2 3       another frame rate
 //
 // Writes out/sheets/<composition>.jpg. Seconds convert to frames at the
 // timeline's fps unless --fps says otherwise.
@@ -11,7 +11,7 @@ import { mkdirSync, readFileSync, rmSync } from "node:fs";
 import { machine } from "./machine.mjs";
 
 const timeline = JSON.parse(
-  readFileSync(new URL("../src/timeline.json", import.meta.url), "utf8"),
+  readFileSync(new URL("../src/story.json", import.meta.url), "utf8"),
 );
 
 const args = process.argv.slice(2);

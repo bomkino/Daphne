@@ -4,7 +4,7 @@ import React, { useLayoutEffect, useMemo, useRef } from "react";
 import { useCurrentFrame, useVideoConfig } from "remotion";
 import paths from "../brand/paths.json";
 import { C } from "../brand/colors";
-import { at, beat, clamp, FPS, LINES, lineSpan, mix, sm, span, Voice, wordEase, wordTimes } from "../story";
+import { at, beat, clamp, FPS, LINES, lineSpan, mix, READ, sm, span, Voice, wordEase, wordTimes } from "../story";
 import { drawGrove, endingTimes, logoBox } from "./grove";
 
 export const useT = () => useCurrentFrame() / FPS;
@@ -104,7 +104,7 @@ export const Words: React.FC<{ voice: Voice; mode: TextMode }> = ({ voice, mode 
   const { H, tall } = useSize();
   if (mode === "off") return null;
   const story = mode === "story";
-  const size = story ? (tall ? 60 : 50) : tall ? 44 : 38;
+  const size = story ? (tall ? 60 : 58) : tall ? 44 : 42;
   const box: React.CSSProperties = tall
     ? { position: "absolute", left: 80, right: 80, top: story ? 236 : 1180, height: story ? 300 : 200, display: "flex", alignItems: story ? "flex-start" : "center", justifyContent: "center" }
     : { position: "absolute", left: 0, right: 0, top: H * (story ? 0.755 : 0.8), height: H * 0.16, display: "flex", alignItems: "center", justifyContent: "center" };
@@ -112,9 +112,9 @@ export const Words: React.FC<{ voice: Voice; mode: TextMode }> = ({ voice, mode 
     <>
       {LINES.map((l, i) => {
         if (l.kind === "title") return null;
-        const sp = lineSpan(i, voice);
+        const sp = lineSpan(i, voice, story ? READ : 1);
         if (t < sp.from - 0.05 || t > sp.to + 0.05) return null;
-        const out = sm(sp.to - 0.55, sp.to, t);
+        const out = sm(sp.to - 0.4, sp.to, t);
         const text = l[voice];
         const wt = wordTimes(text);
         // phrases set on beats ("Poets. Athletes. Artists.") arrive on their beats
@@ -122,7 +122,7 @@ export const Words: React.FC<{ voice: Voice; mode: TextMode }> = ({ voice, mode 
         let wi = 0;
         const starts = phrases
           ? phrases.flatMap((ph, pi) => ph.split(/\s+/).map((_, k) => beat(l.words![pi]) - sp.from + k * 0.12))
-          : wt.starts;
+          : wt.starts.map((x) => x * READ);
         return (
           <div key={l.id} style={box}>
             <div

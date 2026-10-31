@@ -1,11 +1,24 @@
-# [Project]: journey
+# Daphne's story film: journey
 
-*The creative path, as it happens: what the client gave us, what we looked at, what we noticed, what we chose and why. A few lines a day, newest last. It's the raw material for the journey the client sees, which starts at what they gave us and leaves out internal drafts and tools (`website-learnings/guides/client-care.md`, "Telling the client's story"). Dates come from `date`.*
+## What they gave us (2026-10-31)
 
-## What they gave us ([YYYY-MM-DD])
+- **Daphne**, the free laurel maker, and its brand book: the name between two bay leaves, "(Daphne)", and a scrolled film of the myth in one line of light (river, tree, heart, crown, two leaves).
+- **The ask:** a longer film telling Daphne's story, then connecting it to pitch.dog/daphne. With music, polished, with or without Manali's narration.
 
-- **[Their name, logo, words or work].** [One line on what it is and where it came from.]
+## 2026-10-31: the voice
 
-## [YYYY-MM-DD]: [what moved]
+- **Two voices, one picture.** We pitched a studio narrator; Kay picked Daphne telling it herself, then said to try both. Her voice opens on a laurel: "You've seen me on a thousand film posters. You never knew my name."
 
-- **[What we noticed or chose].** [Why, in a line, and who chose: Kay, the client or us.]
+## 2026-10-31: the shape
+
+- **The brand book's line of light, told in full.** A gold laurel dives into one leaf, which melts into a line; the line becomes her hair, a river; the river runs from a god's light; she stops, and so does the music; she becomes a tree, her heart still beating under the bark (Ovid's own detail); he wears her leaves as a crown; every laurel since echoes out of it; one lands on a poster. Then the turn: she asked to belong to no one, so now she's free, and a laurel grows from the logo's two leaves.
+- **Silence as the drop.** When she stops running, everything stops, even the room's echo.
+- **The only pink is her heart.** Bloom appears once, under the bark.
+
+## 2026-10-31: the sound
+
+- **An orchestra in code.** A score on a 52-a-minute heartbeat: D minor and a falling theme for the myth, a harp river, cellos running for the chase, a heartbeat alone for her heart, D major for the first time on "free".
+
+## 2026-10-31: the ending
+
+- **The same laurel all the way.** The film's last laurel settles into the intro/outro's first frame, so the outro takes over without a seam: the leaves turn green and fall, and two stay as the brackets of (Daphne).

@@ -4,9 +4,9 @@
   "firstBeat": 0.5,
   "dub": 0.24,
   "soundDelayMs": 20,
-  "end": 102,
+  "end": 110.04,
   "outro": {
-    "lubBeat": 84,
+    "lubBeat": 91.0,
     "firstLubFrame": 11,
     "frames": 120
   },
@@ -19,26 +19,26 @@
     "ran": 28,
     "still": 36,
     "roots": 36.5,
-    "branches": 38,
-    "leaves": 40,
-    "hand": 44,
-    "kiss": 49,
-    "crown": 52,
-    "since": 56.5,
-    "chosen": 60,
-    "today": 64,
-    "ask": 68,
-    "free": 72,
-    "make": 74,
-    "facts": 77,
-    "earned": 80,
-    "outro": 84
+    "branches": 38.5,
+    "leaves": 40.5,
+    "hand": 44.5,
+    "kiss": 50.0,
+    "crown": 54.5,
+    "since": 59.5,
+    "chosen": 63.0,
+    "today": 67.0,
+    "ask": 72.0,
+    "free": 76.0,
+    "make": 78.0,
+    "facts": 82.0,
+    "earned": 86.0,
+    "outro": 91.0
   },
   "heart": [
-    45,
-    46,
-    47,
-    48
+    45.5,
+    46.5,
+    47.5,
+    48.5
   ],
   "lines": [
     {
@@ -92,89 +92,89 @@
     },
     {
       "id": "L09",
-      "beat": 38,
+      "beat": 38.5,
       "her": "My arms became branches.",
       "us": "Her arms became branches."
     },
     {
       "id": "L10",
-      "beat": 40,
+      "beat": 40.5,
       "her": "My hair became leaves.",
       "us": "Her hair became leaves."
     },
     {
       "id": "L11",
-      "beat": 44,
+      "beat": 44.5,
       "her": "When he laid his hand on the bark, he could still feel my heart, trembling underneath.",
       "us": "When he laid his hand on the bark, he could still feel her heart, trembling underneath."
     },
     {
       "id": "L12",
-      "beat": 49,
+      "beat": 50.0,
       "her": "He kissed the wood. Even as wood, I pulled away.",
       "us": "He kissed the wood. Even as wood, she pulled away."
     },
     {
       "id": "L13",
-      "beat": 52,
+      "beat": 54.5,
       "her": "He couldn’t have me. So he took my leaves, and wore them as a crown.",
       "us": "He couldn’t have her. So he took her leaves, and wore them as a crown."
     },
     {
       "id": "L14",
-      "beat": 56.5,
-      "her": "Ever since, my leaves have crowned the ones who were chosen.",
-      "us": "Ever since, her leaves have crowned the ones who were chosen."
+      "beat": 59.5,
+      "her": "Ever since, my leaves have crowned the chosen.",
+      "us": "Ever since, her leaves have crowned the chosen."
     },
     {
       "id": "L15",
-      "beat": 60,
+      "beat": 63.0,
       "words": [
-        60,
-        61,
-        62
+        63.0,
+        64.0,
+        65.0
       ],
       "her": "Poets. Athletes. Artists.",
       "us": "Poets. Athletes. Artists."
     },
     {
       "id": "L16",
-      "beat": 64,
+      "beat": 67.0,
       "her": "Now I sit on film posters, and quietly say: this film was chosen.",
       "us": "Now she sits on film posters, and quietly says: this film was chosen."
     },
     {
       "id": "L17",
-      "beat": 68,
+      "beat": 72.0,
       "her": "But I only ever asked to belong to no one.",
       "us": "But she only ever asked to belong to no one."
     },
     {
       "id": "L18",
-      "beat": 72,
+      "beat": 76.0,
       "her": "So now, I’m free.",
       "us": "So we made her free."
     },
     {
       "id": "L19",
-      "beat": 74,
+      "beat": 78.0,
       "her": "Free, for every filmmaker who’s earned a laurel.",
       "us": "Daphne makes festival laurels for your film."
     },
     {
       "id": "L20",
-      "beat": 77,
+      "beat": 82.0,
       "words": [
-        77,
-        78,
-        79
+        82.0,
+        83.0,
+        84.0
       ],
       "her": "No account. No watermark. I keep nothing of yours.",
       "us": "No account. No watermark. Nothing leaves your device."
     },
     {
       "id": "L21",
-      "beat": 80,
+      "beat": 86.0,
       "her": "Your film was chosen. Let it say so.",
       "us": "For every filmmaker who’s earned one."
     }

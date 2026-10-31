@@ -2,9 +2,9 @@
 // score (the lead cut), the same in pitch.dog's voice (the alternate), and a
 // narrated cut that plays Manali's takes over a quieter bed of the same score.
 import React from "react";
-import { AbsoluteFill, Audio, getStaticFiles, interpolate, OffthreadVideo, Sequence, staticFile } from "remotion";
+import { AbsoluteFill, Audio, getStaticFiles, interpolate, OffthreadVideo, Sequence, staticFile, useCurrentFrame } from "remotion";
 import "../brand/fonts";
-import { at, beat, frameOf, LINES, mix, OUTRO_FRAME, OUTRO_FRAMES, sm, span, Voice } from "../story";
+import { at, beat, FPS, frameOf, LINES, mix, OUTRO_FRAME, OUTRO_FRAMES, sm, span, Voice } from "../story";
 import { classicGold } from "./laurels.gen";
 import { EndWords, Grove, Held, Laurel, TextMode, Title, useSize, useT, Words } from "./layers";
 import { endingTimes } from "./grove";
@@ -16,11 +16,20 @@ const has = (name: string) => getStaticFiles().some((f) => f.name === name);
 // The laurels on screen: one Classic Gold laurel made with Daphne, the same one
 // the intro/outro sting opens on. It opens the film, comes back as the poster
 // she sits on now, and is made again, from two leaves, at the end.
+// Where the sting's laurel stands on its first frame (brand/motion/sting/src/layout.ts):
+// the film's last laurel moves there, so the cut into the sting is the same laurel.
+const STING_LAUREL = { tall: { h: 900, y: 880 }, wide: { h: 800, y: 540 } };
+const DISSOLVE = 6; // frames: the sting's dark comes up over ours
+
 const Laurels: React.FC<{ stingOn: boolean }> = ({ stingOn }) => {
   const t = useT();
   const { W, H, tall } = useSize();
   const h = tall ? (W * 0.66 * classicGold.viewBox[3]) / classicGold.viewBox[2] : H * 0.62;
   const x = W / 2, y = tall ? H * 0.47 : H * 0.46;
+  // the slow push from our framing to the sting's, ending at rest on its first frame
+  const cutT = OUTRO_FRAME / FPS;
+  const push = stingOn ? sm(cutT - 1.8, cutT, t) : 0;
+  const end = STING_LAUREL[tall ? "tall" : "wide"];
   const dive = at("dive");
   const E = endingTimes();
   const glint = (c: number) => 0.16 * Math.exp(-(((t - c) / 0.5) ** 2));
@@ -52,20 +61,32 @@ const Laurels: React.FC<{ stingOn: boolean }> = ({ stingOn }) => {
           bright={mix(1, 0.62, sm(at("ask") + 0.4, at("ask") + 2.6, t)) + glint(at("today") + 3.2)}
         />
       )}
-      {t > at("make") - 0.1 && !(stingOn && t >= OUTRO_FRAME / 24) && (
+      {t > at("make") - 0.1 && !(stingOn && t >= (OUTRO_FRAME + DISSOLVE) / FPS) && (
         <Laurel
           art={classicGold}
           x={x}
-          y={y}
-          height={h}
+          y={mix(y, (end.y * H) / (tall ? 1920 : 1080), push)}
+          height={mix(h, (end.h * H) / (tall ? 1920 : 1080), push)}
           grow={span(at("make") + 0.15, at("make") + 1.55, t, (q) => q)}
           words={span(at("make") + 1.1, at("make") + 2.3, t, (q) => q)}
-          opacity={1 - sm(E.lub - 0.02, E.lub + 0.24, t)}
-          scale={mix(1, 1.025, sm(at("facts"), E.lub, t))}
+          opacity={stingOn ? 1 : 1 - sm(E.lub - 0.02, E.lub + 0.24, t)}
+          scale={stingOn ? mix(1, 1.025, sm(at("facts"), cutT - 1.8, t)) * (1 - push) + push : mix(1, 1.025, sm(at("facts"), E.lub, t))}
           bright={1 + glint(at("facts") + 1.2)}
         />
       )}
     </>
+  );
+};
+
+// The intro/outro sting's outro, played as our ending. Its first frame is our last laurel,
+// so it dissolves in over a few frames and only the dark around the laurel changes.
+const Sting: React.FC<{ src: string }> = ({ src }) => {
+  const f = useCurrentFrame();
+  return (
+    <AbsoluteFill style={{ opacity: interpolate(f, [0, DISSOLVE], [0, 1], { extrapolateRight: "clamp" }) }}>
+      {/* the sting is mixed at -14 LUFS, the score at -16: meet it there */}
+      <OffthreadVideo src={src} volume={0.8} />
+    </AbsoluteFill>
   );
 };
 
@@ -84,7 +105,8 @@ export const Film: React.FC<FilmProps> = ({ voice, text, narrated, sting }) => {
       {!stingOn && <EndWords />}
       {stingOn && (
         <Sequence from={OUTRO_FRAME} durationInFrames={OUTRO_FRAMES}>
-          <OffthreadVideo src={staticFile(stingFile)} />
+          {/* the sting is mixed at -14 LUFS, the score at -16: meet it there */}
+          <Sting src={staticFile(stingFile)} />
         </Sequence>
       )}
       {/* with the sting on, the score hands over to the sting's own sound in half a second */}

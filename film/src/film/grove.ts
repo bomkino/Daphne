@@ -137,7 +137,7 @@ const godKeys = (heart: P, crownTop: P): Key[] => [
   [at("hand") + 1.0, heart[0] - 0.13, heart[1] - 0.03, 0.42],
   [at("kiss") - 0.2, heart[0] - 0.11, heart[1] - 0.05, 0.4],
   [at("kiss") + 0.9, crownTop[0] - 0.07, crownTop[1] + 0.02, 0.8],
-  [at("kiss") + 2.3, -0.36, -0.26, 0.42],
+  [at("kiss") + 3.2, -0.36, -0.26, 0.42],
   [at("crown") + 1.8, 0, -0.34, 0.9],
   [at("since") + 0.4, 0, -0.34, 0.55],
   [at("chosen") - 0.4, 0, -0.36, 0],
@@ -239,8 +239,9 @@ export function drawGrove(ctx: CanvasRenderingContext2D, f: Frame) {
   const fadeIn = sm(0.1, 1.6, t);
   const emerge = span(at("dive") + 1.9, at("river") + 0.4, t); // the midrib line grows out of the blur
   const spread = sm(at("dive") + 2.8, at("river") + 2.2, t); // and opens into nine strands
-  const hand = sm(at("hand") + 0.5, at("hand") + 1.3, t) * (1 - sm(at("kiss") + 1.0, at("kiss") + 2.6, t));
-  const lean = sm(at("kiss") + 0.7, at("kiss") + 1.4, t) * (1 - sm(at("kiss") + 2.2, at("crown") + 1.2, t));
+  const hand = sm(at("hand") + 0.5, at("hand") + 1.3, t) * (1 - sm(at("kiss") + 1.4, at("kiss") + 3.0, t));
+  // "Even as wood, I pulled away": the tree leans from him as she says it
+  const lean = sm(at("kiss") + 2.4, at("kiss") + 3.0, t) * (1 - sm(at("kiss") + 3.8, at("crown") + 1.2, t));
   const crownM = (u: number) => sm(at("crown") + 0.5 + u * 0.7, at("crown") + 1.6 + u * 0.7, t);
   const crown = sm(at("crown") + 1.4, at("crown") + 3.2, t);
   const strandsOut = 1 - sm(at("since") + 1.6, at("chosen") - 0.4, t);

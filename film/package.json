@@ -26,6 +26,9 @@
     "preview": "node scripts/render.mjs --preview",
     "sheet": "node scripts/sheet.mjs",
     "machine": "node scripts/machine.mjs",
-    "lint": "tsc"
+    "lint": "tsc",
+    "narration": "node scripts/narration.mjs",
+    "laurels": "NODE_PATH=$(npm root -g) node scripts/laurels.cjs",
+    "outro": "node scripts/outro.mjs"
   }
 }
