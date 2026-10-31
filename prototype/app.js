@@ -351,7 +351,7 @@ const markSeen = () => { if (seen) return; seen = true; try { localStorage.setIt
 function intro() {
   if (seen) return null;
   return h('div', { class: 'intro' }, h('h3', {}, 'Your film did the hard part. Now make the laurel.'),
-    h('p', {}, 'Type what the festival gave you, pick a look, then Export for your poster, trailer and socials. Free, with no account and no watermark.'),
+    h('p', {}, 'Paste the festival’s email or type what it gave you, pick a look, then Export for your poster, trailer and socials. Free, with no account and no watermark. ', h('a', { href: '#', onclick: (e) => { e.preventDefault(); setTab('about'); setTimeout(() => document.getElementById('guide')?.scrollIntoView({ block: 'start' }), 50); } }, 'New to laurels? Six things to know.')),
     h('button', { class: 'btn ghost small x', 'aria-label': 'Close the introduction', onclick: () => { markSeen(); buildPanel(); } }, '✕'));
 }
 function buildPanel() {
@@ -538,6 +538,13 @@ function aboutTab() {
   return [head('About Daphne', 'Make festival laurels for your film. It’s free.'), h('div', { class: 'pane about-pane' },
     h('p', { class: 'lead' }, 'Your film did the hard part. Now make the laurel.'),
     h('p', {}, 'Daphne makes festival laurels, the wreaths on a film’s poster that say it was selected for, or won at, a festival. Type the festival, your selection and the year, pick a look, and download it for your poster, trailer and socials as a PNG, SVG, PDF or video. It’s free and works in your browser, with no account and no watermark. Nothing you make leaves your device unless you share it. Made by pitch.dog, and open source.'),
+    h('div', { class: 'guide', id: 'guide' }, h('div', { class: 'label' }, 'Using laurels well', h('span', { class: 'grow' })),
+      [['Ask the festival first.', 'Most send official laurels to selected films, often through FilmFreeway. Some, like Cannes and the Berlinale, require their own. Make one here when they send none, or to match a row.'],
+        ['Say exactly what you got.', 'Use the festival’s current name and its wording. “Submitted”, market listings and semi-finalist places can read as overstating it.'],
+        ['Wait for the announcement.', 'Many festivals ask films to keep a selection private until the line-up is out. Check before you post.'],
+        ['Fewer, stronger laurels.', 'One per award. Order them by what carries furthest: wins, then premieres, then selections. Row does this for you.'],
+        ['Keep them readable.', 'Same size in a row, and big enough to read where they’ll be seen: check Small sizes under the stage.'],
+        ['Watch for look-alikes.', 'Names that echo famous festivals, awards-only or online-only events and calls open all year are signs of a laurel mill.']].map(([t, d]) => h('div', { class: 'tip' }, h('b', {}, t), ' ', d))),
     h('div', { class: 'pledge' }, ['No account, no watermark, no paid tier, no limits.', 'Everything you make is yours to use however you like.', 'No festival logos ship with Daphne, and no lookalikes. Use the official files festivals send you.', 'The festival list and the looks are open data: corrections welcome.'].map((t) => h('div', {}, t))),
     h('p', { class: 'hint' }, 'Daphne isn’t affiliated with or endorsed by any festival. A laurel is the filmmaker’s own claim: use the wording the festival gave you.'),
     h('div', { class: 'group' }, h('div', { class: 'label' }, 'Keyboard', h('span', { class: 'grow' })), h('div', { class: 'hint' }, h('span', { class: 'kbd' }, '⌘Z'), ' undo  ', h('span', { class: 'kbd' }, '⇧⌘Z'), ' redo  ', h('span', { class: 'kbd' }, '⌘E'), ' export  ', h('span', { class: 'kbd' }, 'S'), ' surprise me')),

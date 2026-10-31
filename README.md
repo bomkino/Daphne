@@ -16,6 +16,7 @@ Then open http://127.0.0.1:5178/. `serve.py` is a small static server for `proto
 
 ## What it does
 
+- **From the email.** Paste the festival's acceptance email and Daphne picks out the status, the festival, the year, the award, the edition, the section and the film's title (for the social card). It's read in the browser and recognizes a decline.
 - **Words first.** Pick what the festival gave you (Official Selection, Winner, premieres, mentions, and the common statuses in French, Spanish, Italian, German and Portuguese), then the festival, the award and the year (2026, MMXXVI or '26). Every line stays editable underneath.
 - **A festival list, text only.** 268 real festivals with their official names, cities, months, focus, sections, official sites and recent renames or moves. Picking one spells the name right and offers its city, short name, own-language name and sections. Where a festival publishes laurel rules, Daphne shows them with a link to the source.
 - **Looks:** a procedural engine for wreaths, leaves, ties and badges, with a layout engine that fits the words. 78 looks and 18 layouts preview live on the stage as you hover. Foil, letterpress, grain, misprint, shadow and glow.
@@ -43,7 +44,7 @@ Then open http://127.0.0.1:5178/. `serve.py` is a small static server for `proto
 | `research/` | Laurel anatomy, festival rules, rival tools, fonts and export needs |
 | `prototype/engine.mjs` | The engine: pure functions with no dependencies, which run in Node and the browser |
 | `prototype/index.html`, `app.js` | The app shell |
-| `prototype/words.js`, `festivals.js` | The Words tab and the festival list |
+| `prototype/words.js`, `festivals.js`, `email.js` | The Words tab, the festival list and the email reader |
 | `prototype/studio.js`, `fixer.js` | The Export studio (kit, print, social, video, web, email, accolades, festival pack) and the official-laurel fixer |
 | `prototype/poster.js`, `row.js`, `motion.js` | The On poster, Row and Motion views |
 | `prototype/outline.js`, `zip.js` | Outlined SVG, PDF and ZIP |

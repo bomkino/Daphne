@@ -381,7 +381,7 @@ export function openStudio(ctx) {
         h('div', { class: 'row' }, h('label', {}, 'Laurel size'), h('input', { type: 'range', min: 0.5, max: 1.25, step: 0.05, value: S.size, oninput: (e) => set('social.size', +e.target.value, { opts: false }) }), h('span', {})),
         label('Colorway'), ways(),
         go(run('Download the card', async () => { const c = socialSvg(); ctx.download(await composedPng(c), `${base()}-${S.fmt.replace(':', 'x')}.png`); })),
-        h('div', { class: 'oblock' }, label('A first line for the post', h('button', { class: 'btn small ghost', onclick: () => copy(cap, 'Caption copied') }, 'Copy')), h('div', { class: 'alt' }, cap), h('div', { class: 'hint' }, 'A starting point: make it yours. Tag the festival; they often share.')),
+        h('div', { class: 'oblock' }, label('A first line for the post', h('button', { class: 'btn small ghost', onclick: () => copy(cap, 'Caption copied') }, 'Copy')), h('div', { class: 'alt' }, cap), h('div', { class: 'hint' }, 'A starting point: make it yours. Tag the festival; they often share. Many festivals ask films to wait for the line-up announcement before posting.')),
         altBlock());
     } else if (D.id === 'video') {
       const V = P.video;
