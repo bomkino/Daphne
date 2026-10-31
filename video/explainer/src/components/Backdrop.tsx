@@ -34,14 +34,26 @@ export const Backdrop: React.FC<{ dim?: number }> = ({ dim = 0 }) => {
       />
       {LEAVES.map((l, i) => {
         const span = L.H + 600;
+        const size = l.size * L.s;
         const y = ((l.y * span + f * l.speed * L.s * 1.4) % span) - 300;
-        const x = l.x * L.W + Math.sin(f / 70 + l.phase) * l.sway * L.s;
+        const x =
+          (0.1 + 0.8 * l.x) * L.W -
+          size / 2 +
+          Math.sin(f / 70 + l.phase) * l.sway * L.s;
         const blur = [3, 7, 14][l.depth] * L.s;
-        const op = [0.09, 0.07, 0.05][l.depth] * (1 - dim);
+        // a leaf fades out before any edge of the frame can cut it
+        const cx = x + size / 2,
+          cy = y + size / 2;
+        const edge = Math.min(cx, L.W - cx, cy, L.H - cy);
+        const away = Math.min(
+          1,
+          Math.max(0, (edge - size * 0.75) / (size * 0.6)),
+        );
+        const op = [0.09, 0.07, 0.05][l.depth] * (1 - dim) * away;
         return (
           <LeafShape
             key={i}
-            size={l.size * L.s}
+            size={size}
             style={{
               position: "absolute",
               left: x,
@@ -62,15 +74,40 @@ export const Backdrop: React.FC<{ dim?: number }> = ({ dim = 0 }) => {
   );
 };
 
-// grain on top of everything, fresh each frame. The hidden <Img> makes the render wait for the texture.
+// grain on top of everything, fresh each frame: a 512 px noise tile laid as <Img> tiles (so the render waits
+// for it), shifted by a new offset every frame.
 export const Grain: React.FC = () => {
   const f = useCurrentFrame();
+  const L = useLayout();
   const r = rng(f * 7 + 3);
   const src = staticFile("grain.png");
+  const T = 512;
+  const ox = Math.round(r() * T),
+    oy = Math.round(r() * T);
+  const nx = Math.ceil(L.W / T) + 1,
+    ny = Math.ceil(L.H / T) + 1;
   return (
-    <AbsoluteFill style={{ opacity: 0.06, mixBlendMode: "overlay", pointerEvents: "none" }}>
-      <Img src={src} style={{ display: "none" }} />
-      <AbsoluteFill style={{ backgroundImage: `url(${src})`, backgroundRepeat: "repeat", backgroundPosition: `${Math.round(r() * 512)}px ${Math.round(r() * 512)}px` }} />
+    <AbsoluteFill
+      style={{
+        opacity: 0.06,
+        mixBlendMode: "overlay",
+        pointerEvents: "none",
+        overflow: "hidden",
+      }}
+    >
+      {Array.from({ length: nx * ny }, (_, i) => (
+        <Img
+          key={i}
+          src={src}
+          style={{
+            position: "absolute",
+            width: T,
+            height: T,
+            left: (i % nx) * T - ox,
+            top: Math.floor(i / nx) * T - oy,
+          }}
+        />
+      ))}
     </AbsoluteFill>
   );
 };

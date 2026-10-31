@@ -38,7 +38,7 @@ The counts come from the app's code: 78 presets in `presets.js`, 268 festivals f
 
 ## Sound
 
-The score is original and written as code (`scripts/make_score.py`): 104 BPM in D major, twice Daphne's 52 bpm heartbeat, so each cut lands on a beat and the logo breathes on the heartbeat in the hold. No samples or third-party recordings are used, so it carries the same license as the rest of the repository. It is mixed to -14 LUFS with true peaks under -1 dBTP, and sits 20 ms behind the picture so hits never arrive early. There is no voiceover; the words on screen carry it.
+The score is original and written as code (`scripts/make_score.py`): 104 BPM in D major, twice Daphne's 52 bpm heartbeat, so each cut lands on a beat and the logo breathes on the heartbeat in the hold. No samples or third-party recordings are used. It is mixed to -14 LUFS with true peaks under -1 dBTP, and sits 20 ms behind the picture so hits never arrive early. There is no voiceover; the words on screen carry it.
 
 ## Make it
 
@@ -50,6 +50,13 @@ npm run score                     # public/audio/score.wav, from src/timeline.js
 npm run preview                   # half size, quick: out/previews/Explainer-<size>.mp4
 npm run render                    # masters: out/Explainer-<size>.mp4 (H.264, AAC 320k)
 npm run dev                       # Remotion Studio, to scrub it
+```
+
+After a render, check the files that ship:
+
+```sh
+python3 scripts/check_sync.py out/Explainer-1080x1920.mp4    # each hit's sound against its frame
+python3 scripts/check_edges.py out/Explainer-1080x1920.mp4   # nothing bright touches the frame's edge
 ```
 
 `src/timeline.json` holds every cue as a beat. The picture and the score both read it, so moving a cue moves the hit with it; run `npm run score` after changing it.
@@ -67,4 +74,4 @@ Remotion renders with a Chromium it downloads. Where that download is blocked, s
 
 The type is pitch.dog's PD Head, PD Body Alt, PD Body and PD Eyebrow, whose font files are CC0 (`public/fonts/FONT-LICENSE.md`). The pitch.dog name appears only as text.
 
-Remotion has its own license: free for teams of up to three people, with a company license for larger teams ([remotion.dev/license](https://www.remotion.dev/license)). The MIT license here covers this folder's code, the score and the drawings, not Remotion itself.
+As in the rest of the repository, the code here is MIT, and everything else we made (the score, the drawings and the rendered films) is CC0. Remotion has its own license: free for teams of up to three people, with a company license for larger teams ([remotion.dev/license](https://www.remotion.dev/license)).

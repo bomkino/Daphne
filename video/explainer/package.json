@@ -29,6 +29,7 @@
     "machine": "node scripts/machine.mjs",
     "lint": "eslint src && tsc",
     "test": "node --test scripts/*.test.mjs",
-    "laurels": "node scripts/laurels.mjs"
+    "laurels": "node scripts/laurels.mjs",
+    "check": "python3 scripts/check_sync.py out/Explainer-1080x1920.mp4 && python3 scripts/check_edges.py out/Explainer-1080x1920.mp4"
   }
 }

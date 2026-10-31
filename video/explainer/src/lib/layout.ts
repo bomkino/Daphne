@@ -1,3 +1,4 @@
+import type { CSSProperties } from "react";
 import { useVideoConfig } from "remotion";
 import { sizeOf } from "../sizes";
 
@@ -19,7 +20,20 @@ export const useLayout = () => {
   // the caption's first line (its top), and the eyebrow line above the stage
   const capY = tall ? 1170 : wide ? 820 : 850;
   const topY = tall ? 290 : wide ? 110 : 100;
-  return { W, H, s, cx, tall, wide, square: size.canvas === "square", safe: size.safe, stage, capY, topY, id: size.id };
+  return {
+    W,
+    H,
+    s,
+    cx,
+    tall,
+    wide,
+    square: size.canvas === "square",
+    safe: size.safe,
+    stage,
+    capY,
+    topY,
+    id: size.id,
+  };
 };
 export type Layout = ReturnType<typeof useLayout>;
 
@@ -30,3 +44,17 @@ export const type = (L: Layout) => ({
   small: 38 * L.s,
   eyebrow: (L.tall ? 28 : 24) * L.s,
 });
+
+// Fades whatever passes under it to nothing before the frame's edges, so a camera move never shows a hard
+// cut where a card leaves the frame.
+export const edgeFade = (px: number): CSSProperties => {
+  const g = (dir: string) =>
+    `linear-gradient(${dir}, transparent 0, #000 ${px}px, #000 calc(100% - ${px}px), transparent 100%)`;
+  const both = `${g("90deg")}, ${g("180deg")}`;
+  return {
+    maskImage: both,
+    WebkitMaskImage: both,
+    maskComposite: "intersect",
+    WebkitMaskComposite: "source-in",
+  };
+};

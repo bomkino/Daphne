@@ -68,6 +68,21 @@ export const Finale: React.FC = () => {
 
   return (
     <div style={{ position: "absolute", inset: 0 }}>
+      {/* one leaf falls: the only exit, behind the words so they stay clear */}
+      {f >= T.leafFall && fallT <= fallDur ? (
+        <LeafShape
+          size={150 * s}
+          fill={C.newLeaf}
+          style={{
+            position: "absolute",
+            left: L.W * 0.7 + Math.sin(fallT / 16) * 90 * s - fallT * 1.2 * s,
+            // it appears inside the frame and fades before the bottom, so no edge ever cuts it (as in the sting)
+            top: L.H * 0.04 + (fallT / fallDur) * L.H * 0.82,
+            transform: `rotate(${30 + Math.sin(fallT / 12) * 40}deg)`,
+            opacity: 0.85 * interpolate(fallT, [0, 10, fallDur - 18, fallDur], [0, 1, 1, 0], cl),
+          }}
+        />
+      ) : null}
       <svg width={sw} height={shh} style={{ position: "absolute", left: 0, top: 0, overflow: "visible" }}>
         <g transform={`translate(${L.cx} ${base}) scale(${k * breath})`}>
           <g transform={`translate(${xL} 0)`} opacity={1 - hero}>
@@ -127,20 +142,6 @@ export const Finale: React.FC = () => {
       <div style={{ position: "absolute", left: L.safe.left, right: L.safe.right, top: yWord + (L.tall ? 200 : 170) * s, textAlign: "center", opacity: 1 - wordOut }}>
         {f >= T.noWatermark ? <Words text="Nothing you make leaves your device unless you share it." f={f - T.noWatermark - 4} size={ty.lead * 0.9} font={FONT.lead} color={C.paper} /> : null}
       </div>
-      {/* one leaf falls: the only exit */}
-      {f >= T.leafFall && fallT <= fallDur ? (
-        <LeafShape
-          size={150 * s}
-          fill={C.newLeaf}
-          style={{
-            position: "absolute",
-            left: L.W * 0.7 + Math.sin(fallT / 16) * 90 * s - fallT * 1.2 * s,
-            top: -200 * s + fallT * (L.H + 400 * s) / fallDur,
-            transform: `rotate(${30 + Math.sin(fallT / 12) * 40}deg)`,
-            opacity: 0.85,
-          }}
-        />
-      ) : null}
     </div>
   );
 };
