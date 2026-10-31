@@ -377,8 +377,8 @@ export function openStudio(ctx) {
         label('Words'), title, line,
         label('Background'), chips([['laurel', 'The laurel’s'], ['dark', 'Dark'], ['light', 'Light'], ['custom', 'Color'], ['photo', photo ? 'Photo' : 'Photo…']], S.bg, (v) => { if (v === 'photo' && !photo) file.click(); else set('social.bg', v); }), file,
         S.bg === 'custom' ? h('div', { class: 'inrow' }, h('input', { type: 'color', value: hex(S.color) || '#0b0b0d', 'aria-label': 'Background color', oninput: (e) => set('social.color', e.target.value, { opts: false }) }), h('span', { class: 'hint' }, 'Any color')) : null,
-        S.bg === 'photo' && photo ? h('div', { class: 'row' }, h('label', {}, 'Darken'), h('input', { type: 'range', min: 0, max: 0.85, step: 0.05, value: S.dim, oninput: (e) => set('social.dim', +e.target.value, { opts: false }) }), h('button', { class: 'btn small ghost', onclick: () => file.click() }, 'Change')) : null,
-        h('div', { class: 'row' }, h('label', {}, 'Laurel size'), h('input', { type: 'range', min: 0.5, max: 1.25, step: 0.05, value: S.size, oninput: (e) => set('social.size', +e.target.value, { opts: false }) }), h('span', {})),
+        S.bg === 'photo' && photo ? h('div', { class: 'row' }, h('label', {}, 'Darken'), h('input', { type: 'range', 'aria-label': 'Darken the photo', min: 0, max: 0.85, step: 0.05, value: S.dim, oninput: (e) => set('social.dim', +e.target.value, { opts: false }) }), h('button', { class: 'btn small ghost', onclick: () => file.click() }, 'Change')) : null,
+        h('div', { class: 'row' }, h('label', {}, 'Laurel size'), h('input', { type: 'range', 'aria-label': 'Laurel size', min: 0.5, max: 1.25, step: 0.05, value: S.size, oninput: (e) => set('social.size', +e.target.value, { opts: false }) }), h('span', {})),
         label('Colorway'), ways(),
         go(run('Download the card', async () => { const c = socialSvg(); ctx.download(await composedPng(c), `${base()}-${S.fmt.replace(':', 'x')}.png`); })),
         h('div', { class: 'oblock' }, label('A first line for the post', h('button', { class: 'btn small ghost', onclick: () => copy(cap, 'Caption copied') }, 'Copy')), h('div', { class: 'alt' }, cap), h('div', { class: 'hint' }, 'A starting point: make it yours. Tag the festival; they often share. Many festivals ask films to wait for the line-up announcement before posting.')),
@@ -388,7 +388,7 @@ export function openStudio(ctx) {
       put(label('Frame'), seg([[1080, 'HD 1920 × 1080'], [2160, '4K 3840 × 2160']], V.res, (v) => set('video.res', v), 'Resolution'),
         hasRow() ? seg([['laurel', 'This laurel'], ['row', `The row (${d0().row.items.length})`]], V.what, (v) => set('video.what', v), 'What to show') : null,
         label('Placement'), seg([['center', 'Center'], ['third', 'Lower third'], ['corner', 'Corner']], V.pos, (v) => set('video.pos', v), 'Placement'),
-        h('div', { class: 'row' }, h('label', {}, 'Height'), h('input', { type: 'range', min: 0.12, max: 0.7, step: 0.01, value: V.size, oninput: (e) => set('video.size', +e.target.value, { opts: false }) }), h('span', {})),
+        h('div', { class: 'row' }, h('label', {}, 'Height'), h('input', { type: 'range', 'aria-label': 'Laurel height', min: 0.12, max: 0.7, step: 0.01, value: V.size, oninput: (e) => set('video.size', +e.target.value, { opts: false }) }), h('span', {})),
         label('Background'), seg([['none', 'Transparent'], ['black', 'Black']], V.bg, (v) => set('video.bg', v), 'Background'),
         label('Colorway'), ways(),
         go(run('Download the frame', async () => { const c = videoSvg(); ctx.download(await composedPng(c), `${base()}-endcard-${c.W}x${c.H}.png`); })),
@@ -481,8 +481,9 @@ export function openStudio(ctx) {
       'ONE FOLDER PER LAUREL', ...vs.map((v) => `  ${v.slug}/  ${ctx.altText(v.doc)}`), '',
       'IN EACH FOLDER', ...ways.map((w) => `  -${w}  ${{ color: 'as designed', black: 'one color, black, clear background', white: 'one color, white, clear background' }[w]}`),
       ...fmts.map((f) => `  .${f}  ${{ svg: 'vector, text drawn as shapes (opens anywhere without the fonts)', png: `${P.pngW} px wide, clear background`, pdf: `vector, ${P.pdfMm} mm wide, for print` }[f]}`), '',
-      'FONTS', `  ${fonts.join(', ')}. From Google Fonts, under the SIL Open Font License: free to use, commercially too.`, '',
+      'FONTS', `  ${fonts.join(', ')}. From Google Fonts, under open licenses such as the SIL Open Font License: free to use, commercially too.`, '',
       'Send each film only the laurel for what it received, with GUIDELINES.txt.', '',
+      'YOURS TO USE', '  Daphne claims no rights in these laurels. What Daphne drew is dedicated to the public domain (CC0 1.0).', '',
     ].join('\n') });
     files.push({ name: rootDir + 'GUIDELINES.txt', data: [
       `LAUREL GUIDELINES: ${title.toUpperCase()}`, '(A template from Daphne. Edit it, add your contact, and send it with the laurels.)', '',
@@ -511,10 +512,11 @@ export function openStudio(ctx) {
       ways.includes('color') && d.canvas.bg && fmts.includes('png') ? '  -on-background.png  The same, on your background color.' : null, '',
       'ALT TEXT', `  ${alt}`, '  Paste it wherever the image goes: it’s what screen readers say.', '',
       'SIZES THAT STAY READABLE', `  On screen: at least ${minPx} px tall.`, `  In print: at least ${r2(minIn)} in (${Math.round(minIn * 25.4)} mm) wide, so the smallest words are 6 pt.`, '',
-      'FONTS', `  ${fonts.join(', ')}. From Google Fonts, under the SIL Open Font License: free to use, commercially too.`, '',
+      'FONTS', `  ${fonts.join(', ')}. From Google Fonts, under open licenses such as the SIL Open Font License: free to use, commercially too.`, '',
       notes.length ? 'BEFORE YOU USE IT' : null, ...notes.map((x) => `  - ${x.text}${x.source ? ` (${x.source.url})` : ''}`), notes.length ? '' : null,
       'Some festivals send official laurels and require them. If yours did, use theirs.',
       'This laurel is the filmmaker’s own claim. It isn’t affiliated with or endorsed by any festival.', '',
+      'YOURS TO USE', '  Daphne asks for no credit and claims no rights in this laurel. What Daphne drew is dedicated to the public domain', '  (CC0 1.0), so use, change and share it however you like. The festival’s name and any artwork you added belong to their owners.', '',
     ].filter((x) => x !== null).join('\n');
   }
 

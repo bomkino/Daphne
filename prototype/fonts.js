@@ -1,4 +1,4 @@
-// fonts.js — the curated font list (all SIL Open Font License via Google Fonts) and the loaders.
+// fonts.js — the curated font list (open-licensed Google Fonts, almost all under the SIL Open Font License) and the loaders.
 // w: available weights; v: true = variable (any weight in range); it: has italics.
 export const FONTS = [
   // sans

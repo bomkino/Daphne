@@ -242,7 +242,7 @@ export function motionMode(ctx) {
     const B = ctx.modebar; B.innerHTML = '';
     B.append(h('button', { class: 'btn small', onclick: () => (playing ? pause() : play()) }, playing ? 'Pause' : 'Play'),
       h('button', { class: 'btn small', onclick: () => { tNow = 0; play(); } }, 'From the start'),
-      scrub = h('input', { type: 'range', min: 0, max: M().dur, step: 0.01, value: Math.min(tNow, M().dur), style: 'width:240px', oninput: (e) => { pause(); tNow = +e.target.value; if (!raf) raf = requestAnimationFrame(tick); } }),
+      scrub = h('input', { type: 'range', 'aria-label': 'Time', min: 0, max: M().dur, step: 0.01, value: Math.min(tNow, M().dur), style: 'width:240px', oninput: (e) => { pause(); tNow = +e.target.value; if (!raf) raf = requestAnimationFrame(tick); } }),
       h('span', { class: 'hint' }, 'The leaves grow in from the stem, the words follow, then a shimmer crosses the metal.'));
     ctx.modebar.classList.add('on');
   }

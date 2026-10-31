@@ -39,6 +39,7 @@ Then open http://127.0.0.1:5178/. `serve.py` is a small static server for `proto
 
 | Path | What it is |
 |---|---|
+| `LICENSE`, `LICENSE-CC0.md`, `CONTRIBUTING.md` | MIT for the code, CC0 for everything else, and how to help |
 | `00 — Product plan.md` | The full plan: principles, the laurel document, the layout engine, export, motion, rules, roadmap |
 | `02 — Overhaul plan.md` | The blindspot check and milestones for the October 2026 overhaul |
 | `research/` | Laurel anatomy, festival rules, rival tools, fonts and export needs |
@@ -73,6 +74,13 @@ node tools/cdp-run.mjs "http://127.0.0.1:5178/stress.html?px=160" "JSON.stringif
 - Outlining fetches font files from jsDelivr's mirror of the Google Fonts repository, and from GitHub's raw host when jsDelivr is blocked. The public version will host pinned copies itself.
 - The festival list was compiled in October 2026 from the festivals' own sites and press. Names, cities and sections change, so the app always points to each festival's site. Corrections are one line each in `prototype/festivals.js`.
 
-## License
+## Open source
 
-The code is MIT; see `LICENSE`. The vendored libraries keep their own MIT licenses. The plan proposes CC0 for the presets, the festival and rules data, and everything people make with the tool; that's still to be confirmed.
+Daphne is as open as we can make it.
+
+- **The code is MIT**; see `LICENSE`. The vendored libraries keep their own MIT licenses.
+- **Everything else we made is public domain (CC0):** the looks and layouts, the festival list, the laurel rules, the status words, the brand in `brand/` and its copies in `prototype/assets/` (the PD fonts included), and the plans and research. See `LICENSE-CC0.md`.
+- **What you make is yours.** Daphne claims no rights in the laurels people make and asks for no credit.
+- Festival names and artwork belong to the festivals, and the fonts inside laurels keep their own open licenses.
+
+Corrections and additions are welcome, a festival's name or city as much as a new feature: see `CONTRIBUTING.md`.
