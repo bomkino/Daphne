@@ -1,0 +1,8 @@
+node_modules
+out
+__pycache__
+.DS_Store
+# The CC0 orchestra samples the score is played on: fetched by npm run samples, not committed.
+vendor
+# Manali's takes arrive here; keep them on the drive until they're final.
+public/vo/*.wav
