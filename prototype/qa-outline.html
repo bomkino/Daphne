@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Daphne — outline check</title>
+<style>
+  body { margin: 0; background: #111; color: #ddd; font: 12px/1.4 system-ui, sans-serif; }
+  .grid { display: grid; grid-template-columns: repeat(var(--cols, 3), 1fr); gap: 10px; padding: 12px; }
+  .cell { background: #1b1b1f; border-radius: 8px; padding: 8px; }
+  .cell .pair { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 4px; }
+  .cell img, .cell canvas { width: 100%; background: #000; }
+  .cell b { color: #fff; } .bad { color: #ff8a65; }
+  #out { white-space: pre; padding: 12px; }
+</style>
+</head>
+<body>
+<div class="grid" id="grid"></div>
+<div id="out"></div>
+<script type="module">
+// For each case: the live-text SVG (fonts embedded, as the PNG export draws it) and the outlined SVG, both rasterised
+// at the same size; the share of text pixels that differ by more than a small tolerance is the score.
+// ?only=Name,… picks presets; ?pdf=1 also builds a PDF of each outlined case and reports its size.
+import { render, clone } from './engine.mjs';
+import { loadFont, embedFontCss } from './fonts.js';
+import { PRESETS } from './presets.js';
+import { outlineSvg, svgToPdf } from './outline.js';
+const q = new URLSearchParams(location.search);
+const mctx = document.createElement('canvas').getContext('2d');
+const measure = (s, font, weight, italic, size) => { mctx.font = `${italic ? 'italic ' : ''}${weight} ${size}px "${font}", sans-serif`; return mctx.measureText(s).width; };
+const byName = (n) => PRESETS.find((p) => p.name === n);
+const base = (p) => { const d = clone(p.doc); return d; };
+const TEXTS = {
+  plain: [['status', 'Official Selection', 'eyebrow'], ['festival', 'Northlight Film Festival', 'hero'], ['year', '2026', 'sub']],
+  arcs: [['status', 'Official Selection', 'arc', 'arc-top'], ['festival', 'Halcyon', 'hero'], ['year', '2026', 'arc', 'arc-under']],
+  ribbon: [['status', 'Winner', 'eyebrow'], ['award', 'Best Documentary', 'hero'], ['festival', 'Atlas Film Festival', 'arc', 'ribbon'], ['year', '2026', 'sub']],
+  cjk: [['status', 'Official Selection', 'eyebrow'], ['festival', '東京国際映画祭', 'hero'], ['year', '2026', 'sub']],
+  ligs: [['status', 'Official Selection', 'eyebrow'], ['festival', 'Affinity Office', 'hero'], ['category', 'Waffle fjord', 'sub']],
+};
+const CASES = (q.get('only') ? q.get('only').split(',') : ['Classic Gold', 'Etching', 'Swiss', 'Gala Seal', 'Gold Medal', 'Riso', 'Premiere Ribbon', 'Medal', 'Big Year', 'Marquee']).flatMap((n) => {
+  const p = byName(n); if (!p) return [];
+  return Object.keys(TEXTS).filter((k) => q.get('texts') ? q.get('texts').split(',').includes(k) : true).map((k) => ({ name: n + ' · ' + k, p, k }));
+});
+const W = +(q.get('w') || 700);
+async function raster(svg, vb) {
+  const h = Math.round((W * vb[3]) / vb[2]);
+  const s = svg.replace(/width="[^"]+" height="[^"]+"/, `width="${W}" height="${h}"`);
+  const img = new Image(); img.src = URL.createObjectURL(new Blob([s], { type: 'image/svg+xml' })); await img.decode();
+  const c = document.createElement('canvas'); c.width = W; c.height = h; const x = c.getContext('2d'); x.drawImage(img, 0, 0); return c;
+}
+const out = [], grid = document.getElementById('grid'); grid.style.setProperty('--cols', q.get('cols') || 3);
+for (const C of CASES) {
+  const d = clone(C.p.doc); d.seed = 7;
+  d.fields = TEXTS[C.k].map(([kind, text, role, slot], i) => ({ id: 'f' + i, kind, text, role, slot: slot || 'inside', show: true }));
+  const fams = [...new Set(Object.values(d.roles || {}).map((r) => r && r.font).filter(Boolean))];
+  const ws = Object.values(d.roles || {}).filter(Boolean);
+  await Promise.all(ws.map((r) => loadFont(r.font, [r.weight || 400])));
+  await document.fonts.ready;
+  const r = render(d, { measure, scale: 1 });
+  const css = await embedFontCss(fams);
+  const live = r.svg.replace(/^<svg([^>]*)>/, `<svg$1><style>${css}</style>`);
+  // only the text, on both sides, so leaves don't dilute the score
+  let outl, notes = [], err = null, t0 = performance.now();
+  try { ({ svg: outl, notes } = await outlineSvg(r.svg)); } catch (e) { err = String(e); }
+  const ms = performance.now() - t0;
+  const a = await raster(live, r.viewBox), b = err ? null : await raster(outl, r.viewBox);
+  let diff = 1, cnt = 0, tot = 0;
+  const dc = document.createElement('canvas'); dc.width = a.width; dc.height = a.height;
+  if (b) {
+    const A = a.getContext('2d').getImageData(0, 0, a.width, a.height).data, B = b.getContext('2d').getImageData(0, 0, a.width, a.height).data;
+    const D = dc.getContext('2d').createImageData(a.width, a.height);
+    for (let i = 0; i < A.length; i += 4) {
+      const dd = Math.abs(A[i] - B[i]) + Math.abs(A[i + 1] - B[i + 1]) + Math.abs(A[i + 2] - B[i + 2]) + Math.abs(A[i + 3] - B[i + 3]);
+      if (A[i + 3] > 20 || B[i + 3] > 20) tot++;
+      if (dd > 120) { cnt++; D.data[i] = 255; D.data[i + 1] = 60; D.data[i + 2] = 60; D.data[i + 3] = 255; }
+      else { D.data[i] = D.data[i + 1] = D.data[i + 2] = A[i + 3] > 20 ? 70 : 0; D.data[i + 3] = 255; }
+    }
+    dc.getContext('2d').putImageData(D, 0, 0);
+    diff = cnt / Math.max(1, tot);
+  }
+  let pdfKb = null;
+  if (q.get('pdf') && !err) { try { const blob = await svgToPdf(outl, 100, { title: C.name }); pdfKb = Math.round(blob.size / 1024); (window.__pdfs = window.__pdfs || {})[C.name] = await new Promise((r) => { const fr = new FileReader(); fr.onload = () => r(fr.result); fr.readAsDataURL(blob); }); } catch (e) { pdfKb = 'ERR ' + e; } }
+  out.push({ name: C.name, diff: +(diff * 100).toFixed(2), ms: Math.round(ms), notes, err, pdfKb, texts: (outl || '').match(/<text/g)?.length || 0 });
+  const cell = document.createElement('div'); cell.className = 'cell';
+  cell.innerHTML = `<b>${C.name}</b> <span class="${diff > 0.03 ? 'bad' : ''}">${(diff * 100).toFixed(2)}% differ</span> · ${Math.round(ms)} ms ${notes.length ? '· ' + notes.join(', ') : ''} ${err ? '<span class=bad>' + err + '</span>' : ''}`;
+  const pair = document.createElement('div'); pair.className = 'pair'; pair.append(a); if (b) pair.append(b); pair.append(dc); cell.append(pair); grid.append(cell);
+}
+document.getElementById('out').textContent = JSON.stringify(out, null, 1);
+window.__outline = out;
+document.title = 'done';
+</script>
+</body>
+</html>

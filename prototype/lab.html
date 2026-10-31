@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Daphne — leaf lab</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@300..900&display=swap">
+<style>body{margin:0;background:#0d0e11;color:#8d9099;font:12px Figtree,sans-serif;padding:12px}.g{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}.c{border-radius:8px;overflow:hidden;background:#000}.c svg{display:block;width:100%;height:auto}.c p{margin:0;padding:4px 8px;background:#15171c}</style></head>
+<body><div class="g" id="g"></div>
+<script type="module">
+// Specimens for judging leaf craft before it becomes a preset. ?only=a,b filters by name.
+import { render, DEFAULT_DOC, merge, clone } from './engine.mjs';
+const G = (a = 28) => ({ type: 'metal', metal: 'gold', scope: 'leaf', angle: a });
+const base = { form: 'open', paint: { branch: G() }, canvas: { bg: '#0f1116', aspect: 1, pad: 12 }, fields: [] };
+const S = [
+  ['solid', {}],
+  ['solid + fold', { branch: { leaf: { fold: 0.32 } } }],
+  ['slit + fold', { branch: { leaf: { style: 'slit', fold: 0.32 } } }],
+  ['carved + fold', { branch: { leaf: { style: 'carved', fold: 0.3, wr: 0.42 } } }],
+  ['hatch (ink)', { branch: { leaf: { style: 'hatch', wr: 0.44 } }, paint: { branch: '#1f1f1f' }, canvas: { bg: '#f1ebdf' } }],
+  ['s-curve + fan', { branch: { leaf: { profile: 'lance', scurve: 0.6, fan: 0.6, n: 14, wr: 0.3, fold: 0.3, style: 'slit' } } }],
+  ['alt rhythm', { branch: { leaf: { alt: 0.35, n: 15, fold: 0.3 } } }],
+  ['laurel profile', { branch: { leaf: { profile: 'laurel', fold: 0.3, style: 'slit' } } }],
+  ['flame', { branch: { leaf: { profile: 'flame', scurve: 0.5, n: 12, fold: 0.3 } } }],
+  ['fan (ginkgo)', { branch: { leaf: { profile: 'fan', n: 8, L0: 30, L1: 20, wr: 0.9, aOut: 44, arr: 'paired' } } }],
+  ['stepped (deco)', { branch: { leaf: { profile: 'stepped', n: 11, wr: 0.46, arr: 'paired', aOut: 36, aIn: 36, inScale: 1 } }, paint: { branch: { type: 'metal', metal: 'chrome', scope: 'whole', angle: 0 } } }],
+  ['plume', { branch: { leaf: { family: 'plume', n: 6, L0: 54, L1: 34, wr: 0.5, aOut: 26, aIn: 20 } } }],
+  ['spike (lavender)', { branch: { leaf: { family: 'spike', n: 7, L0: 44, L1: 30, wr: 0.5, aOut: 26, aIn: 22, arr: 'outer' } }, paint: { branch: '#b9a6e8' } }],
+  ['bead', { branch: { leaf: { family: 'bead', n: 16, L0: 12, L1: 7, wr: 1, aOut: 50, arr: 'outer' }, orn: { tip: 'berry' } } }],
+  ['bloom', { branch: { leaf: { profile: 'almond', n: 11 }, orn: { tip: 'leaf' } }, right: null }],
+  ['olive', { branch: { leaf: { profile: 'willow', n: 14, wr: 0.22, L0: 30, L1: 16, fold: 0.25 }, orn: { berries: 2, berryShape: 'olive', berrySize: 1.2 } }, paint: { branch: G(), ornament: { type: 'metal', metal: 'antique', scope: 'leaf', angle: 20 } } }],
+  ['cluster berries', { branch: { leaf: { n: 12, fold: 0.3 }, orn: { berries: 2, berryShape: 'cluster' } } }],
+  ['tendril tip', { branch: { leaf: { n: 11, fold: 0.3 }, orn: { tip: 'curl' } } }],
+  ['streamers', { form: 'wreath', branch: { spine: { cross: 26, a1: 266 }, leaf: { n: 13, fold: 0.3, style: 'slit' }, orn: { tie: 'streamers' } } }],
+  ['metals', { branch: { leaf: { fold: 0.3 } }, paint: { branch: { type: 'metal', metal: 'champagne', scope: 'leaf', angle: 28 } } }],
+];
+const only = new URLSearchParams(location.search).get('only');
+const g = document.getElementById('g'); g.style.gridTemplateColumns = `repeat(${new URLSearchParams(location.search).get('cols') || 4}, 1fr)`;
+for (const [name, o] of S) {
+  if (only && !only.split(',').some((k) => name.includes(k))) continue;
+  const d = merge(merge(clone(DEFAULT_DOC), base), o);
+  if (name === 'bloom') { d.branch.leaf.family = 'bloom'; d.branch.leaf.n = 9; d.branch.leaf.L0 = 22; d.branch.leaf.L1 = 16; d.branch.leaf.wr = 0.8; d.branch.leaf.aOut = 50; d.branch.leaf.arr = 'outer'; }
+  if (o.form === 'wreath') d.branch.spine.cross = 26;
+  const r = render(d, { scale: 2 });
+  g.insertAdjacentHTML('beforeend', `<div class="c">${r.svg}<p>${name} · ${(r.svg.length / 1024).toFixed(0)} KB</p></div>`);
+}
+window.__done = true;
+</script></body></html>

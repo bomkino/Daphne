@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Daphne — effects</title>
+<style>
+  body { margin: 0; background: #111; color: #ddd; font: 13px/1.4 system-ui, sans-serif; }
+  .grid { display: grid; grid-template-columns: repeat(var(--cols, 4), 1fr); gap: 10px; padding: 12px; }
+  .cell { background: #1b1b1f; border-radius: 8px; padding: 6px; }
+  .cell svg { width: 100%; height: auto; display: block; border-radius: 6px; }
+  .cell b { display: block; padding: 4px 2px; color: #fff; }
+</style>
+</head>
+<body>
+<div class="grid" id="grid"></div>
+<script type="module">
+// Every look in ?looks=… × every effect in ?fx=… (none, foil, press, grain, foilgrain, risograin), large, for eyeballing.
+import { render, clone, merge } from './engine.mjs';
+import { loadFont } from './fonts.js';
+import { PRESETS } from './presets.js';
+const q = new URLSearchParams(location.search);
+const mctx = document.createElement('canvas').getContext('2d');
+const measure = (s, font, weight, italic, size) => { mctx.font = `${italic ? 'italic ' : ''}${weight} ${size}px "${font}", sans-serif`; return mctx.measureText(s).width; };
+const FX = {
+  none: {}, foil: { foil: {} }, press: { press: {} }, grain: { grain: {} }, foilgrain: { foil: {}, grain: { amount: 0.25 } },
+  pressgrain: { press: {}, grain: { amount: 0.3 } }, risograin: { misreg: { color: '#ff4f79', dx: 1.6, dy: 1.1, opacity: 0.9 }, grain: { amount: 0.45 } },
+  heavygrain: { grain: { amount: 0.9, size: 0.9 } }, foilstrong: { foil: { strength: 1, crinkle: 0.9 } },
+};
+const NAMES = { none: 'no effect', foil: 'foil', press: 'letterpress', grain: 'grain', foilgrain: 'foil + grain', pressgrain: 'letterpress + grain', risograin: 'misprint + grain', heavygrain: 'heavy grain', foilstrong: 'strong foil' };
+const looks = (q.get('looks') || 'Classic Gold,Etching,Swiss,Gala Seal').split(',');
+const fxs = (q.get('fx') || 'none,foil,press,grain').split(',');
+const grid = document.getElementById('grid'); grid.style.setProperty('--cols', q.get('cols') || fxs.length);
+for (const n of looks) {
+  const p = PRESETS.find((x) => x.name === n); if (!p) continue;
+  for (const k of fxs) {
+    let d = clone(p.doc); d.seed = 7;
+    d.paint = merge(d.paint || {}, { effects: merge((d.paint && d.paint.effects) || {}, FX[k]) });
+    if (q.get('bg') && !d.canvas?.bg) d.canvas = { ...(d.canvas || {}), bg: q.get('bg') };
+    await Promise.all(Object.values(d.roles || {}).filter(Boolean).map((r) => loadFont(r.font, [r.weight || 400])));
+    const r = render(d, { measure, scale: 2 });
+    const c = document.createElement('div'); c.className = 'cell'; c.innerHTML = `<b>${n} · ${NAMES[k] || k}</b>${r.svg}`; grid.append(c);
+  }
+}
+await document.fonts.ready;
+document.title = 'done';
+</script>
+</body>
+</html>

@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Daphne — render timing</title></head>
+<body><pre id="out">running…</pre><div id="stage" style="width:900px"></div>
+<script type="module">
+// Cold and warm render times for the heaviest looks, with real fonts and real DOM insertion: open with ?extra=30 to add leaves.
+import { render, DEFAULT_DOC, merge, clone, applyForm } from './engine.mjs';
+import { loadFont } from './fonts.js';
+import { PRESETS } from './presets.js';
+const mctx = document.createElement('canvas').getContext('2d');
+const measure = (s, font, w, it, size) => { mctx.font = `${it ? 'italic ' : ''}${w} ${size}px "${font}", sans-serif`; return mctx.measureText(s).width; };
+const q = new URLSearchParams(location.search), extra = +(q.get('extra') || 0), draft = q.get('draft') === '1';
+const names = (q.get('only') || 'Gatsby,Pine Winter,Etching,Classic Gold,Engraved,Olive Grove').split(',');
+const out = [], stage = document.getElementById('stage');
+for (const name of names) {
+  const p = PRESETS.find((x) => x.name === name); if (!p) continue;
+  let d = merge(clone(DEFAULT_DOC), p.doc); if (p.doc.form) d = merge(applyForm(d, p.doc.form), p.doc);
+  await Promise.all(Object.values(d.roles).map((r) => loadFont(r.font, [r.weight || 400])));
+  d.branch.leaf.n = (d.branch.leaf.n || 9) + extra; d.seed = 5000 + extra;
+  let t = performance.now(); const r = render(d, { measure, scale: 2, draft }); const cold = performance.now() - t;
+  t = performance.now(); stage.innerHTML = r.svg; stage.getBoundingClientRect(); stage.querySelector('svg').getBBox(); const dom = performance.now() - t;
+  d.fields[0].text += 'x'; t = performance.now(); render(d, { measure, scale: 2, draft }); const warm = performance.now() - t;
+  out.push(`${name.padEnd(13)} n ${String(d.branch.leaf.n).padStart(3)}  cold ${cold.toFixed(0).padStart(5)} ms  warm ${warm.toFixed(0).padStart(4)} ms  dom ${dom.toFixed(0).padStart(4)} ms  svg ${(r.svg.length / 1024).toFixed(0)} KB${r.report.widened ? '  widened' : ''}`);
+}
+document.getElementById('out').textContent = out.join('\n'); document.title = 'done';
+</script></body></html>

@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Daphne — preset QA</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@300..900&display=swap">
+<style>body{margin:0;background:#0d0e11;color:#8d9099;font:12px Figtree,sans-serif;padding:12px}.g{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.c{border-radius:8px;overflow:hidden;background:#000}.c svg{display:block;width:100%;height:auto}.c p{margin:0;padding:6px 10px;background:#15171c;font-size:14px;color:#c9c6bf}</style></head>
+<body><div class="g" id="g"></div>
+<script type="module">
+import { render, DEFAULT_DOC, merge, clone, applyForm, FRAMES } from './engine.mjs';
+import { loadFont } from './fonts.js';
+import { PRESETS } from './presets.js';
+import { LAYOUTS, LAYOUT_GROUPS, layoutFields } from './layouts.js';
+const mctx = document.createElement('canvas').getContext('2d');
+const measure = (s, font, w, it, size) => { mctx.font = `${it ? 'italic ' : ''}${w} ${size}px "${font}", sans-serif`; return mctx.measureText(s).width; };
+const q = new URLSearchParams(location.search), only = q.get('only') ? q.get('only').split(',') : null, from = +(q.get('from') || 0), to = +(q.get('to') || 999), long = q.get('long') === '1';
+const TEXTS = {
+  outside: [{ id: 'a', kind: 'status', text: 'Official Selection', slot: 'arc-top' }, { id: 'h', kind: 'festival', text: 'Atlas', role: 'hero', slot: 'inside' }, { id: 'y', kind: 'year', text: '2026', slot: 'ribbon' }, { id: 'l', kind: 'location', text: 'Lisbon', role: 'sub', slot: 'below' }, { id: 'b', kind: 'icon', text: 'star', slot: 'badge' }],
+  five: [{ id: 'i', kind: 'icon', text: 'stars', role: 'eyebrow', slot: 'inside' }, { id: 's', kind: 'status', text: 'Winner', role: 'eyebrow', slot: 'inside' }, { id: 'h', kind: 'award', text: 'Best Documentary', role: 'hero', slot: 'inside' }, { id: 'c', kind: 'category', text: 'Feature Competition', role: 'sub', slot: 'inside' }, { id: 'y', kind: 'year', text: 'Hot Docs 2026', role: 'sub', slot: 'inside' }],
+  two: [{ id: 'h', kind: 'festival', text: 'Sundance', role: 'hero', slot: 'inside' }, { id: 'y', kind: 'year', text: '2026', role: 'sub', slot: 'inside' }],
+  arcs: [{ id: 'a', kind: 'status', text: 'Official Selection', slot: 'arc-top' }, { id: 'h', kind: 'festival', text: 'Northlight', role: 'hero', slot: 'inside' }, { id: 'y', kind: 'year', text: '2026', slot: 'arc-bottom' }],
+  // every kind filled, long: the worst words a layout can meet (as in the stress test)
+  richlong: [['status', 'North American Premiere'], ['festival', 'International Documentary Festival Amsterdam'], ['award', 'Best Achievement in Cinematography'], ['category', 'International Feature Competition'], ['location', 'Rio de Janeiro'], ['edition', '75th Anniversary Edition'], ['year', '2026']].map(([kind, text]) => ({ id: kind, kind, text, role: 'sub', slot: 'inside' })),
+};
+const fields = TEXTS[q.get('text')] ? TEXTS[q.get('text')] : long
+  ? [{ id: 's', kind: 'status', text: 'Winner', role: 'eyebrow', slot: 'inside' }, { id: 'h', kind: 'award', text: 'Best Documentary Feature', role: 'hero', slot: 'inside' }, { id: 'y', kind: 'year', text: 'Hot Docs 2026', role: 'sub', slot: 'inside' }]
+  : [{ id: 's', kind: 'status', text: 'Official Selection', role: 'eyebrow', slot: 'inside' }, { id: 'h', kind: 'festival', text: 'Northlight', role: 'hero', slot: 'inside' }, { id: 'y', kind: 'year', text: '2026', role: 'sub', slot: 'inside' }];
+const fonts = new Set(); PRESETS.forEach((p) => Object.values(p.doc.roles || {}).forEach((r) => fonts.add(r.font)));
+await Promise.all([...fonts].map((f) => loadFont(f, [400, 500, 600, 700, 800, 900])));
+const g = document.getElementById('g'), sheet = q.get('sheet') === '1', cols = q.get('cols') || 3; g.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+const head = (t) => g.insertAdjacentHTML('beforeend', `<h2 style="grid-column:1/-1;margin:${g.children.length ? 26 : 4}px 0 2px;font:700 20px Figtree,sans-serif;color:#e3c27a;letter-spacing:.02em">${t}</h2>`);
+if (sheet) g.insertAdjacentHTML('beforebegin', `<h1 style="margin:6px 0 4px;font:800 34px Figtree,sans-serif;color:#e9e6df">Daph<span style="color:#e3c27a">ne</span> · ${only ? PRESETS.filter((p) => only.includes(p.name)).length + (PRESETS.filter((p) => only.includes(p.name)).every((p) => p.group === 'Badges') ? ' badges' : ' presets') : PRESETS.length + ' presets'}</h1><p style="margin:0 0 10px;font-size:15px">${only ? 'The same looks with short words, then long ones. Seals carry the status and year round their band; every frame is sized round your words or fits them to its shape.' : 'Every preset with the same words. Pick the looks you love; they all change colour, type and text freely.'}</p>`);
+let lastGroup = null, k = 0;
+const tmp = () => 'x' + k++;
+const lookOf = (p) => { let d = merge(clone(DEFAULT_DOC), p.doc); if (p.doc.form) d = merge(applyForm(d, p.doc.form), p.doc); return d; };
+const card = (d, label) => { d.canvas.aspect = 1; d.canvas.pad = 16; const r = render(d, { measure, scale: 2 }); g.insertAdjacentHTML('beforeend', `<div class="c">${r.svg}<p>${label}${sheet ? '' : ` · hero ${r.report.hero.toFixed(1)}${r.report.widened ? ' · widened' : ''} ${r.report.warnings.length ? '⚠ ' + r.report.warnings.join(' ') : ''}`}</p></div>`); };
+// ?layouts=1&looks=Classic Gold,Etching: every layout in each look (the words are the user's three lines plus examples)
+if (q.get('layouts') === '1') {
+  const looks = (q.get('looks') || 'Classic Gold').split(',').map((n) => PRESETS.find((p) => p.name === n)).filter(Boolean);
+  if (sheet) document.querySelector('h1').innerHTML = `Daph<span style="color:#e3c27a">ne</span> · ${LAYOUTS.length} layouts`;
+  if (sheet) document.querySelector('h1 + p').textContent = 'Where the words go, in any look. Each starts from the same three lines (Official Selection · Northlight · 2026); lines a layout adds arrive as examples to type over.';
+  for (const L of LAYOUTS.filter((L) => !only || only.includes(L.name))) {
+    if (sheet && L.group !== lastGroup) { head(L.group); lastGroup = L.group; }
+    looks.forEach((p, i) => { const d = lookOf(p); d.fields = layoutFields(clone(fields), L, tmp); card(d, sheet ? (i ? `<span style="color:#6d707a">${p.name}</span>` : `<b style="color:#e9e6df">${L.name}</b> · ${L.note}`) : `${L.name} · ${p.name}`); });
+  }
+} else if (q.get('logo') === '1') {
+  // ?logo=1&looks=…: uploaded artwork (original test marks, not festival logos): square, wide, tall and PNG, plain and tinted
+  const looks = (q.get('looks') || 'Classic Gold').split(',').map((n) => PRESETS.find((p) => p.name === n)).filter(Boolean);
+  if (sheet) { document.querySelector('h1').innerHTML = 'Daph<span style="color:#e3c27a">ne</span> · logos'; document.querySelector('h1 + p').textContent = 'Upload a festival’s official artwork (SVG or PNG) and it takes a line of its own, sized by its shape. These marks are made-up stand-ins; tinting suits one-colour artwork.'; }
+  const svgUrl = (vb, body) => 'data:image/svg+xml;base64,' + btoa(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="${vb}">${body}</svg>`);
+  const ink = '#f4ead2';
+  const MARKS = {
+    square: [1, svgUrl('0 0 100 100', `<circle cx="50" cy="50" r="44" fill="none" stroke="${ink}" stroke-width="6"/><circle cx="50" cy="50" r="9" fill="${ink}"/>${[0, 1, 2, 3, 4].map((k) => `<circle cx="${50 + 24 * Math.cos(k * 1.2566 - 1.5708)}" cy="${50 + 24 * Math.sin(k * 1.2566 - 1.5708)}" r="9" fill="${ink}"/>`).join('')}`)],
+    wide: [3.4, svgUrl('0 0 340 100', `<circle cx="50" cy="50" r="40" fill="#d8452f"/><path d="M50 22 58 42 79 42 62 55 68 76 50 63 32 76 38 55 21 42 42 42Z" fill="${ink}"/><rect x="110" y="18" width="210" height="26" rx="3" fill="${ink}"/><rect x="110" y="56" width="150" height="10" rx="2" fill="${ink}"/><rect x="110" y="74" width="190" height="10" rx="2" fill="${ink}"/>`)],
+    tall: [0.72, svgUrl('0 0 72 100', `<path d="M4 6H68V52C68 76 52 90 36 96 20 90 4 76 4 52Z" fill="none" stroke="${ink}" stroke-width="5"/><path d="M36 22 42 38 59 38 45 48 50 65 36 55 22 65 27 48 13 38 30 38Z" fill="${ink}"/><rect x="18" y="72" width="36" height="5" fill="${ink}"/>`)],
+  };
+  { const c = document.createElement('canvas'); c.width = 600; c.height = 300; const x = c.getContext('2d'); x.fillStyle = '#2a6df4'; x.beginPath(); x.roundRect(10, 10, 580, 280, 40); x.fill(); x.fillStyle = '#fff'; x.font = '900 120px Figtree, sans-serif'; x.textAlign = 'center'; x.fillText('FEST', 300, 195); MARKS.png = [2, c.toDataURL('image/png')]; }
+  const logo = (m, o = {}) => ({ id: 'g', kind: 'logo', src: MARKS[m][1], ar: MARKS[m][0], role: 'hero', slot: 'inside', ...o });
+  const CASES = [
+    ['Square logo with status and year', [{ id: 's', kind: 'status', text: 'Official Selection', role: 'eyebrow', slot: 'inside' }, logo('square'), { id: 'y', kind: 'year', text: '2026', role: 'sub', slot: 'inside' }]],
+    ['Logo alone', [logo('square')]],
+    ['Wide logo', [{ id: 's', kind: 'status', text: 'Winner', role: 'eyebrow', slot: 'inside' }, logo('wide'), { id: 'y', kind: 'year', text: 'Best Short Film', role: 'sub', slot: 'inside' }]],
+    ['Tall logo, status over the top', [{ id: 's', kind: 'status', text: 'Official Selection', slot: 'arc-top' }, logo('tall'), { id: 'y', kind: 'year', text: '2026', role: 'sub', slot: 'inside' }]],
+    ['PNG logo below the name', [{ id: 'h', kind: 'festival', text: 'Northlight', role: 'hero', slot: 'inside' }, { id: 'y', kind: 'year', text: '2026', role: 'sub', slot: 'inside' }, logo('png', { slot: 'below', role: 'sub' })]],
+    ['Tinted with the text paint', [{ id: 's', kind: 'status', text: 'Official Selection', role: 'eyebrow', slot: 'inside' }, logo('wide', { tint: true }), { id: 'y', kind: 'year', text: '2026', role: 'sub', slot: 'inside' }]],
+  ];
+  for (const [label, fs] of CASES) { if (sheet) head(label); for (const p of looks) { const d = lookOf(p); d.fields = clone(fs); card(d, sheet ? p.name : `${label} · ${p.name}`); } }
+} else if (q.get('frames') === '1') {
+  // ?frames=1&looks=…: every badge frame, outlined and filled, in each look; ring, oval and scallop carry seal text
+  const looks = (q.get('looks') || 'Classic Gold').split(',').map((n) => PRESETS.find((p) => p.name === n)).filter(Boolean);
+  const seal = [{ id: 'a', kind: 'status', text: 'Official Selection', slot: 'arc-top' }, { id: 'h', kind: 'festival', text: 'Northlight', role: 'hero', slot: 'inside' }, { id: 'y', kind: 'year', text: '2026', slot: 'arc-under' }];
+  for (const k of Object.keys(FRAMES).filter((k) => k !== 'none' && (!only || only.includes(k)))) for (const filled of [false, true]) for (const p of looks) {
+    const d = applyForm(lookOf(p), 'text'); d.frame = { ...d.frame, kind: k, filled, double: q.get('double') === '1' };
+    d.fields = ['ring', 'scallop', 'oval'].includes(k) && q.get('seal') !== '0' ? clone(seal) : clone(fields);
+    card(d, `${FRAMES[k]}${filled ? ' · filled' : ''} · ${p.name}`);
+  }
+} else PRESETS.slice(from, to).filter((p) => !only || only.includes(p.name)).forEach((p) => {
+  if (sheet && p.group !== lastGroup) { head(`${p.group}`); lastGroup = p.group; }
+  const d = lookOf(p);
+  const L = LAYOUTS.find((L) => L.id === (q.get('layout') || p.layout));
+  d.fields = L ? layoutFields(clone(fields), L, tmp) : clone(fields);
+  card(d, sheet ? p.name : `${PRESETS.indexOf(p)} · ${p.name}`);
+});
+window.__done = true;
+</script></body></html>

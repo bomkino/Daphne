@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Daphne — stress test</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@300..900&display=swap">
+<style>
+  body { margin: 0; background: #0d0e11; color: #e9e6df; font: 13px/1.4 Figtree, system-ui, sans-serif; padding: 20px; }
+  h1 { font-size: 20px; margin: 0 0 4px; } h2 { font-size: 15px; margin: 26px 0 10px; color: #e3c27a; }
+  .sum { display: flex; gap: 18px; flex-wrap: wrap; background: #15171c; border: 1px solid #262a32; border-radius: 10px; padding: 12px 14px; }
+  .sum b { font-size: 18px; display: block; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; }
+  .card { background: #0b0c0f; border: 1px solid #262a32; border-radius: 10px; overflow: hidden; }
+  .card.bad { border-color: #f2a65a; box-shadow: 0 0 0 1px #f2a65a inset; }
+  .card svg { display: block; width: 100%; height: 190px; }
+  .card p { margin: 0; padding: 6px 8px; font-size: 11px; color: #8d9099; }
+  .card p.w { color: #f2a65a; }
+  table { border-collapse: collapse; width: 100%; } td, th { text-align: left; padding: 4px 8px; border-bottom: 1px solid #262a32; font-size: 12px; }
+</style>
+</head>
+<body>
+<h1>Daphne · stress test</h1>
+<div class="sum" id="sum">Running…</div>
+<div id="out"></div>
+<script type="module" src="./stress.js"></script>
+</body>
+</html>
