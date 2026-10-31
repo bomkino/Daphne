@@ -39,7 +39,7 @@ function tile({ s = SY, bg = C.grove, word = C.paper, leaf = C.newLeaf, k = 0.62
   const h = Math.max(s.box[3] - s.box[1], s.box[2] - s.box[0]), size = h / k, x0 = (s.box[0] + s.box[2]) / 2 - size / 2, y0 = s.cy - size / 2;
   return `${svgOpen([x0, y0, size, size], ` role="img" aria-label="${label}"`)}${title(label)}<rect x="${f(x0)}" y="${f(y0)}" width="${f(size)}" height="${f(size)}" rx="${f(rx * size)}" fill="${bg}"/><g fill="${word}">${s.word}</g><g fill="${leaf}">${s.leaves}</g></svg>`;
 }
-// profile pictures are cropped to a circle: keep the symbol inside the middle 62%
+// profile pictures are cropped to a circle: keep the symbol inside the middle 64%
 put('symbol/daphne-avatar.svg', tile({ k: 0.64 }));
 put('symbol/daphne-app-icon.svg', tile({ k: 0.66 }));
 // Android crops maskable icons to as little as the middle 80% circle
@@ -65,7 +65,7 @@ put('motion/logo-paths.json', JSON.stringify({ viewBox: lkBox, word: LK.word, le
 
 // ── tokens ─────────────────────────────────────────────────────────────────
 const tokens = {
-  $description: 'Daphne brand tokens. Color names are the brand names; see brand/README.md for when to use each.',
+  $description: 'Daphne brand tokens, public domain (CC0 1.0). Color names are the brand names; see brand/README.md for when to use each.',
   color: Object.fromEntries(Object.entries(C).map(([k, v]) => [k, { $type: 'color', $value: v }])),
   font: {
     display: { $type: 'fontFamily', $value: ['PD Head', 'Georgia', 'serif'], $description: 'Wordmark (400), symbol (600), headlines.' },
@@ -80,7 +80,7 @@ const tokens = {
   },
 };
 put('tokens/daphne.tokens.json', JSON.stringify(tokens, null, 2));
-put('tokens/daphne.css', `/* Daphne brand tokens and faces. Fonts: brand/fonts (CC0). Paths are relative to brand/tokens/. */
+put('tokens/daphne.css', `/* Daphne brand tokens and faces. Public domain (CC0 1.0), fonts included. Paths are relative to brand/tokens/. */
 @font-face { font-family: "PD Head"; src: url("../fonts/pd-head.woff2") format("woff2"); font-weight: 265 900; font-display: swap; }
 @font-face { font-family: "PD Body"; src: url("../fonts/pd-body-roman.woff2") format("woff2"); font-weight: 100 900; font-display: swap; }
 @font-face { font-family: "PD Body Alt"; src: url("../fonts/pd-body-alt-roman.woff2") format("woff2"); font-weight: 100 900; font-display: swap; }

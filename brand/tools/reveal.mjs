@@ -7,12 +7,14 @@ export const REVEAL = { fps: 24, total: 2.6, leaf: 1.05, leafStagger: 2 / 24, wo
 
 export function revealSVG({ word = C.paper, leaf = C.newLeaf, id = 'rv' } = {}) {
   const LK = lockup(), b = LK.box, pad = 40, vb = [b[0] - pad, b[1] - pad, b[2] - b[0] + 2 * pad, b[3] - b[1] + 2 * pad];
-  // each glyph in its own group so it can move on its own
+  // each glyph in its own group so it can move on its own.
+  // The soft mask's blur works in the frame's own units: a filter sized to the growth path's
+  // bounding box would cut the leaves' outer edges, since a leaf is wider than its spine's box.
   const letters = LK.word.split('/>').filter((p) => p.trim()).map((p, i) => `<g class="${id}-l" data-i="${i}">${p}/></g>`).join('');
   const mask = (side, L) => `<mask id="${id}-m${side}" maskUnits="userSpaceOnUse" x="${f(vb[0])}" y="${f(vb[1])}" width="${f(vb[2])}" height="${f(vb[3])}"><path class="${id}-g" d="${L.grow}" pathLength="1" fill="none" stroke="#fff" stroke-width="360" stroke-linecap="butt" stroke-dasharray="1 2" stroke-dashoffset="1" filter="url(#${id}-soft)"/></mask>`;
   const leafPaths = (L) => `<path fill-rule="evenodd" d="${L.d}"/><path d="${L.stalk}"/>`;
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${vb.map(f).join(' ')}" role="img" aria-label="Daphne" class="${id}">
-<defs><filter id="${id}-soft" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="14"/></filter>${mask('L', LK.L)}${mask('R', LK.R)}</defs>
+<defs><filter id="${id}-soft" filterUnits="userSpaceOnUse" x="${f(vb[0])}" y="${f(vb[1])}" width="${f(vb[2])}" height="${f(vb[3])}"><feGaussianBlur stdDeviation="14"/></filter>${mask('L', LK.L)}${mask('R', LK.R)}</defs>
 <g fill="${leaf}"><g mask="url(#${id}-mL)">${leafPaths(LK.L)}</g><g mask="url(#${id}-mR)">${leafPaths(LK.R)}</g></g>
 <g fill="${word}">${letters}</g></svg>`;
 }

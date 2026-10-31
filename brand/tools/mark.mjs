@@ -110,7 +110,10 @@ export function leafBracket(opts = {}) {
   const ext = (a, b, k) => { const dx = a[0] - b[0], dy = a[1] - b[1], m = Math.hypot(dx, dy) || 1; return [a[0] + (dx / m) * k, a[1] + (dy / m) * k]; };
   const startPts = stalkPts.length ? stalkPts.slice().reverse() : [P(0)];
   const grow = [ext(startPts[0], startPts[1] || spine[1], 60)].concat(startPts, spine, [ext(spine[40], spine[39], 90)]);
-  const xs = out.concat(inn, stalkPts).map((q) => q[0]), ys = out.concat(inn, stalkPts).map((q) => q[1]);
+  // the box holds every point and control point of the drawn outlines (stalk included),
+  // so it can only be a little generous, never tight enough to clip
+  const coords = (leaf + cut + stalkD).match(/-?\d*\.?\d+/g).map(Number);
+  const xs = coords.filter((_, i) => i % 2 === 0), ys = coords.filter((_, i) => i % 2 === 1);
   return { d: leaf + cut, stalk: stalkD, grow: smooth(grow, false), bbox: [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)], P, frame, stalkEnd: stalkPts[stalkPts.length - 1] || P(0), out, inn };
 }
 

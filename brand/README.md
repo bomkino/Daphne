@@ -1,12 +1,12 @@
 # Daphne brand
 
-How Daphne looks, sounds and moves, with the reason for each rule. Everything in this folder is built from code in `tools/`, so a change to the mark is a change to `tools/mark.mjs`, never a hand edit to an SVG. Open `index.html` for the brand book: the same rules, shown.
+How Daphne looks, sounds and moves, with the reason for each rule. Everything in this folder is built from code in `tools/`, so a change to the mark is a change to `tools/mark.mjs`, never a hand edit to an SVG. Open `index.html` for the brand book: the same rules, shown. Everything here is CC0: free to take, change and use.
 
 ## The idea
 
 **A laurel is two leaves around a name.** Strip away the gold and the ceremony, and that's what a festival laurel does: it holds a film's name between two branches and says someone chose it. So Daphne's logo is the name held between two bay leaves, drawn as brackets: **(Daphne)**.
 
-The name comes from the myth. In Greek myth, Daphne turned into the first laurel tree, and Apollo, the god of the arts, crowned artists with her leaves from then on. Every laurel since comes from her. Daphne the tool gives that laurel to every filmmaker who has earned one, for free.
+The name comes from Greek myth. Daphne turned into the first laurel tree, and Apollo, the god of the arts, wore her leaves and crowned artists with them from then on. Every laurel since comes from her. Daphne the tool gives that laurel to every filmmaker who has earned one, for free.
 
 The brackets are also a system. Anything worth honoring can sit between the two leaves: (Official Selection), (your film), (free). The logo shows the product's whole job in one shape.
 
@@ -140,7 +140,7 @@ Daphne is a pitch.dog project and says so: "Made by pitch.dog", set in PD Eyebro
 
 | Path | What |
 |---|---|
-| `logo/` | (Daphne): SVG on dark, on light, mono, black, white; PNGs at 800 and 2400 px wide in `png/` |
+| `logo/` | (Daphne): SVG on dark, on light, mono, black, white, and the veined hero versions; PNGs at 800 and 2400 px wide in `png/` |
 | `symbol/` | (D): SVGs, the avatar, the app icon, the small symbol; PNGs in `png/` |
 | `favicon/` | `favicon.svg`, `favicon.ico`, 16/32/48 px PNGs, `apple-touch-icon.png`, `icon-192.png`, `icon-512.png`, `icon-maskable-512.png` |
 | `bracket/` | The leaf brackets, one em tall |
@@ -150,6 +150,7 @@ Daphne is a pitch.dog project and says so: "Made by pitch.dog", set in PD Eyebro
 | `tokens/` | Colors, faces and easing as design tokens and CSS |
 | `fonts/` | PD Head, PD Body, PD Body Alt, PD Eyebrow (CC0, from the pitch.dog type system v3.0.0) |
 | `tools/` | The code that draws all of the above |
+| `LICENSE.md` | CC0 1.0, for everything in this folder |
 | `index.html` | The brand book: the story, then everything above, shown. One self-contained file. |
 
 Rebuild everything:
@@ -162,8 +163,8 @@ node brand/tools/book.mjs      # the brand book, index.html, with fonts and imag
 
 `tools/glyphs/` holds the wordmark's outlines, taken from PD Head with HarfBuzz by `tools/glyphs.py` (needs `uharfbuzz`); rerun it only to change the weight or the letters. `tools/book/` holds the subsets of the fonts that the brand book inlines (made with fontTools' `pyftsubset`; PD Eyebrow instanced at 500), so the book stays one file.
 
-## Licenses
+## License
 
-- The fonts in `fonts/` are CC0 (see `fonts/FONT-LICENSE.md`).
-- The code in `tools/` is MIT, like the rest of the repository.
-- **Proposed, for pitch.dog to confirm:** the Daphne name, logo and symbol are pitch.dog's marks. They're here so anyone can link to Daphne, write about it or credit it, unaltered. They aren't for making something look like it was made or endorsed by pitch.dog.
+**Everything in this folder is in the public domain, under CC0 1.0** (`LICENSE.md`): the marks, the brand book, the files and the code that draws them. Take it, change it, use it, commercially too, without asking or crediting. The fonts are CC0 by the pitch.dog type system's own declaration (`fonts/README.md`), and the Daphne app, in the rest of the repository, is MIT.
+
+We don't claim the Daphne name or marks as trademarks. Two requests, never conditions: don't use them to make something look like pitch.dog made or endorsed it, and if Daphne helped, "Made with Daphne" is a kind thing to say.

@@ -1,4 +1,4 @@
-/* Daphne brand tokens and faces. Fonts: brand/fonts (CC0). Paths are relative to brand/tokens/. */
+/* Daphne brand tokens and faces. Public domain (CC0 1.0), fonts included. Paths are relative to brand/tokens/. */
 @font-face { font-family: "PD Head"; src: url("../fonts/pd-head.woff2") format("woff2"); font-weight: 265 900; font-display: swap; }
 @font-face { font-family: "PD Body"; src: url("../fonts/pd-body-roman.woff2") format("woff2"); font-weight: 100 900; font-display: swap; }
 @font-face { font-family: "PD Body Alt"; src: url("../fonts/pd-body-alt-roman.woff2") format("woff2"); font-weight: 100 900; font-display: swap; }

@@ -28,19 +28,19 @@ const held = (words) => `<span class="held">${brk(BL)}${words}${brk(BR)}</span>`
 
 // anatomy: the hero logo with its parts named
 function anatomy() {
-  const L = HK.L, R = HK.R, vb = [HK.box[0] - 1180, HK.box[1] - 200, HK.box[2] - HK.box[0] + 1180 + 760, HK.box[3] - HK.box[1] + 420];
+  const L = HK.L, R = HK.R, vb = [HK.box[0] - 1250, HK.box[1] - 200, HK.box[2] - HK.box[0] + 1250 + 900, HK.box[3] - HK.box[1] + 440];
   const tip = L.P(1), mid = L.P(0.55), [nx, ny] = L.frame(0.55), vein = L.P(0.42), stalkEnd = L.stalkEnd, rTip = R.P(0.75), [rnx, rny] = R.frame(0.75);
-  const lab = (x, y, tx, ty, text, anchor = 'end') => `<path d="M${f(x)} ${f(y)}L${f(tx)} ${f(ty)}" class="ld"/><circle cx="${f(x)}" cy="${f(y)}" r="9" class="ldot"/><text x="${f(tx + (anchor === 'end' ? -16 : 16))}" y="${f(ty + 14)}" text-anchor="${anchor}" class="lt">${text}</text>`;
+  const lab = (x, y, tx, ty, text, anchor = 'end') => `<path d="M${f(x)} ${f(y)}L${f(tx)} ${f(ty)}" class="ld"/><circle cx="${f(x)}" cy="${f(y)}" r="9" class="ldot"/><text x="${f(tx + (anchor === 'end' ? -16 : 16))}" y="${f(ty + 28)}" text-anchor="${anchor}" class="lt">${text}</text>`;
   const gw = LOCKUP.gapL, wordW = HK.wordW;
   return `<svg viewBox="${vb.map(f).join(' ')}" class="anat" role="img" aria-label="The logo's parts: tip, midrib, side veins, stalk, wavy margin, and the gaps to the name">
   <g fill="${C.grove}">${HK.word}</g><g fill="${C.bay}">${HK.leaves}</g>
   ${lab(tip[0], tip[1], tip[0] - 300, tip[1] - 40, 'tip')}
-  ${lab(mid[0] + nx * 4, mid[1] + ny * 4, mid[0] - 330, mid[1] - 120, 'midrib, cut as a hairline')}
-  ${lab(vein[0] + nx * 52, vein[1] + ny * 52, vein[0] - 330, vein[1] + 90, 'side veins (hero only)')}
+  ${lab(mid[0] + nx * 4, mid[1] + ny * 4, mid[0] - 330, mid[1] - 120, 'hairline midrib')}
+  ${lab(vein[0] + nx * 52, vein[1] + ny * 52, vein[0] - 330, vein[1] + 90, 'veins (hero only)')}
   ${lab(stalkEnd[0], stalkEnd[1], stalkEnd[0] - 330, stalkEnd[1] + 60, 'stalk, bent in')}
   ${lab(rTip[0] + rnx * 70, rTip[1] + rny * 70, rTip[0] + 300, rTip[1] - 80, 'wavy margin', 'start')}
-  <path d="M${f(-gw)} 300H0" class="gap"/><text x="${f(-gw / 2)}" y="370" text-anchor="middle" class="lt">85</text>
-  <path d="M${f(wordW)} 300H${f(wordW + LOCKUP.gapR)}" class="gap"/><text x="${f(wordW + LOCKUP.gapR / 2)}" y="370" text-anchor="middle" class="lt">66</text>
+  <path d="M${f(-gw)} 340H0" class="gap"/><text x="${f(-gw / 2)}" y="440" text-anchor="middle" class="lt">85</text>
+  <path d="M${f(wordW)} 340H${f(wordW + LOCKUP.gapR)}" class="gap"/><text x="${f(wordW + LOCKUP.gapR / 2)}" y="440" text-anchor="middle" class="lt">66</text>
   </svg>`;
 }
 
@@ -131,11 +131,13 @@ figcaption { font: 500 12.5px/1.45 var(--data); letter-spacing: .03em; color: va
 /* the idea */
 .idea .plate { padding: clamp(36px, 8vw, 110px) clamp(20px, 6vw, 90px); }
 
-/* anatomy */
+/* anatomy: on a phone it keeps a readable size and scrolls sideways */
+.anat-wrap { overflow-x: auto; place-items: stretch; }
+.anat-wrap > div { min-width: 760px; }
 .anat { width: 100%; height: auto; }
 .anat .ld { stroke: ${C.bay}; stroke-width: 4; fill: none; }
 .anat .ldot { fill: var(--paper); stroke: ${C.bay}; stroke-width: 4; }
-.anat .lt { font: 500 56px var(--data); fill: ${C.grove}; letter-spacing: .02em; }
+.anat .lt { font: 500 84px var(--data); fill: ${C.grove}; letter-spacing: .02em; }
 .anat .gap { stroke: ${C.bloom}; stroke-width: 10; }
 
 /* sizes */
@@ -211,6 +213,11 @@ th { color: var(--mist); font-weight: 500; }
 footer { padding-block: 40px 56px; color: var(--mist); font: 500 12px var(--data); letter-spacing: .06em; }
 
 @media (prefers-reduced-motion: reduce) { .hint { display: none; } }
+/* the stamped laurel sits whole inside its 16:9 plate */
+.dont .stamp { padding: 12px; }
+.dont .stamp svg { width: auto; height: 100%; max-width: 100%; }
+/* phones: tables wrap instead of running off the side */
+@media (max-width: 600px) { .contrast table, .beats-table table, .files table { min-width: 0; width: 100%; } td, th { padding-right: 12px; vertical-align: top; } }
 </style>
 
 <section class="story" aria-label="Daphne’s story">
@@ -237,7 +244,7 @@ ${STORY.map((s) => `      <p class="cap">${s}</p>`).join('\n')}
   <p class="eyebrow">The logo</p>
   <h2>Her name, held in two bay leaves.</h2>
   <p class="lede">The name is PD Head at 400, light enough to feel classical. Each leaf is a bay leaf on a curved spine, slightly lopsided, with a wavy margin, a hairline midrib and a stalk that bends in under the name.</p>
-  <div class="plate light">${anatomy()}</div>
+  <div class="plate light anat-wrap"><div>${anatomy()}</div></div>
   <div class="grid g2" style="margin-top:20px">
     <figure><div class="plate dark">${logoSVG(LK, C.paper, C.newLeaf)}</div><figcaption>On Grove: Paper name, New leaf leaves. daphne-logo-on-dark.svg</figcaption></figure>
     <figure><div class="plate light">${logoSVG(LK, C.grove, C.bay)}</div><figcaption>On Paper or white: Grove name, Bay leaves. daphne-logo-on-light.svg</figcaption></figure>
@@ -258,8 +265,8 @@ ${STORY.map((s) => `      <p class="cap">${s}</p>`).join('\n')}
   <div class="grid g3 dont" style="margin-top:14px">
     <figure><div class="plate dark"><svg viewBox="${box(LK.box, 10)}" role="img" aria-label="Gold leaves, wrong"><defs><linearGradient id="dg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f3d27a"/><stop offset="1" stop-color="#9a6b1f"/></linearGradient></defs><g fill="${C.paper}">${LK.word}</g><g fill="url(#dg)">${LK.leaves}</g></svg></div><figcaption><b>Gold leaves.</b> Gold belongs to the laurels people make.</figcaption></figure>
     <figure><div class="plate dark"><svg viewBox="${box(LK.box, 10)}" role="img" aria-label="Typed parentheses, wrong"><text x="${f(LK.box[0] + 40)}" y="0" fill="${C.paper}" style="font: 400 1000px var(--display); font-variation-settings: 'wght' 400">(Daphne)</text></svg></div><figcaption><b>Typed parentheses.</b> The leaves are the logo.</figcaption></figure>
-    <figure><div class="plate dark"><svg viewBox="${box(LK.box, 10)}" preserveAspectRatio="none" style="height:60%;width:100%" role="img" aria-label="Stretched, wrong"><g fill="${C.paper}">${LK.word}</g><g fill="${C.newLeaf}">${LK.leaves}</g></svg></div><figcaption><b>Stretched, outlined or shadowed.</b> Scale it whole.</figcaption></figure>
-    <figure><div class="plate dark" style="padding:16px"><div style="position:relative;width:min(100%,220px)"><img src="${png('laurels/classic-gold.png')}" alt="A laurel with the Daphne logo stamped on it, wrong"><div style="position:absolute;left:50%;bottom:24%;transform:translateX(-50%);width:44%;opacity:.9">${logoSVG(LK, C.paper, C.newLeaf)}</div></div></div><figcaption><b>On someone’s laurel.</b> No watermark, ever.</figcaption></figure>
+    <figure><div class="plate dark"><svg viewBox="${box(LK.box, 10)}" style="transform:scale(1,.55)" role="img" aria-label="Stretched, wrong"><g fill="${C.paper}">${LK.word}</g><g fill="${C.newLeaf}">${LK.leaves}</g></svg></div><figcaption><b>Stretched, outlined or shadowed.</b> Scale it whole.</figcaption></figure>
+    <figure><div class="plate dark stamp"><svg viewBox="0 0 520 584" role="img" aria-label="A laurel with the Daphne logo stamped on it, wrong"><image href="${png('laurels/classic-gold.png')}" width="520" height="584"/><svg x="135" y="440" width="250" height="${f(250 * (LK.box[3] - LK.box[1] + 20) / (LK.box[2] - LK.box[0] + 20))}" viewBox="${box(LK.box, 10)}"><g fill="${C.paper}">${LK.word}</g><g fill="${C.newLeaf}">${LK.leaves}</g></svg></svg></div><figcaption><b>On someone’s laurel.</b> No watermark, ever.</figcaption></figure>
     <figure><div class="plate dark"><svg viewBox="${box(LK.box, 10)}" role="img" aria-label="Bloom leaves, wrong"><g fill="${C.paper}">${LK.word}</g><g fill="${C.bloom}">${LK.leaves}</g></svg></div><figcaption><b>Bloom leaves.</b> Bloom is used once, and never on the logo.</figcaption></figure>
     <figure><div class="plate dark"><svg viewBox="${box(LK.box, 10)}" role="img" aria-label="Name alone, wrong"><g fill="${C.paper}">${LK.word}</g></svg></div><figcaption><b>The name without its leaves.</b> In type, it travels with the tagline instead.</figcaption></figure>
   </div>
@@ -387,7 +394,7 @@ ${STORY.map((s) => `      <p class="cap">${s}</p>`).join('\n')}
 <section class="ch"><div class="wrap">
   <p class="eyebrow">Files</p>
   <h2>Everything is drawn by code.</h2>
-  <p class="lede">The marks are geometry in brand/tools/mark.mjs, so a change to the logo is a change to the code, never a hand edit to an SVG.</p>
+  <p class="lede">The marks are geometry in brand/tools/mark.mjs, so a change to the logo is a change to the code, never a hand edit to an SVG. All of it is in the public domain (CC0): take it, change it, use it.</p>
   <div class="files"><table><tbody>
     <tr><td>logo/</td><td>(Daphne) on dark, on light, mono, black, white, hero; PNGs at 800 and 2400 px</td></tr>
     <tr><td>symbol/</td><td>(D), avatar, app icon, small symbol; PNGs</td></tr>
@@ -399,9 +406,10 @@ ${STORY.map((s) => `      <p class="cap">${s}</p>`).join('\n')}
     <tr><td>tokens/</td><td>Colors, faces and easing as design tokens and CSS</td></tr>
     <tr><td>fonts/</td><td>PD Head, PD Body, PD Body Alt, PD Eyebrow (CC0)</td></tr>
     <tr><td>tools/</td><td>build.mjs, render.mjs, book.mjs</td></tr>
+    <tr><td>LICENSE.md</td><td>CC0 1.0 for everything here. The fonts are CC0 too; the Daphne app is MIT.</td></tr>
   </tbody></table></div>
 </div></section>
-<footer><div class="wrap">Daphne · Made by pitch.dog · October 31, 2026</div></footer>
+<footer><div class="wrap">Daphne · Made by pitch.dog · Public domain, CC0 · October 31, 2026</div></footer>
 </main>
 
 <script>
@@ -413,7 +421,7 @@ ${revealScript()}
   if (!reduce) { anims.forEach((a) => { a.pause(); a.currentTime = 0; }); }
   const play = () => anims.forEach((a) => { a.currentTime = 0; a.play(); });
   document.getElementById('replay').addEventListener('click', play);
-  if (!reduce && 'IntersectionObserver' in window) new IntersectionObserver((es, o) => { if (es.some((e) => e.isIntersecting)) { play(); o.disconnect(); } }, { threshold: .5 }).observe(svg);
+  if (!reduce && 'IntersectionObserver' in window) new IntersectionObserver((es, o) => { if (es.some((e) => e.isIntersecting)) { play(); o.disconnect(); } }, { threshold: .35 }).observe(svg);
   else anims.forEach((a) => a.finish());
 })();
 
@@ -543,8 +551,16 @@ ${revealScript()}
       if (!reduce) a += Math.sin(T * 1.1 + l.sway) * .035 * (1 - mw * .6);
       if (mw > .5 && fade > 0) echo.push([x, y, a, k, flip]);
       let alpha = .94;
-      if (l.chosen) { const c = sm(4.45, 4.95, B); if (c > 0) { const t2 = target2(l.side); x = mix(x, t2.x, c); y = mix(y, t2.y, c); a = mixA(a, t2.a, c); k = mix(k, t2.k, c); flip = mix(flip, t2.flip, c); } alpha *= 1 - logoOn; }
-      else { const fp = sm(4.28 + l.seed * .42, 4.62 + l.seed * .42, B); if (fp > 0) { y += fp * fp * H * .8; x += Math.sin(T * .9 + l.sway) * fp * U * .08; a += fp * (l.seed - .5) * 5; alpha *= 1 - sm(.5, 1, fp); } }
+      if (l.chosen) {
+        // one of the two that stay: on its way to the logo it turns into the logo's own leaf, so the handoff has no seam
+        const c = sm(4.45, 4.95, B), t2 = target2(l.side), shape = sm(0, .45, c);
+        if (c > 0) { x = mix(x, t2.x, c); y = mix(y, t2.y, c); a = mixA(a, t2.a, c); }
+        leafAt(x, y, a, k, flip, alpha * (1 - shape));
+        if (shape > 0) { const P0 = l.side < 0 ? A0 : Z0, kb = mix(k * LEN / (A0[1] - A1[1]), sc, c), br = 1 + beat * .0045;
+          ctx.save(); ctx.translate(cx, cy); ctx.scale(br, br); ctx.translate(-cx, -cy); ctx.translate(x, y); ctx.rotate(a); ctx.scale(kb, kb); ctx.translate(-P0[0], -P0[1]);
+          ctx.globalAlpha = alpha * shape * (1 - logoOn); ctx.fill(l.side < 0 ? BL : BR, 'evenodd'); ctx.fill(l.side < 0 ? BLS : BRS); ctx.restore(); }
+        continue;
+      } else { const fp = sm(4.28 + l.seed * .42, 4.62 + l.seed * .42, B); if (fp > 0) { y += fp * fp * H * .8; x += Math.sin(T * .9 + l.sway) * fp * U * .08; a += fp * (l.seed - .5) * 5; alpha *= 1 - sm(.5, 1, fp); } }
       leafAt(x, y, a, k, flip, alpha);
     }
     // every laurel since: the crown's echoes, rippling out through time

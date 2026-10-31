@@ -1,5 +1,5 @@
 {
-  "$description": "Daphne brand tokens. Color names are the brand names; see brand/README.md for when to use each.",
+  "$description": "Daphne brand tokens, public domain (CC0 1.0). Color names are the brand names; see brand/README.md for when to use each.",
   "color": {
     "grove": {
       "$type": "color",
