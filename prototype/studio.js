@@ -2,6 +2,9 @@
 // Nothing here changes the laurel: every destination re-dresses a copy of the document (a one-color version, a social
 // card, an end-card frame) and packs it. The settings people pick are remembered on this device.
 import { checkLaurel, statusRank, prestige } from './rules.js';
+import { STATUS_COMMON } from './words.js';
+
+const AWARD_LAYOUTS = ['winner', 'award-detail', 'award-festival-hero', 'star-winner'];
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const r2 = (n) => Math.round(n * 100) / 100;
@@ -83,6 +86,25 @@ function caption(ctx, title) {
   return `${film} at ${fest}.`;
 }
 
+// ── the festival pack: one laurel for every status and award a festival gives, all in one look ──
+export function packVariants(ctx, d, o) {
+  let n = 0; const id = () => 'pk' + ++n;
+  const vis = (f) => f.show !== false;
+  const has = (doc, kind) => doc.fields.some((f) => f.kind === kind && vis(f) && f.text);
+  const setText = (doc, kind, text) => { const f = doc.fields.find((x) => x.kind === kind && vis(x)) || doc.fields.find((x) => x.kind === kind); if (f) { f.text = text; f.show = !!text; delete f.added; } };
+  const relayout = (doc, lid) => { const L = ctx.layoutById(lid); doc.fields = ctx.layoutFields(doc.fields, L, id); doc.layoutId = L.id; return doc; };
+  // selections keep the festival's own layout, without an award line; awards use an award layout
+  let sel = ctx.clone(d);
+  if (AWARD_LAYOUTS.includes(sel.layoutId) || has(sel, 'award') || !sel.fields.some((f) => f.kind === 'status' && vis(f))) relayout(sel, sel.userLayoutId && !AWARD_LAYOUTS.includes(sel.userLayoutId) ? sel.userLayoutId : 'year-below');
+  if (!sel.fields.some((f) => f.kind === 'status' && vis(f))) relayout(sel, 'year-below');
+  let aw = ctx.clone(d);
+  if (!has(aw, 'award')) relayout(aw, AWARD_LAYOUTS.includes(d.layoutId) ? d.layoutId : 'winner');
+  const out = [];
+  for (const st of o.statuses) { const v = ctx.clone(sel); setText(v, 'status', st); out.push({ label: st, slug: ctx.slug(st), doc: v }); }
+  for (const a of o.awards) { const v = ctx.clone(aw); setText(v, 'award', a); setText(v, 'status', o.winner); out.push({ label: a, slug: ctx.slug(a), doc: v, award: true }); }
+  return out;
+}
+
 // ── destinations ──
 const I = (p) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 const ICONS = {
@@ -97,6 +119,7 @@ const ICONS = {
   email: I('<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3.5 6 8.5 7 8.5-7"/>'),
   words: I('<path d="M5 6h14M5 10h14M5 14h9M5 18h6"/>'),
   row: I('<circle cx="6" cy="12" r="3"/><circle cx="12" cy="12" r="3"/><circle cx="18" cy="12" r="3"/>'),
+  pack: I('<rect x="3" y="3" width="7.5" height="7.5" rx="1.5"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="1.5"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="1.5"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.5"/>'),
 };
 const DESTS = [
   { id: 'kit', t: 'Laurel kit', s: 'Everything, in one ZIP', kit: true },
@@ -113,6 +136,8 @@ const DESTS = [
   { g: 'Words' },
   { id: 'words', t: 'Accolades text', s: 'For press, IMDb, FilmFreeway' },
   { id: 'row', t: 'Your row', s: 'Every laurel side by side', needsRow: true },
+  { g: 'For festivals' },
+  { id: 'pack', t: 'Festival pack', s: 'Every laurel your festival gives' },
 ];
 const SOCIAL = { '1:1': [1080, 1080, 'Square'], '4:5': [1080, 1350, 'Portrait'], '9:16': [1080, 1920, 'Story'], '16:9': [1920, 1080, 'Landscape'] };
 const PRINT_SIZES = [['Postcard', 1.5], ['Press kit page', 2], ['Festival program', 1.25], ['One-sheet poster', 5], ['Blu-ray cover', 1.1]];
@@ -120,11 +145,12 @@ const PRINT_SIZES = [['Postcard', 1.5], ['Press kit page', 2], ['Festival progra
 const DEFAULTS = { dest: 'kit', way: 'color', pngW: 3000, svgText: 'outlined', pdfMm: 100, unit: 'in', printW: 2, words: 'list',
   social: { fmt: '4:5', title: '', line: '', bg: 'laurel', color: '#0b0b0d', size: 1, what: 'laurel', dim: 0.45 },
   video: { res: 1080, size: 0.32, pos: 'center', bg: 'none', what: 'laurel' }, web: { w: 240 }, email: { h: 80, bg: 'auto' },
-  kit: { ways: ['color', 'black', 'white'], fmts: ['svg', 'png', 'pdf'] } };
+  kit: { ways: ['color', 'black', 'white'], fmts: ['svg', 'png', 'pdf'] },
+  pack: { statuses: ['Official Selection', 'Finalist', 'Semi-Finalist', 'Honorable Mention'], awards: 'Best Feature Film\nBest Short Film\nAudience Award', winner: 'Winner', ways: ['color', 'black', 'white'], fmts: ['svg', 'png'] } };
 function loadPrefs() {
   let p = {}; try { p = JSON.parse(localStorage.getItem('daphne.studio') || '{}'); } catch (e) { /* a convenience */ }
   const o = { ...DEFAULTS, ...p };
-  for (const k of ['social', 'video', 'web', 'email', 'kit']) o[k] = { ...DEFAULTS[k], ...(p[k] || {}) };
+  for (const k of ['social', 'video', 'web', 'email', 'kit', 'pack']) o[k] = { ...DEFAULTS[k], ...(p[k] || {}) };
   o.social.title = o.social.title || ''; return o;
 }
 let photo = null; // a still or poster for the social card: this session only, never stored
@@ -270,6 +296,10 @@ export function openStudio(ctx) {
     } else if (D === 'words') {
       const a = accolades(ctx);
       pv.append(h('div', { class: 'wordsheet' }, a.list.length ? [h('h4', {}, 'Laurels'), h('ul', {}, a.lines.map((l) => h('li', {}, l))), a.sentence ? [h('h4', {}, 'In a sentence'), h('p', {}, a.sentence)] : null] : h('p', {}, 'Fill in the festival on the Words tab, or add laurels to the row, and the text writes itself.')));
+    } else if (D === 'pack') {
+      const vs = packList();
+      pv.append(h('div', { class: 'packgrid' }, vs.slice(0, 24).map((v) => { const r = ctx.render(colorway(v.doc, 'color', ctx.clone)); return h('figure', {}, h('div', { class: 'pt', html: (d0().canvas.bg ? r.svg : stripBg(r.svg)).replace(/width="[^"]+" height="[^"]+"/, '') }), h('figcaption', {}, v.label)); })),
+        cap(vs.length ? `${vs.length} laurels × ${P.pack.ways.length || 1} colorways × ${P.pack.fmts.length || 1} formats = ${vs.length * (P.pack.ways.length || 1) * (P.pack.fmts.length || 1)} files, plus guidelines to send your filmmakers.` : 'Pick the statuses and awards your festival gives.'));
     } else if (D === 'row') {
       const sc = ctx.rowScene({ bg: true }); if (sc) pv.append(frameOf(sc.svg, ''), cap(`${d0().row.items.length} laurels, drawn at one scale so the type matches.`));
     } else {
@@ -302,6 +332,7 @@ export function openStudio(ctx) {
       email: 'A small, sharp image for your signature, made at twice the size so it’s crisp on high-resolution screens.',
       words: 'Your laurels written out, for press releases, IMDb trivia, FilmFreeway and your site.',
       row: 'All the laurels in your row, at one scale.',
+      pack: 'Run a festival? Make every laurel you send your films in one go: one per status and award, in every colorway, with guidelines to send along.',
     })[D.id]));
     const rb = rulesBlock(); if (rb && !['words'].includes(D.id)) put(rb);
     const r = rendered(P.way), vb = r.viewBox, sm = smallest(r);
@@ -388,6 +419,17 @@ export function openStudio(ctx) {
         go(h('button', { class: 'btn gold', onclick: () => copy(forms[cur][1], 'Copied') }, 'Copy')),
         h('div', { class: 'hint' }, a.list.length > 1 ? 'Ordered by what carries furthest: wins, then premieres, then selections.' : 'Add laurels to the row (Row, in the top bar) and they all appear here, in order.'),
         altBlock());
+    } else if (D.id === 'pack') {
+      const K = P.pack, n = packList().length;
+      const tick = (list, key, all) => h('div', { class: 'checks' }, all.map(([v, l, note]) => h('label', {}, h('input', { type: 'checkbox', checked: list.includes(v), onchange: (e) => { K[key] = all.map((x) => x[0]).filter((x) => (x === v ? e.target.checked : K[key].includes(x))); save(); show(); } }), l, note ? h('small', {}, note) : null)));
+      put(h('div', { class: 'hint' }, 'The festival’s name, year and look come from your laurel: set them on the Words and Looks tabs first.'),
+        label('Statuses'), tick(K.statuses, 'statuses', STATUS_COMMON.filter((x) => x !== 'Winner').map((x) => [x, x])),
+        label('Awards', h('small', {}, 'one per line')), h('textarea', { rows: 5, 'aria-label': 'Awards, one per line', placeholder: 'Best Feature Film\nBest Short Film\nAudience Award', style: 'font-family:var(--sans);font-size:12.5px', oninput: (e) => set('pack.awards', e.target.value, { opts: false }) }, K.awards),
+        h('div', { class: 'inrow' }, h('span', { class: 'hint', style: 'flex:none' }, 'Over each award:'), h('input', { type: 'text', value: K.winner, list: 'pk-winner', 'aria-label': 'Line over each award', oninput: (e) => set('pack.winner', e.target.value, { opts: false }) }), h('datalist', { id: 'pk-winner' }, ['Winner', 'Award Winner', 'Jury Award', ''].map((x) => h('option', { value: x })))),
+        label('Colorways'), tick(K.ways, 'ways', WAYS.map((W) => [W.id, W.label])),
+        label('Formats'), tick(K.fmts, 'fmts', [['svg', 'SVG', 'vector'], ['png', 'PNG', `${P.pngW} px wide`], ['pdf', 'PDF', `${P.pdfMm} mm wide`]]),
+        go(run(`Download the festival pack${n ? ` (${n} laurels)` : ''}`, makePack)),
+        h('div', { class: 'hint' }, 'Comes with a guidelines file to edit and send with the laurels: what each one may be used for, sizes, and who to ask.'));
     } else if (D.id === 'row') {
       const X = ctx.modes.row && ctx.modes.row.exports;
       put(go(run('ZIP of separate files', async () => X.zip()), run('One PNG of the row', async () => X.png(), 'btn'), run('One SVG of the row', async () => X.svg(), 'btn'), run('One PDF of the row', async () => X.pdf(), 'btn')),
@@ -413,6 +455,48 @@ export function openStudio(ctx) {
     files.push({ name: `${b}/README.txt`, data: readme(ways, fmts, ctx.shareLink ? await ctx.shareLink() : location.href) });
     ctx.download(await ctx.zip(files), `${b}-laurel-kit.zip`);
     ctx.toast('Laurel kit downloaded');
+  }
+  function packList() {
+    const K = P.pack, awards = String(K.awards || '').split('\n').map((x) => x.trim()).filter(Boolean);
+    return packVariants(ctx, d0(), { statuses: K.statuses, awards, winner: (K.winner || '').trim() });
+  }
+  async function makePack(say) {
+    const vs = packList(); if (!vs.length) { ctx.toast('Pick at least one status or award'); return; }
+    const ways = P.pack.ways.length ? P.pack.ways : ['color'], fmts = P.pack.fmts.length ? P.pack.fmts : ['svg', 'png'];
+    const t = (k) => d0().fields.filter((f) => f.kind === k && f.show !== false && f.text).map((f) => f.text.trim()).join(' ');
+    const fest = t('festival') || 'festival', year = (t('year').match(/\d{4}/) || [''])[0], stem = ctx.slug([year, fest].filter(Boolean).join(' ')) || 'festival', rootDir = stem + '-laurels/';
+    const files = [], total = vs.length * ways.length * fmts.length; let n = 0;
+    for (const v of vs) for (const w of ways) {
+      const dv = colorway(v.doc, w, ctx.clone), r = ctx.render(dv), name = `${rootDir}${v.slug}/${stem}-${v.slug}-${w}`;
+      if (fmts.includes('svg')) { say(`Making ${++n} of ${total}…`); files.push({ name: name + '.svg', data: await ctx.exportSvgText(stripBg(r.svg), { ...dv, out: { ...(dv.out || {}), svgText: 'outlined' } }) }); }
+      if (fmts.includes('png')) { say(`Making ${++n} of ${total}…`); files.push({ name: name + '.png', data: await ctx.toPng(r.svg, r.viewBox, P.pngW, false, dv) }); }
+      if (fmts.includes('pdf')) { say(`Making ${++n} of ${total}…`); files.push({ name: name + '.pdf', data: await ctx.toPdf(stripBg(r.svg), dv, v.label, P.pdfMm) }); }
+    }
+    say('Packing…');
+    const r0 = rendered('color'), sm = smallest(r0), vb = r0.viewBox, minPx = isFinite(sm) ? Math.ceil(6 * vb[3] / sm) : 120, minIn = isFinite(sm) ? 6 * vb[2] / (72 * sm) : 1;
+    const fonts = [...new Set(Object.values(d0().roles).map((x) => x && x.font).filter(Boolean))];
+    const title = [fest, year].filter(Boolean).join(' ');
+    files.push({ name: rootDir + 'README.txt', data: [
+      `${title}: laurels for selected films`, '', 'Made with Daphne, the free festival laurel maker by pitch.dog: https://pitch.dog/daphne', `Open this set again to edit it: ${ctx.shareLink ? await ctx.shareLink() : location.href}`, '',
+      'ONE FOLDER PER LAUREL', ...vs.map((v) => `  ${v.slug}/  ${ctx.altText(v.doc)}`), '',
+      'IN EACH FOLDER', ...ways.map((w) => `  -${w}  ${{ color: 'as designed', black: 'one color, black, clear background', white: 'one color, white, clear background' }[w]}`),
+      ...fmts.map((f) => `  .${f}  ${{ svg: 'vector, text drawn as shapes (opens anywhere without the fonts)', png: `${P.pngW} px wide, clear background`, pdf: `vector, ${P.pdfMm} mm wide, for print` }[f]}`), '',
+      'FONTS', `  ${fonts.join(', ')}. From Google Fonts, under the SIL Open Font License: free to use, commercially too.`, '',
+      'Send each film only the laurel for what it received, with GUIDELINES.txt.', '',
+    ].join('\n') });
+    files.push({ name: rootDir + 'GUIDELINES.txt', data: [
+      `LAUREL GUIDELINES: ${title.toUpperCase()}`, '(A template from Daphne. Edit it, add your contact, and send it with the laurels.)', '',
+      `Congratulations, and thank you for being part of ${title}. Please use our laurels like this:`, '',
+      '1. Use the laurel for what your film received: Official Selection for a selection, the award laurel only for the award it won. A nomination or a finalist place is not a win.',
+      '2. Use the files as they are. Please don’t redraw, re-letter or recolor them. The black and white versions are there for backgrounds where the color one doesn’t read.',
+      `3. Keep it readable: at least ${minPx} px tall on screen, and at least ${r2(minIn)} in (${Math.round(minIn * 25.4)} mm) wide in print.`,
+      '4. Give it room: keep clear space around it of at least a tenth of its width, and don’t crop or overlap it.',
+      '5. Alongside other festivals’ laurels, ours can sit at the same size as the rest.',
+      '6. Name us as we are written on the laurel, in captions and press releases too.', '',
+      'Questions, or need another format? Write to: [your email]', '',
+    ].join('\n') });
+    ctx.download(await ctx.zip(files), `${stem}-laurels.zip`);
+    ctx.toast('Festival pack downloaded');
   }
   function readme(ways, fmts, link) {
     const d = d0(), r = rendered('color'), vb = r.viewBox, sm = smallest(r), alt = ctx.altText(d);

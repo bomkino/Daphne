@@ -48,6 +48,10 @@ Real festival logos and laurels are trademarked artwork, so Daphne ships none. I
 6. **Craft and robustness.** Review every preset large and fix what's weak. Second font mirror. One-colour exports that are truly one colour.
 7. **Phone, QA and docs.** The editor on a phone, the stress suite green, README and plan updated, PR.
 
+## Progress (October 31, 2026)
+
+Milestones 1 to 5 are built and tested in the browser: the shell and Words tab, the festival database (268 festivals), the export studio with the laurel kit, the fixer and the festival pack. From milestone 6, the second font mirror and true one-color exports are done (colorways turn metals, gradients, depth and effects into one ink). Milestone 7: the export studio and editor work on a phone; the stress suite passes 1,701 of 1,702 cases, and the one flag (a words-only badge case drawn slightly outside its canvas) was there before the overhaul. Copy follows the identity work: the tagline "Make festival laurels for your film. It's free." and US spelling in the interface. The interface accent moves from gold to the new identity palette once those assets are final, since gold belongs to the laurels people make.
+
 ## What stays the same
 
 The engine's document, the share links (old links keep working), the stress suite, the views (poster, row, motion), the honesty guardrails, MIT for the code. No accounts, no server, no tracking, no watermark.

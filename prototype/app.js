@@ -342,6 +342,8 @@ const head = (title, sub, ...actions) => h('div', { class: 'tabhead' }, h('h2', 
 const ui = {
   get doc() { return doc; }, state, h, clone, change, replaceDoc, schedule, toast, layoutById, applyLayout, LAYOUTS, fieldRow, addField, selectField,
   newId: () => 'f' + ++uid, rebuild: () => buildPanel(),
+  openFixer: (cb, o) => ctx.openFixer && ctx.openFixer(cb, o),
+  addLogo: (a) => { const fs = clone(doc.fields); fs.push({ id: 'f' + ++uid, kind: 'logo', text: '', role: 'hero', slot: 'inside', show: true, ...a }); change('fields', fs, true); },
 };
 // the first visit: what this is, in two lines, until it's closed or something is made
 let seen = false; try { seen = !!localStorage.getItem('daphne.seen'); } catch (e) { /* a convenience */ }
@@ -766,6 +768,6 @@ function drawMark() {
   schedule();
   if (restored) toast('Welcome back: here’s the laurel you were working on');
   setTimeout(() => preloadOutlines(doc.roles).catch(() => null), 2500); // warm the shaper for the first SVG or PDF
-  import('./fixer.js').then((mod) => { ctx.openFixer = (onDone) => mod.openFixer(ctx, onDone); }).catch(() => null);
+  import('./fixer.js').then((mod) => { ctx.openFixer = (onDone, o) => mod.openFixer(ctx, onDone, o); }).catch(() => null);
   window.__laurel = { get doc() { return doc; }, render: (d) => render(d || doc, { measure }), PRESETS, applyPreset, measure, setMode, get mode() { return mode; }, ctx, MODES, setTab, altText, openExport };
 })();

@@ -15,7 +15,7 @@
 <style>
   :root {
     --bg: #0b0b0d; --bg2: #0f0f12; --panel: #121215; --panel2: #18181c; --raise: #1e1e23; --hover: #24242a;
-    --line: #232328; --line2: #303037; --text: #eeeae2; --mute: #9b978e; --faint: #66635d;
+    --line: #232328; --line2: #303037; --text: #eeeae2; --mute: #9b978e; --faint: #87837b;
     --gold: #e7c47e; --gold-hi: #f6e2ae; --gold-lo: #b88c42; --gold-ink: #1d1508; --gold-soft: #e7c47e1f;
     --warn: #f1aa6b; --ok: #8bd1a7; --info: #a3b8ff;
     --r: 12px; --r-s: 8px;
@@ -379,6 +379,13 @@
   .studio .preview .frame.card { background: #000; border-radius: 10px; }
   .studio .preview .frame.footage { background: repeating-conic-gradient(#ffffff0a 0 25%, transparent 0 50%) 0 0/24px 24px, linear-gradient(135deg, #2b3440, #151a21 55%, #322a22); }
   .studio .preview .frame.bare { background: none; box-shadow: none; border-radius: 0; }
+  .packgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 12px; width: 100%; max-width: 680px; max-height: 62vh; overflow: auto; padding: 4px; }
+  .packgrid figure { margin: 0; display: grid; gap: 6px; justify-items: center; }
+  .packgrid .pt { width: 100%; aspect-ratio: 1; border-radius: 8px; background: repeating-conic-gradient(#202026 0 25%, #18181d 0 50%) 0 0/12px 12px; display: grid; place-items: center; overflow: hidden; box-shadow: 0 10px 30px #0008, 0 0 0 1px #ffffff10; }
+  .packgrid .pt svg { width: 100%; height: 100%; }
+  .packgrid figcaption { font-size: 11px; color: var(--mute); text-align: center; line-height: 1.3; }
+  .studio .olabel small { text-transform: none; letter-spacing: 0; font-weight: 500; }
+  .fcard .official { display: grid; gap: 8px; justify-items: start; border-top: 1px solid var(--line); padding-top: 10px; }
   .kitgrid { display: flex; gap: 14px; justify-content: center; align-items: end; flex-wrap: wrap; }
   .kitgrid figure { margin: 0; display: grid; gap: 8px; justify-items: center; }
   .kitgrid figcaption { font-size: 11.5px; color: var(--mute); font-weight: 600; }
@@ -451,10 +458,12 @@
     .small-sizes { position: static; margin: 0 16px 12px; }
     .scrim { padding: 0; }
     .modal { height: 100%; border-radius: 0; }
-    .studio { grid-template-columns: 1fr; grid-template-rows: auto auto auto; overflow-y: auto; }
+    .studio { display: block; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+    .studio > * { overflow: visible !important; }
+    .studio .dests { display: grid; overflow-x: auto !important; }
     .studio .dests { border-right: 0; border-bottom: 1px solid var(--line); grid-auto-flow: column; grid-auto-columns: 220px; overflow-x: auto; overflow-y: hidden; }
     .studio .dgroup { display: none; }
-    .studio .preview { min-height: 320px; }
+    .studio .preview { min-height: 320px; height: 52vh; }
     .studio .opts { border-left: 0; }
     .studio.fixer { grid-template-columns: 1fr; }
     .studio.fixer .opts { border-left: 0; border-top: 1px solid var(--line); }
@@ -478,7 +487,7 @@
   <div class="top-actions">
     <button class="icon-btn" id="undo" title="Undo (⌘Z)" aria-label="Undo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg></button>
     <button class="icon-btn" id="redo" title="Redo (⇧⌘Z)" aria-label="Redo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m15 14 5-5-5-5"/><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13"/></svg></button>
-    <button class="btn ghost" id="copy-link" title="A link that holds the whole laurel. Nothing is stored on a server."><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></svg><span class="lbl">Share link</span></button>
+    <button class="btn ghost" id="copy-link" aria-label="Copy a share link" title="A link that holds the whole laurel. Nothing is stored on a server."><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></svg><span class="lbl">Share link</span></button>
     <button class="btn gold" id="open-export" title="Every file you need: PNG, SVG, PDF, social, trailer, web, the whole kit (⌘E)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>Export</button>
   </div>
 </header>

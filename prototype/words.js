@@ -129,7 +129,8 @@ export function wordsTab(ui) {
       notes.length ? h('div', { class: 'rules' }, notes.map((n) => h('div', { class: 'rule' + (n.level === 'rule' ? '' : ' tip') }, n.text, n.source ? [' ', h('a', { href: n.source.url, target: '_blank', rel: 'noopener', class: 'site' }, 'Source')] : null))) : null,
       h('div', { class: 'acts' }, acts),
       secs,
-      h('div', { class: 'hint' }, 'Festivals send official laurels to selected films. Where a festival asks you to use its own, use theirs: add it under Every line as an official logo. Daphne draws text-only laurels and no festival marks.'));
+      h('div', { class: 'official' }, h('div', { class: 'hint' }, 'Festivals send official laurels to selected films, and where a festival asks you to use its own, use theirs. Daphne draws text-only laurels and no festival marks.'),
+        h('button', { class: 'btn small', title: 'Take a white or black background out of the festival’s file, trim it, and add it to your laurel or your row', onclick: () => ui.openFixer((a) => ui.addLogo(a), { row: true, festival: f.name }) }, 'Got their file? Clean it up…')));
   } else if (fest.trim().length > 2) {
     card = h('div', { class: 'hint' }, 'Not in Daphne\'s festival list, and that\'s fine: most festivals aren\'t. Check the spelling against the festival\'s own site and the wording it sent you.');
   }

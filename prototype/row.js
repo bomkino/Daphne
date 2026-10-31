@@ -119,6 +119,8 @@ export function rowMode(ctx) {
     return { parts, vb, svg, unitH };
   }
   ctx.rowScene = scene;
+  // official artwork from elsewhere (the laurel fixer): joins the row at the same height as the rest
+  ctx.addRowArt = (a) => { const r = R(); r.items.push({ id: 'r' + ++uid + Date.now().toString(36), ...a }); ctx.change('row', r); };
 
   // ── the panel ──
   const fileInput = h('input', { type: 'file', accept: 'image/svg+xml,image/png,image/webp,image/jpeg', style: 'display:none', onchange: async (e) => { const f = e.target.files[0]; if (!f) return; const a = await readArt(f); if (a) { const r = R(); r.items.push({ id: 'r' + ++uid + Date.now().toString(36), ...a, festival: '', status: '', award: '', year: '' }); setRow(r, true); } e.target.value = ''; } });

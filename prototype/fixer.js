@@ -63,7 +63,7 @@ function process(src, w, h, o) {
   return c;
 }
 
-export function openFixer(ctx, onDone) {
+export function openFixer(ctx, onDone, opt = {}) {
   const { h } = ctx;
   let img = null, src = null, W = 0, H = 0, bg = null, name = 'official-laurel', result = null, timer = 0;
   const o = { mode: 'keep', tol: 40, ink: null, pad: 0.04, view: 'dark' };
@@ -128,6 +128,7 @@ export function openFixer(ctx, onDone) {
       lbl('Check it on'), seg([['dark', 'Dark'], ['light', 'Light']], o.view, (v) => { o.view = v; draw(); }),
       h('div', { class: 'go' },
         onDone ? h('button', { class: 'btn gold', disabled: !result, onclick: () => { const a = ctx.addAsset(result.toDataURL('image/png'), result.width / result.height, name + ' (cleaned)'); onDone(a); close(); ctx.toast('Added to the laurel'); } }, 'Use it in the laurel') : null,
+        opt.row && ctx.addRowArt ? h('button', { class: 'btn', disabled: !result, title: 'Placed in your row of laurels at the same height as the others', onclick: () => { const a = ctx.addAsset(result.toDataURL('image/png'), result.width / result.height, name + ' (cleaned)'); ctx.addRowArt({ ...a, festival: opt.festival || '' }); close(); ctx.toast('Added to your row: open Row in the top bar to see it'); } }, 'Add it to my row') : null,
         h('button', { class: onDone ? 'btn' : 'btn gold', disabled: !result, onclick: () => result.toBlob((b) => ctx.download(b, ctx.slug(name) + '-clean.png'), 'image/png') }, 'Download PNG'),
         h('button', { class: 'btn ghost', onclick: () => file.click() }, 'Choose another file')),
       o.ink ? h('div', { class: 'note rule' }, 'Recoloring official artwork may need the festival’s OK. If they sent a one-color version, use theirs.') : null);

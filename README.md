@@ -1,6 +1,8 @@
-# Daphne
+# Daphne · Free festival laurel maker for filmmakers
 
-**Daphne: free festival laurels for filmmakers.** A free, open-source laurel maker from pitch.dog. It runs in the browser, with no account, no watermark and no server. It will live at pitch.dog/daphne.
+**Make festival laurels for your film. It's free.**
+
+Daphne makes festival laurels, the wreaths on a film's poster that say it was selected for, or won at, a festival. Type the festival, your selection and the year, pick a look, and download it for your poster, trailer and socials as a PNG, SVG, PDF or video. It's free and works in your browser, with no account and no watermark. Nothing you make leaves your device unless you share it. Made by pitch.dog, and open source. It will live at pitch.dog/daphne.
 
 This repository holds the working prototype, the product plan and the research behind it.
 
@@ -14,36 +16,39 @@ Then open http://127.0.0.1:5178/. `serve.py` is a small static server for `proto
 
 ## What it does
 
-- **Laurel:**
-  - a procedural engine for wreaths, leaves, ties and badges, with a layout engine that fits the words;
-  - 78 looks and 18 layouts, with logo upload;
-  - foil, letterpress, grain, misprint, shadow and glow;
-  - share links and undo.
-- **On poster:** place the laurel on your poster. You get a contrast score and auto ink, colours taken from the poster, a view at 160 px and a mockup PNG.
-- **Row:** a table of laurels.
-  - Paste rows from a spreadsheet.
-  - Order them by prestige.
-  - Lay them out as one row, tiered or a grid, with the same type size throughout.
-  - Export a ZIP of separate files at one shared scale.
+- **Words first.** Pick what the festival gave you (Official Selection, Winner, premieres, mentions, and the common statuses in French, Spanish, Italian, German and Portuguese), then the festival, the award and the year (2026, MMXXVI or '26). Every line stays editable underneath.
+- **A festival list, text only.** 268 real festivals with their official names, cities, months, focus, sections, official sites and recent renames or moves. Picking one spells the name right and offers its city, short name, own-language name and sections. Where a festival publishes laurel rules, Daphne shows them with a link to the source.
+- **Looks:** a procedural engine for wreaths, leaves, ties and badges, with a layout engine that fits the words. 78 looks and 18 layouts preview live on the stage as you hover. Foil, letterpress, grain, misprint, shadow and glow.
+- **Export, by where it's going:**
+  - **Laurel kit:** one ZIP with SVG, PNG and PDF in the original colors, black and white, plus a README with the alt text, fonts and readable sizes;
+  - **Poster and print:** an exact size in inches or millimeters, a vector PDF and a 300 dpi PNG, with a warning when the smallest words would print under 6 pt;
+  - **Social post:** square, portrait, story and landscape cards with the film's title, a detail line and an optional photo, plus a starter caption;
+  - **Trailer and video:** a transparent HD or 4K end-card frame, with the laurel centered, in the lower third or in a corner;
+  - **Website and email signature:** files and HTML snippets with alt text, previewed in light and dark inboxes;
+  - **Accolades text:** your laurels as a list, a sentence or HTML, ordered by prestige;
+  - **Festival pack:** for festivals, one laurel for every status and award they give, in every colorway, with guidelines to send to filmmakers.
+- **Official-laurel fixer:** drop in a festival's own file and Daphne takes out a white or black background with clean edges, can set it in one ink, trims it and evens its margins, then adds it to the laurel or the row.
+- **On poster:** place the laurel on your poster, with a contrast score, auto ink, colors taken from the poster, a view at 160 px and a mockup PNG.
+- **Row:** a table of laurels. Paste rows from a spreadsheet, order them by prestige, lay them out as one row, tiered or a grid with one type size, and export separate files at one shared scale.
 - **Motion:** a trailer end card, exported as MP4, a transparent PNG sequence or an animated SVG.
-- **Export:**
-  - SVG with the text outlined (HarfBuzz, with Noto for missing characters), or with live text;
-  - vector PDF;
-  - PNG at any width.
-- **Festival rules:** gentle notes taken from festivals' published rules, each with a link to its source (`prototype/rules.js`).
+- **Small sizes:** see the laurel at 160, 100 and 64 px on dark and light, the sizes it will really be seen at.
+- **Autosave and share links:** the laurel is kept in the browser and the whole design fits in a link.
 
 ## Files
 
 | Path | What it is |
 |---|---|
 | `00 — Product plan.md` | The full plan: principles, the laurel document, the layout engine, export, motion, rules, roadmap |
+| `02 — Overhaul plan.md` | The blindspot check and milestones for the October 2026 overhaul |
 | `research/` | Laurel anatomy, festival rules, rival tools, fonts and export needs |
 | `prototype/engine.mjs` | The engine: pure functions with no dependencies, which run in Node and the browser |
-| `prototype/index.html`, `app.js` | The app |
+| `prototype/index.html`, `app.js` | The app shell |
+| `prototype/words.js`, `festivals.js` | The Words tab and the festival list |
+| `prototype/studio.js`, `fixer.js` | The Export studio (kit, print, social, video, web, email, accolades, festival pack) and the official-laurel fixer |
 | `prototype/poster.js`, `row.js`, `motion.js` | The On poster, Row and Motion views |
 | `prototype/outline.js`, `zip.js` | Outlined SVG, PDF and ZIP |
 | `prototype/presets.js`, `layouts.js`, `rules.js`, `fonts.js` | Looks, layouts, the festival rules registry and the font list |
-| `prototype/vendor/` | harfbuzzjs, jsPDF, svg2pdf.js and mp4-muxer, copied unchanged with their MIT licences |
+| `prototype/vendor/` | harfbuzzjs, jsPDF, svg2pdf.js and mp4-muxer, copied unchanged with their MIT licenses |
 | `prototype/stress.html`, `qa*.html`, `perf.html`, `lab.html` | The stress suite, visual QA pages, timing and leaf-craft specimens |
 | `prototype/tools/` | Headless Chrome runners for the stress suite and screenshots, and a feature sheet |
 | `spike/` | The engine's first draft, kept for reference |
@@ -57,12 +62,15 @@ cd prototype
 node tools/cdp-run.mjs "http://127.0.0.1:5178/stress.html?px=160" "JSON.stringify({ total: __stress.total, bad: __stress.bad })" "!!window.__stress"
 ```
 
+`cdp-run.mjs` looks for Chrome at its macOS path. Anywhere else, open the same page in any browser, or with Playwright, and read `window.__stress` once it appears.
+
 ## Notes
 
-- No festival logos ship with Daphne. Official artwork is something the user uploads, and it stays on their device.
+- No festival logos ship with Daphne, and no lookalikes. Official artwork is something the user adds, and it stays on their device.
 - Laurels made with Daphne are the filmmaker's own claims. Daphne isn't affiliated with or endorsed by any festival.
-- Outlining currently fetches font files from jsDelivr's mirror of the Google Fonts repository. The public version will host pinned copies itself.
+- Outlining fetches font files from jsDelivr's mirror of the Google Fonts repository, and from GitHub's raw host when jsDelivr is blocked. The public version will host pinned copies itself.
+- The festival list was compiled in October 2026 from the festivals' own sites and press. Names, cities and sections change, so the app always points to each festival's site. Corrections are one line each in `prototype/festivals.js`.
 
-## Licence
+## License
 
-The code is MIT; see `LICENSE`. The vendored libraries keep their own MIT licences. The plan proposes CC0 for the presets, the rules data and everything people make with the tool; that's still to be confirmed.
+The code is MIT; see `LICENSE`. The vendored libraries keep their own MIT licenses. The plan proposes CC0 for the presets, the festival and rules data, and everything people make with the tool; that's still to be confirmed.
