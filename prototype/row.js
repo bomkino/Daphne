@@ -1,5 +1,5 @@
 // row.js — the row builder: several laurels in the current look, the way a poster carries them. The same type size in
-// every laurel, a shared centre line, prestige order (wins, then premieres, then selections, biggest names first), a
+// every laurel, a shared center line, prestige order (wins, then premieres, then selections, biggest names first), a
 // tiered layout with a lead laurel, official artwork placed alongside, and the festival rules checked across the row.
 import { STATUSES, prestige, checkRow } from './rules.js';
 import { zip } from './zip.js';
@@ -15,7 +15,7 @@ export const ROW_DEFAULT = {
 };
 const AWARD_LAYOUTS = ['winner', 'award-detail', 'award-festival-hero', 'star-winner'];
 
-// pasted rows from a spreadsheet: tabs, commas, semicolons or pipes; each cell is recognised by what it looks like
+// pasted rows from a spreadsheet: tabs, commas, semicolons or pipes; each cell is recognized by what it looks like
 const YEAR = /^(19|20)\d\d$/, AWARDISH = /\b(best|award|prize|jury|audience|mention|grand|golden|silver|bronze|honou?rable)\b/i;
 const STATUSISH = /\b(official selection|selection|selected|winner|won|nominee|nominated|finalist|semi-?finalist|premiere|in competition|competition|opening night|closing night|special mention|honou?rable mention|official submission|submitted|laureate)\b/i;
 export function parsePaste(text) {
@@ -186,7 +186,7 @@ export function rowMode(ctx) {
   }
 
   // ── exports ──
-  const withBg = () => (document.getElementById('png-bg')?.value || '1') === '1';
+  const withBg = () => (ctx.prefs ? ctx.prefs().bg : true) !== false;
   async function zipAll() {
     const sc = scene(); if (!sc) return;
     ctx.toast('Packing the row…');
@@ -203,9 +203,10 @@ export function rowMode(ctx) {
     ctx.download(await zip(files), 'laurel-row.zip');
   }
   const exports = {
+    zip: zipAll,
     svg: async () => { const sc = scene({ bg: withBg() }); if (!sc) return; ctx.download(new Blob([await ctx.exportSvgText(sc.svg)], { type: 'image/svg+xml' }), 'laurel-row.svg'); },
     pdf: async () => { const sc = scene({ bg: withBg() }); if (!sc) return; ctx.download(await ctx.toPdf(sc.svg, ctx.doc, 'Laurel row'), 'laurel-row.pdf'); },
-    png: async () => { const sc = scene({ bg: withBg() }); if (!sc) return; ctx.toast('Rendering the row…'); const w = +(document.getElementById('png-w')?.value || 3000); ctx.download(await ctx.toPng(sc.svg, sc.vb, Math.max(w, 2000), withBg() && !!ctx.doc.canvas.bg), 'laurel-row.png'); },
+    png: async () => { const sc = scene({ bg: withBg() }); if (!sc) return; ctx.toast('Rendering the row…'); const w = +((ctx.prefs && ctx.prefs().pngW) || 3000); ctx.download(await ctx.toPng(sc.svg, sc.vb, Math.max(w, 2000), withBg() && !!ctx.doc.canvas.bg), 'laurel-row.png'); },
   };
 
   return {

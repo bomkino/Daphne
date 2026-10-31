@@ -27,7 +27,7 @@ export function motionMode(ctx) {
   let playing = true, t0 = 0, tNow = 0, raf = 0, live = null, scrub = null, busy = false, built = '';
   const M = () => ({ ...MOTION_DEFAULT, ...(ctx.doc.motion || {}) });
   const dims = () => M().frame.split('x').map(Number);
-  const bgColour = () => { const m = M(); return m.bg === 'transparent' ? null : m.bg === 'black' ? '#000000' : m.bg === 'white' ? '#ffffff' : solidOf(ctx.doc.canvas.bg) || '#000000'; };
+  const bgColor = () => { const m = M(); return m.bg === 'transparent' ? null : m.bg === 'black' ? '#000000' : m.bg === 'white' ? '#ffffff' : solidOf(ctx.doc.canvas.bg) || '#000000'; };
 
   // what's in the frame: one laurel, or the row as the row builder places it
   function subjects() {
@@ -42,7 +42,7 @@ export function motionMode(ctx) {
   function buildScene(S, svgs, W, H, bg) {
     const m = M(), [cx, cy, cw, ch] = S.vb;
     const k = Math.min((W * 0.86) / cw, (H * m.size) / ch), ox = (W - cw * k) / 2 - cx * k, oy = (H - ch * k) / 2 - cy * k;
-    const doc = document, root = doc.createElementNS(NS, 'svg'); // built in this page's document: the preview shows it, exports serialise it
+    const doc = document, root = doc.createElementNS(NS, 'svg'); // built in this page's document: the preview shows it, exports serialize it
     root.setAttribute('viewBox', `0 0 ${W} ${H}`); root.setAttribute('width', W); root.setAttribute('height', H);
     if (bg) { const r = doc.createElementNS(NS, 'rect'); r.setAttribute('width', W); r.setAttribute('height', H); r.setAttribute('fill', bg); root.append(r); }
     const parts = [];
@@ -133,7 +133,7 @@ export function motionMode(ctx) {
     const key = JSON.stringify([M(), S.vb, S.items.map((it) => (it.r ? it.r.svg.length + ':' + it.r.viewBox.join() : it.art.length)), ctx.doc.canvas.bg]);
     if (key === built && live && ctx.stage.contains(live.root)) return;
     built = key;
-    const sc = buildScene(S, S.items.map((it) => (it.r ? it.r.svg : '')), W, H, bgColour() || null);
+    const sc = buildScene(S, S.items.map((it) => (it.r ? it.r.svg : '')), W, H, bgColor() || null);
     ctx.stage.className = 'stage motion-stage'; ctx.stage.innerHTML = ''; ctx.stage.append(sc.root); ctx.fit(sc.root, [0, 0, W, H]);
     live = sc;
   }
@@ -159,7 +159,7 @@ export function motionMode(ctx) {
   }
   async function frames(onFrame, { transparent = false } = {}) {
     const m = M(), [W, H] = dims(), S = subjects(), svgs = await exportSvgs(S);
-    const sc = buildScene(S, svgs, W, H, transparent ? null : bgColour() || '#000000');
+    const sc = buildScene(S, svgs, W, H, transparent ? null : bgColor() || '#000000');
     const n = Math.round(m.dur * m.fps), c = document.createElement('canvas'); c.width = W; c.height = H;
     const x = c.getContext('2d'), ser = new XMLSerializer();
     for (let f = 0; f < n; f++) {
@@ -202,7 +202,7 @@ export function motionMode(ctx) {
   }
   // an animated SVG: the same timeline written as SMIL animations, plays once and holds; for websites and EPKs
   async function exportAnimatedSvg() {
-    const m = M(), [W, H] = dims(), S = subjects(), svgs = await exportSvgs(S), sc = buildScene(S, svgs, W, H, m.bg === 'transparent' ? null : bgColour());
+    const m = M(), [W, H] = dims(), S = subjects(), svgs = await exportSvgs(S), sc = buildScene(S, svgs, W, H, m.bg === 'transparent' ? null : bgColor());
     const D = m.dur, doc = sc.root.ownerDocument, kt = (v) => n2(clamp01(v / D));
     const anim = (el, attr, vals, times, splines) => { const a = doc.createElementNS(NS, 'animate'); a.setAttribute('attributeName', attr); a.setAttribute('values', vals.join(';')); a.setAttribute('keyTimes', times.join(';')); a.setAttribute('dur', D + 's'); a.setAttribute('fill', 'freeze'); if (splines) { a.setAttribute('calcMode', 'spline'); a.setAttribute('keySplines', splines.join(';')); } el.append(a); };
     const animT = (el, vals, times) => { const a = doc.createElementNS(NS, 'animateTransform'); a.setAttribute('attributeName', 'transform'); a.setAttribute('type', 'translate'); a.setAttribute('values', vals.join(';')); a.setAttribute('keyTimes', times.join(';')); a.setAttribute('dur', D + 's'); a.setAttribute('fill', 'freeze'); a.setAttribute('calcMode', 'spline'); a.setAttribute('keySplines', vals.slice(1).map(() => '0.2 0.7 0.3 1').join(';')); el.append(a); };

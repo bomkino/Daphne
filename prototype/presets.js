@@ -14,10 +14,10 @@ const type = (hero, small = hero, o = {}) => ({
 });
 const ink = (c, bg) => ({ paint: { branch: c, depth: 0 }, text: { paint: c, sub: c }, canvas: { bg } });
 
-export const GROUPS = ['Festival gold', 'Vintage & engraved', 'Botanical', 'Modern & minimal', 'Deco & geometric', 'Colour & pop', 'Badges', 'Forms'];
+export const GROUPS = ['Festival gold', 'Vintage & engraved', 'Botanical', 'Modern & minimal', 'Deco & geometric', 'Color & pop', 'Badges', 'Forms'];
 
 const P = (group, name, doc, extra = {}) => ({ group, name, doc, ...extra });
-const G1 = 'Festival gold', G2 = 'Vintage & engraved', G3 = 'Botanical', G4 = 'Modern & minimal', G5 = 'Deco & geometric', G6 = 'Colour & pop', G7 = 'Forms', G8 = 'Badges';
+const G1 = 'Festival gold', G2 = 'Vintage & engraved', G3 = 'Botanical', G4 = 'Modern & minimal', G5 = 'Deco & geometric', G6 = 'Color & pop', G7 = 'Forms', G8 = 'Badges';
 // the branchless form with a frame round the words (seals and medals carry the status and year in their band)
 const badge = (kind, o = {}) => ({ form: 'text', frame: { kind, ...o } });
 
@@ -52,7 +52,7 @@ export const PRESETS = [
   P(G2, 'Gazette', { form: 'wreath', branch: { leaf: { profile: 'almond', style: 'carved', n: 12, L0: 29, L1: 15, wr: 0.42, asym: 0.15 }, orn: { tie: 'band' } }, ...ink('#141414', '#f2efe6'), roles: type('Abril Fatface', 'Libre Baskerville', { hw: 400, sw: 700, hc: 'asis', st: 0.16 }) }),
   P(G2, 'Letterpress', { form: 'open', branch: { leaf: { profile: 'almond', n: 11, L0: 31, L1: 16, wr: 0.42, asym: 0.18 }, stem: { w: 1.7 }, orn: { tip: 'bud' } }, paint: { branch: '#8e1f2b', depth: 0, effects: { press: { depth: 0.9, strength: 0.55 }, grain: { amount: 0.18, size: 0.5 }, text: true } }, roles: type('Libre Baskerville', 'Libre Baskerville', { hw: 700, sw: 400, hc: 'upper', st: 0.22 }), text: { paint: '#1d1a17', sub: '#8e1f2b' }, canvas: { bg: '#f1eadb' } }),
 
-  // ── botanical: real plants, real colour ──
+  // ── botanical: real plants, real color ──
   P(G3, 'Botanical', { form: 'open', branch: { leaf: { family: 'twig', profile: 'almond', n: 6, L0: 44, L1: 30, wr: 0.42, aOut: 38, aIn: 34, style: 'inline', ring: 0.11 }, stem: { w: 1.1 } }, paint: { branch: '#2c2a26', depth: 0.05 }, roles: type('Cormorant Garamond', 'Cormorant Garamond', { hw: 600, sw: 600, hc: 'asis', hi: true }), text: { paint: '#2c2a26', sub: '#5a554b' }, canvas: { bg: '#f6f2ea' } }),
   P(G3, 'Olive Grove', { form: 'open', branch: { leaf: { profile: 'willow', n: 14, L0: 30, L1: 16, wr: 0.22, bend: 0.12, fold: 0.2 }, stem: { w: 1.4 }, orn: { berries: 2, berryShape: 'olive', berrySize: 1.2 } }, paint: { branch: lin([[0, '#4f6446'], [1, '#a3b58a']]), ornament: '#3a3f2a', shade: '#1d2614', depth: 0.15 }, roles: type('Fraunces', 'Fraunces', { hw: 600, sw: 600, hc: 'asis' }), text: { paint: '#3a4a2f', sub: '#6b7d55' }, canvas: { bg: '#f2efe4' } }),
   P(G3, 'Olive Gold', { form: 'open', branch: { leaf: { profile: 'willow', n: 14, L0: 30, L1: 16, wr: 0.22, bend: 0.12, fold: 0.26 }, stem: { w: 1.4 }, orn: { berries: 2, berryShape: 'olive', berrySize: 1.2 } }, paint: { branch: gold(), ornament: metal('antique', 'leaf', 20) }, roles: type('Cormorant Garamond', 'Cormorant SC', { hw: 600, sw: 600, hc: 'asis', st: 0.2 }), text: { paint: '#f4e3a8', sub: '#cfae62' }, canvas: { bg: '#0f1116' } }),
@@ -88,7 +88,7 @@ export const PRESETS = [
   P(G5, 'Chrome', { form: 'open', branch: { leaf: { profile: 'blade', arr: 'paired', n: 14, L0: 26, L1: 14, wr: 0.26, aOut: 30, aIn: 30, inScale: 1 }, stem: { w: 1.6 } }, paint: { branch: metal('chrome', 'whole', 0) }, roles: type('Big Shoulders Display', 'Inter Tight', { hw: 800, sw: 600, st: 0.3 }), text: { paint: '#ffffff', sub: '#c2cad4' }, canvas: { bg: '#07080a' } }),
   P(G5, 'Lyre', { form: 'open', branch: { spine: { curl: -40, a1: 238, rx: 0.72 }, leaf: { profile: 'lance', n: 15, L0: 26, L1: 12, wr: 0.28, fold: 0.26 }, orn: { tie: 'knot' } }, paint: { branch: gold(40) }, layout: { dy: 12 }, roles: type('Italiana', 'Italiana', { hw: 400, sw: 400, st: 0.3 }), text: { paint: '#f4e3a8', sub: '#d8b866' }, canvas: { bg: '#0f0d0a' } }),
 
-  // ── colour & pop ──
+  // ── color & pop ──
   P(G6, 'Neon Midnight', { form: 'open', branch: { leaf: { profile: 'lance', n: 15, L0: 30, L1: 13, wr: 0.28 }, spine: { curl: 12 } }, paint: { branch: lin([[0, '#ff2e88'], [1, '#ffb45e']]), effects: { glow: { color: '#ff4f9a', blur: 5, opacity: 0.6 }, text: true } }, roles: type('Syne', 'Syne', { hw: 700, sw: 600 }), text: { paint: '#fff1f6', sub: '#ffb3cf' }, canvas: { bg: '#0b0716' } }),
   P(G6, 'Holo', { form: 'open', branch: { leaf: { profile: 'lance', n: 15, L0: 28, L1: 13, wr: 0.3, fold: 0.22, style: 'slit' } }, paint: { branch: metal('iridescent'), shade: '#3b2a6b' }, roles: type('Syne', 'Syne', { hw: 700, sw: 600 }), text: { paint: '#ffffff', sub: '#c7a6ff' }, canvas: { bg: '#0a0a12' } }),
   P(G6, 'Sorbet', { form: 'open', branch: { leaf: { profile: 'almond', n: 11, L0: 30, L1: 16, wr: 0.42, fold: 0.18 } }, paint: { branch: lin([[0, '#ff6a88'], [0.55, '#ff9a8b'], [1, '#ffd56b']]), shade: '#7a1f3d', depth: 0.1 }, roles: type('Fraunces', 'Fraunces', { hw: 800, sw: 600, hc: 'asis' }), text: { paint: '#d6336c', sub: '#f0758f' }, canvas: { bg: '#fff6ef' } }),

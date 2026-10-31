@@ -1,6 +1,8 @@
-// app.js — Daphne prototype UI. Vanilla ES modules, no build step.
+// app.js — Daphne's editor. Vanilla ES modules, no build step.
+// The shell: a rail of tabs (Words first, because the words are the first thing anyone does), a panel, and the stage.
+// The engine (engine.mjs) turns one JSON document into the laurel; everything here edits that document.
 import { render, DEFAULT_DOC, FORMS, METALS, PROFILES, FAMILIES, FRAMES, FILLABLE_FRAMES, ASSETS, LOGO_SLOTS, merge, clone, applyForm, shuffleBranch, rngOf } from './engine.mjs';
-import { FONTS, fontInfo, loadFont, embedFontCss, cssUrl } from './fonts.js';
+import { FONTS, fontInfo, loadFont, embedFontCss, cssUrl, loadPreviewFonts } from './fonts.js';
 import { PRESETS, GROUPS } from './presets.js';
 import { LAYOUTS, LAYOUT_GROUPS, layoutFields, applyLayout } from './layouts.js';
 import { checkLaurel } from './rules.js';
@@ -8,6 +10,9 @@ import { outlineSvg, svgToPdf, preloadOutlines } from './outline.js';
 import { posterMode } from './poster.js';
 import { rowMode } from './row.js';
 import { motionMode } from './motion.js';
+import { wordsTab } from './words.js';
+import { openStudio } from './studio.js';
+import { zip } from './zip.js';
 
 // ── measurement: real glyph widths from the browser ──
 const mctx = document.createElement('canvas').getContext('2d');
@@ -15,51 +20,61 @@ const measure = (s, font, weight, italic, size) => { mctx.font = `${italic ? 'it
 
 // ── state ──
 const KIND_ROLE = { status: 'eyebrow', festival: 'hero', award: 'hero', category: 'sub', location: 'sub', year: 'sub', edition: 'eyebrow', custom: 'sub', icon: 'eyebrow', logo: 'hero' };
+const KIND_LABEL = { status: 'Status', festival: 'Festival', award: 'Award', category: 'Section', location: 'Place', year: 'Year', edition: 'Edition', custom: 'Own line', icon: 'Ornament', logo: 'Official logo' };
 const KINDS = Object.keys(KIND_ROLE);
-const SLOTS = [['inside', 'Inside'], ['above', 'Above'], ['below', 'Below'], ['arc-top', 'Arc top'], ['arc-bottom', 'Arc bottom'], ['arc-under', 'Arc under'], ['ribbon', 'Ribbon'], ['badge', 'Badge']];
-const ROLES = [['eyebrow', 'Eyebrow'], ['hero', 'Hero'], ['sub', 'Sub'], ['big', 'Big']];
+const SLOTS = [['inside', 'Inside'], ['above', 'Above'], ['below', 'Below'], ['arc-top', 'Curved, top'], ['arc-bottom', 'Curved, inside base'], ['arc-under', 'Curved, under'], ['ribbon', 'On a ribbon'], ['badge', 'In a medallion']];
+const ROLES = [['hero', 'Name size'], ['eyebrow', 'Status size'], ['sub', 'Detail size'], ['big', 'Big numeral']];
 let doc = clone(DEFAULT_DOC);
 let selected = null, uid = 10;
 const undoStack = [], future = [];
+const state = { tab: 'words', looksView: 'looks', group: 'All', backdrop: 'dark', smallSizes: false }; // UI state, not part of the laurel
+try { Object.assign(state, JSON.parse(localStorage.getItem('daphne.ui') || '{}')); } catch (e) { /* a convenience */ }
+const saveUi = () => { try { localStorage.setItem('daphne.ui', JSON.stringify({ tab: state.tab, looksView: state.looksView, group: state.group, backdrop: state.backdrop })); } catch (e) { /* a convenience */ } };
 
 // A preset changes the look. The words keep the layout the user chose, except for the few presets built around a
 // layout of their own (ribbon, medallion, big year); leaving one of those returns to the user's layout.
 const layoutById = (id) => LAYOUTS.find((L) => L.id === id);
 const APP_KEYS = ['row', 'poster', 'motion', 'out']; // the app's own state, kept in the document so links and undo carry it
-function applyPreset(p, keepText = true, newId = () => 'f' + ++uid) {
-  let fields = clone(doc.fields);
-  let d = merge(clone(DEFAULT_DOC), { roles: doc.roles });
+function applyPreset(p, keepText = true, newId = () => 'f' + ++uid, from = doc) {
+  let fields = clone(from.fields);
+  let d = merge(clone(DEFAULT_DOC), { roles: from.roles });
   if (p.doc.form) d = applyForm(d, p.doc.form);
   d = merge(d, p.doc);
-  d.seed = doc.seed;
-  for (const k of APP_KEYS) if (doc[k]) d[k] = clone(doc[k]);
-  // with auto ink on, the preset's own colours are what comes back when it's turned off
+  d.seed = from.seed;
+  for (const k of APP_KEYS) if (from[k]) d[k] = clone(from[k]);
+  // with auto ink on, the preset's own colors are what comes back when it's turned off
   if (d.poster && d.poster.autoInk) d.poster.saved = { paint: clone(d.paint), text: clone(d.text), roles: Object.fromEntries(Object.entries(d.roles).map(([k, r]) => [k, r && r.paint ? clone(r.paint) : null])) };
   for (const k of Object.keys(d.roles)) if (!(p.doc.roles && p.doc.roles[k] && 'paint' in p.doc.roles[k])) d.roles[k].paint = null;
   if (keepText) {
-    const lay = p.layout || (doc.layoutBy === 'preset' ? doc.userLayoutId || 'year-below' : null);
+    const lay = p.layout || (from.layoutBy === 'preset' ? from.userLayoutId || 'year-below' : null);
     if (lay) fields = layoutFields(fields, layoutById(lay), newId);
     d.fields = fields;
-    d.layoutId = lay || doc.layoutId; d.userLayoutId = doc.userLayoutId;
-    d.layoutBy = p.layout ? 'preset' : doc.layoutBy === 'preset' ? (doc.userLayoutId ? 'user' : null) : doc.layoutBy;
+    d.layoutId = lay || from.layoutId; d.userLayoutId = from.userLayoutId;
+    d.layoutBy = p.layout ? 'preset' : from.layoutBy === 'preset' ? (from.userLayoutId ? 'user' : null) : from.layoutBy;
   }
+  d.presetName = p.name;
   return d;
 }
 
 // ── tiny path helpers ──
 const get = (path, o = doc) => path.split('.').reduce((a, k) => (a == null ? a : a[k]), o);
 function set(path, v, o = doc) { const ks = path.split('.'); let a = o; for (const k of ks.slice(0, -1)) { if (a[k] == null || typeof a[k] !== 'object') a[k] = {}; a = a[k]; } a[ks[ks.length - 1]] = v; }
-function commit(rebuild = false) { undoStack.push(JSON.stringify(doc)); if (undoStack.length > 200) undoStack.shift(); future.length = 0; schedule(); if (rebuild) buildPanel(); saveHash(); }
 let lastSnap = JSON.stringify(doc);
-function change(path, v, rebuild = false) { if (JSON.stringify(get(path)) === JSON.stringify(v)) return; undoStack.push(lastSnap); future.length = 0; set(path, v); if (doc.poster && doc.poster.autoInk && /^(paint\.(branch|inner|ornament)|text\.|roles\.\w+\.paint)/.test(path)) { doc.poster.autoInk = false; delete doc.poster.saved; toast('Auto ink is off: you chose a colour'); rebuild = true; } lastSnap = JSON.stringify(doc); schedule(); if (rebuild) buildPanel(); saveHash(); thumbsDirty = true; if (path === 'fields' || /^(row|poster)/.test(path)) saveAssets(); }
-function replaceDoc(d, rebuild = true) { undoStack.push(lastSnap); future.length = 0; doc = d; lastSnap = JSON.stringify(doc); schedule(); if (rebuild) buildPanel(); saveHash(); thumbsDirty = true; saveAssets(); }
+function change(path, v, rebuild = false) {
+  if (JSON.stringify(get(path)) === JSON.stringify(v)) { if (rebuild) buildPanel(); return; }
+  undoStack.push(lastSnap); if (undoStack.length > 200) undoStack.shift(); future.length = 0; set(path, v);
+  if (doc.poster && doc.poster.autoInk && /^(paint\.(branch|inner|ornament)|text\.|roles\.\w+\.paint)/.test(path)) { doc.poster.autoInk = false; delete doc.poster.saved; toast('Auto ink is off: you chose a color'); rebuild = true; }
+  if (/^(branch|paint|roles|text|canvas|frame|ribbon|form)/.test(path)) delete doc.presetName; // hand-tuned: no longer exactly the preset
+  lastSnap = JSON.stringify(doc); schedule(); if (rebuild) buildPanel(); saveHash(); thumbsDirty = true; if (path === 'fields' || /^(row|poster)/.test(path)) saveAssets();
+}
+function replaceDoc(d, rebuild = true) { undoStack.push(lastSnap); future.length = 0; doc = d; lastSnap = JSON.stringify(doc); schedule(); if (rebuild) buildPanel(); saveHash(); thumbsDirty = true; saveAssets(); refreshMode(); }
 
 // ── logos: official artwork the user uploads. The image lives in ASSETS (and this browser's storage); the field keeps
 // only its key and aspect ratio, so undo and share links stay small. A shared link's logo has to be uploaded again.
 try { Object.assign(ASSETS, JSON.parse(localStorage.getItem('daphne.assets') || '{}')); } catch (e) { /* storage is a convenience */ }
 const saveAssets = () => { const used = new Set([...doc.fields.filter((f) => f.kind === 'logo').map((f) => f.src), doc.poster && doc.poster.src, ...((doc.row && doc.row.items) || []).map((it) => it.src)].filter(Boolean)); try { localStorage.setItem('daphne.assets', JSON.stringify(Object.fromEntries(Object.entries(ASSETS).filter(([k]) => used.has(k))))); } catch (e) { /* too big for storage: it still works this session */ } };
 async function readLogo(file) {
-  if (file.size > 3 * 1024 * 1024) { alert('That file is over 3 MB. Export the logo smaller (an SVG, or a PNG about 1500 px wide) and try again.'); return null; }
+  if (file.size > 3 * 1024 * 1024) { toast('That file is over 3 MB: export it smaller (an SVG, or a PNG about 1500 px wide)'); return null; }
   const url = await new Promise((ok, no) => { const r = new FileReader(); r.onload = () => ok(r.result); r.onerror = no; r.readAsDataURL(file); });
   let ar = 0;
   if (/svg/.test(file.type)) { // an SVG's shape comes from its viewBox (or width and height); browsers guess 300 × 150 without one
@@ -67,13 +82,12 @@ async function readLogo(file) {
     if (vb && +vb[2]) ar = +vb[1] / +vb[2]; else if (w && hh && +hh[1]) ar = +w[1] / +hh[1];
   }
   if (!ar) ar = await new Promise((ok) => { const im = new Image(); im.onload = () => ok(im.naturalWidth && im.naturalHeight ? im.naturalWidth / im.naturalHeight : 1); im.onerror = () => ok(1); im.src = url; });
-  const key = 'asset:' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-  ASSETS[key] = url;
-  return { src: key, ar: Math.round(ar * 1000) / 1000, name: file.name };
+  return addAsset(url, ar, file.name);
 }
+function addAsset(url, ar, name) { const key = 'asset:' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); ASSETS[key] = url; return { src: key, ar: Math.round(ar * 1000) / 1000, name }; }
 
 // ── render loop ──
-let raf = 0, last = null;
+let raf = 0, last = null, peeking = null;
 const schedule = () => { if (!raf) raf = requestAnimationFrame(draw); };
 async function ensureFonts(d) {
   const need = new Map();
@@ -85,24 +99,23 @@ async function draw() {
   raf = 0;
   const pending = ensureFonts(doc); fontsReady = pending;
   last = render(doc, { measure, scale: 2 });
-  MODES[mode].draw(last);
-  document.getElementById('report').style.display = mode === 'row' || mode === 'motion' ? 'none' : '';
+  if (!peeking) MODES[mode].draw(last);
   showReport(last.report);
   if (mode !== 'row') showNotes(checkLaurel(doc));
-  pending.then(() => { if (fontsReady === pending) { const r2 = render(doc, { measure, scale: 2 }); if (r2.svg !== last.svg) { last = r2; MODES[mode].draw(last); showReport(last.report); } } });
+  pending.then(() => { if (fontsReady === pending) { const r2 = render(doc, { measure, scale: 2 }); if (r2.svg !== last.svg) { last = r2; if (!peeking) MODES[mode].draw(last); showReport(last.report); } } });
   if (thumbsDirty) { thumbsDirty = false; clearTimeout(thumbTimer); thumbTimer = setTimeout(drawThumbs, 350); }
+  if (state.smallSizes && mode === 'laurel') drawSmallSizes();
 }
 const stage = document.getElementById('stage');
+const mainEl = document.getElementById('main');
 function showReport(r) {
   const el = document.getElementById('report');
+  if (mode === 'row' || mode === 'motion' || mode === 'poster') { el.innerHTML = ''; return; }
   const tight = r.lines.filter((l) => l.margin < 0.5).length;
-  const tracked = r.lines.filter((l, i) => l.track != null && l.track < 0.15 && /[A-Z]{3}/.test(l.s || '')).length;
   el.innerHTML = [
-    `<span>Hero <b>${r.hero.toFixed(1)}</b></span>`,
     r.wrapped ? `<span>Wrapped ${r.wrapped} line${r.wrapped > 1 ? 's' : ''} for size</span>` : '',
-    r.widened ? `<span>Widened the wreath to fit the name (${r.widened.rx.toFixed(2)})</span>` : '',
-    tight ? `<span>Fitted tight: ${tight} line${tight > 1 ? 's' : ''}</span>` : '<span class="ok">Every line clears the leaves</span>',
-    tracked ? `<span>Tracking tightened to fit</span>` : '',
+    r.widened ? `<span>Widened the wreath to fit the name</span>` : '',
+    tight ? `<span>Snug: ${tight} line${tight > 1 ? 's' : ''} close to the leaves</span>` : '<span class="ok">✓ Every line clears the leaves</span>',
     ...r.warnings.map((w) => `<span class="warn">${w}</span>`),
   ].filter(Boolean).join('');
 }
@@ -118,6 +131,7 @@ function showNotes(list) {
 // drag a line to nudge it (stored as dx/dy on its field); double-click resets
 function decorateStage() {
   const svg = stage.querySelector('svg'); if (!svg) return;
+  svg.setAttribute('role', 'img'); svg.setAttribute('aria-label', altText(doc));
   svg.addEventListener('pointerdown', (e) => {
     const t = e.target.closest('[data-ids]'); if (!t || !t.dataset.ids) return;
     const ids = t.dataset.ids.split(' '), f0 = doc.fields.find((f) => f.id === ids[0]); if (!f0) return;
@@ -130,24 +144,48 @@ function decorateStage() {
   });
   svg.addEventListener('dblclick', (e) => { const t = e.target.closest('[data-ids]'); if (!t || !t.dataset.ids) return; const f0 = doc.fields.find((f) => f.id === t.dataset.ids.split(' ')[0]); if (f0) { undoStack.push(lastSnap); f0.dx = 0; f0.dy = 0; lastSnap = JSON.stringify(doc); schedule(); } });
 }
-function selectField(id) { selected = id; document.querySelectorAll('.field').forEach((el) => el.classList.toggle('sel', el.dataset.id === id)); const el = document.querySelector(`.field[data-id="${id}"]`); if (el) el.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }
+function selectField(id) {
+  selected = id;
+  if (state.tab !== 'words') return;
+  state.everyOpen = true;
+  const det = document.querySelector('#fields')?.closest('details'); if (det && !det.open) det.open = true;
+  document.querySelectorAll('.field').forEach((el) => el.classList.toggle('sel', el.dataset.id === id));
+  const el = document.querySelector(`.field[data-id="${id}"]`); if (el) el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+}
+
+// the claim in words, for alt text, SVG titles and file metadata: "Winner, Best Documentary, Northlight Film Festival 2026"
+function altText(d = doc) {
+  const vis = d.fields.filter((f) => f.show !== false && f.text && f.kind !== 'icon' && f.kind !== 'logo');
+  const by = (k) => vis.filter((f) => f.kind === k).map((f) => f.text.trim()).filter(Boolean);
+  const parts = [...by('status'), ...by('award'), ...by('category'), [...by('festival'), ...by('edition')].join(' '), [...by('location'), ...by('year')].join(' '), ...by('custom')].filter((s) => s && s.trim());
+  const logo = d.fields.some((f) => f.kind === 'logo' && f.show !== false && f.src);
+  return (parts.join(', ') || 'Festival laurel') + (logo ? ' (with the festival\'s logo)' : '') + '.';
+}
 
 // ── UI builders ──
-const h = (tag, attrs = {}, ...kids) => { const el = document.createElement(tag); for (const [k, v] of Object.entries(attrs)) { if (k.startsWith('on')) el.addEventListener(k.slice(2), v); else if (k === 'class') el.className = v; else if (v === true) el.setAttribute(k, ''); else if (v !== false && v != null) el.setAttribute(k, v); } for (const c of kids.flat(Infinity)) if (c != null && c !== false) el.append(c.nodeType ? c : document.createTextNode(c)); return el; };
+const h = (tag, attrs = {}, ...kids) => { const el = document.createElement(tag); for (const [k, v] of Object.entries(attrs)) { if (k.startsWith('on') && typeof v === 'function') el.addEventListener(k.slice(2), v); else if (k === 'class') el.className = v; else if (k === 'html') el.innerHTML = v; else if (v === true) el.setAttribute(k, ''); else if (v !== false && v != null) el.setAttribute(k, v); } for (const c of kids.flat(Infinity)) if (c != null && c !== false) el.append(c.nodeType ? c : document.createTextNode(c)); return el; };
 const fmt = (v, step) => (step >= 1 ? Math.round(v) : (+v).toFixed(step >= 0.1 ? 1 : 2));
+const fill = (inp) => inp.style.setProperty('--p', ((inp.value - inp.min) / (inp.max - inp.min)) * 100 + '%');
 function range(label, path, min, max, step = 1, o = {}) {
   const v = get(path) ?? o.def ?? min, out = h('output', {}, fmt(v, step));
-  const inp = h('input', { type: 'range', min, max, step, value: v, oninput: (e) => { out.textContent = fmt(e.target.value, step); change(path, +e.target.value); } });
-  return h('div', { class: 'row' }, h('label', { title: label }, label), inp, out);
+  const inp = h('input', { type: 'range', min, max, step, value: v, 'aria-label': label, oninput: (e) => { out.textContent = fmt(e.target.value, step); fill(e.target); change(path, +e.target.value); } });
+  fill(inp);
+  return h('div', { class: 'row' }, h('label', { title: o.tip || label }, label), inp, out);
 }
 function select(label, path, options, o = {}) {
   const v = get(path);
-  const s = h('select', { onchange: (e) => { const val = e.target.value; change(path, o.num ? +val : val === 'null' ? null : val === 'true' ? true : val === 'false' ? false : val, o.rebuild); } }, options.map(([val, lab]) => h('option', { value: String(val), selected: String(val) === String(v) }, lab)));
-  return h('div', { class: 'row wide' }, h('label', {}, label), s);
+  const s = h('select', { 'aria-label': label, onchange: (e) => { const val = e.target.value; change(path, o.num ? +val : val === 'null' ? null : val === 'true' ? true : val === 'false' ? false : /^-?\d+(\.\d+)?$/.test(val) && o.numeric ? +val : val, o.rebuild); } }, options.map(([val, lab]) => h('option', { value: String(val), selected: String(val) === String(v) }, lab)));
+  return h('div', { class: 'row wide' }, h('label', { title: o.tip || label }, label), s);
 }
-function toggle(label, path, o = {}) { const cb = h('input', { type: 'checkbox', checked: !!get(path), onchange: (e) => change(path, e.target.checked, o.rebuild) }); return h('div', { class: 'row wide' }, h('label', {}, label), h('div', {}, cb)); }
-function color(label, path) { const v = get(path); const c = h('input', { type: 'color', value: typeof v === 'string' && /^#[0-9a-f]{6}$/i.test(v) ? v : '#ffffff', oninput: (e) => change(path, e.target.value) }); return h('div', { class: 'row wide' }, h('label', {}, label), h('div', {}, c)); }
+const sw = (label, checked, onchange, tip) => h('label', { class: 'switch', title: tip || '' }, h('input', { type: 'checkbox', role: 'switch', checked: !!checked, onchange }), label);
+function toggle(label, path, o = {}) { return h('div', { class: 'row wide' }, h('label', { title: o.tip || label }, label), h('div', {}, sw('', get(path), (e) => change(path, e.target.checked ? (o.on ?? true) : (o.off ?? false), o.rebuild)))); }
+function color(label, path) { const v = get(path); const c = h('input', { type: 'color', 'aria-label': label, value: typeof v === 'string' && /^#[0-9a-f]{6}$/i.test(v) ? v : '#ffffff', oninput: (e) => change(path, e.target.value) }); return h('div', { class: 'row wide' }, h('label', {}, label), h('div', {}, c)); }
 const opt = (arr) => arr.map((x) => (Array.isArray(x) ? x : [x, x[0].toUpperCase() + x.slice(1)]));
+const segctl = (opts, cur, on) => h('div', { class: 'segctl', role: 'tablist' }, opts.map(([v, l]) => h('button', { class: v === cur ? 'on' : '', role: 'tab', 'aria-selected': String(v === cur), onclick: () => on(v) }, l)));
+const fold = (title, note, open, ...kids) => { const key = 'fold:' + title; const d = h('details', { class: 'fold', open: state[key] ?? open }, h('summary', {}, h('span', {}, title, note ? h('small', {}, note) : null)), h('div', { class: 'body' }, ...kids)); d.addEventListener('toggle', () => (state[key] = d.open)); return d; };
+
+// a paint's look in one swatch (for labels and palettes)
+const paintCss = (p) => { if (!p) return 'transparent'; if (typeof p === 'string') return p; if (p.type === 'solid') return p.color; if (p.type === 'metal') { const m = METALS[p.metal] || METALS.gold; return `linear-gradient(135deg, ${m.map((s) => s[1]).join(', ')})`; } return `linear-gradient(90deg, ${p.stops.map((s) => `${s[1]} ${s[0] * 100}%`).join(', ')})`; };
 
 // a paint: none / solid / linear / radial / metal, applied to the whole thing or per leaf
 function paintEditor(label, path, o = {}) {
@@ -156,55 +194,90 @@ function paintEditor(label, path, o = {}) {
     box.innerHTML = '';
     let p = get(path);
     const typeOf = p == null ? 'none' : typeof p === 'string' ? 'solid' : p.type;
-    const types = [...(o.nullable ? [['none', o.noneLabel || 'None']] : []), ['solid', 'Solid'], ['linear', 'Linear'], ['radial', 'Radial'], ['metal', 'Metal']];
-    const sel = h('select', { onchange: (e) => {
+    const types = [...(o.nullable ? [['none', o.noneLabel || 'None']] : []), ['solid', 'Solid'], ['linear', 'Gradient'], ['radial', 'Radial'], ['metal', 'Metal']];
+    const sel = h('select', { 'aria-label': label + ' paint', onchange: (e) => {
       const t = e.target.value, base = typeof p === 'string' ? p : p && p.type === 'solid' ? p.color : '#e3c27a';
       const next = t === 'none' ? null : t === 'solid' ? base : t === 'metal' ? { type: 'metal', metal: 'gold', angle: 28, scope: o.leaf ? 'leaf' : 'whole' } : { type: t, angle: 0, scope: 'whole', stops: p && p.stops ? p.stops : [[0, '#6e4f1c'], [1, '#f4e3a8']] };
       change(path, next); redraw();
     } }, types.map(([v, l]) => h('option', { value: v, selected: v === typeOf }, l)));
-    box.append(h('div', { class: 'head' }, h('span', { class: 'lbl' }, label), sel));
-    if (typeOf === 'solid') { const c = typeof p === 'string' ? p : p.color; box.append(h('div', { class: 'head' }, h('input', { type: 'color', value: /^#[0-9a-f]{6}$/i.test(c) ? c : '#ffffff', oninput: (e) => change(path, e.target.value) }), h('input', { type: 'text', value: c, onchange: (e) => { change(path, e.target.value); redraw(); } }))); }
+    box.append(h('div', { class: 'head' }, h('span', { class: 'sw', style: `background:${paintCss(p)}` }), h('span', { class: 'lbl' }, label), sel));
+    if (typeOf === 'solid') { const c = typeof p === 'string' ? p : p.color; box.append(h('div', { class: 'head' }, h('input', { type: 'color', 'aria-label': label + ' color', value: /^#[0-9a-f]{6}$/i.test(c) ? c : '#ffffff', oninput: (e) => { change(path, e.target.value); box.querySelector('.sw').style.background = e.target.value; } }), h('input', { type: 'text', value: c, 'aria-label': label + ' hex', onchange: (e) => { change(path, e.target.value); redraw(); } }))); }
     if (typeOf === 'linear' || typeOf === 'radial') {
       const stops = h('div', { class: 'stops' });
       p.stops.forEach((st, i) => stops.append(h('div', { class: 'stop' },
-        h('input', { type: 'color', value: st[1], oninput: (e) => { const s2 = clone(get(path).stops); s2[i][1] = e.target.value; change(path + '.stops', s2); } }),
-        h('input', { type: 'range', min: 0, max: 1, step: 0.01, value: st[0], oninput: (e) => { const s2 = clone(get(path).stops); s2[i][0] = +e.target.value; change(path + '.stops', s2); } }),
-        h('button', { class: 'btn small', title: 'Remove stop', onclick: () => { const s2 = clone(get(path).stops); if (s2.length > 2) { s2.splice(i, 1); change(path + '.stops', s2); redraw(); } } }, '×'))));
+        h('input', { type: 'color', value: st[1], 'aria-label': `Stop ${i + 1} color`, oninput: (e) => { const s2 = clone(get(path).stops); s2[i][1] = e.target.value; change(path + '.stops', s2); } }),
+        h('input', { type: 'range', min: 0, max: 1, step: 0.01, value: st[0], 'aria-label': `Stop ${i + 1} position`, oninput: (e) => { fill(e.target); const s2 = clone(get(path).stops); s2[i][0] = +e.target.value; change(path + '.stops', s2); } }),
+        h('button', { class: 'btn small', title: 'Remove stop', 'aria-label': 'Remove stop', onclick: () => { const s2 = clone(get(path).stops); if (s2.length > 2) { s2.splice(i, 1); change(path + '.stops', s2); redraw(); } } }, '×'))));
+      stops.querySelectorAll('input[type=range]').forEach(fill);
       box.append(stops, h('button', { class: 'btn small', onclick: () => { const s2 = clone(get(path).stops); s2.push([1, s2[s2.length - 1][1]]); s2.sort((a, b) => a[0] - b[0]); change(path + '.stops', s2); redraw(); } }, '+ stop'));
     }
-    if (typeOf === 'metal') box.append(h('div', { class: 'head' }, h('span', { class: 'lbl' }, 'Metal'), h('select', { onchange: (e) => change(path + '.metal', e.target.value) }, Object.keys(METALS).map((m) => h('option', { value: m, selected: m === p.metal }, m[0].toUpperCase() + m.slice(1))))));
+    if (typeOf === 'metal') box.append(h('div', { class: 'head' }, h('span', { class: 'lbl', style: 'font-weight:500;color:var(--mute)' }, 'Metal'), h('select', { style: 'width:auto', onchange: (e) => { change(path + '.metal', e.target.value); redraw(); } }, Object.keys(METALS).map((m) => h('option', { value: m, selected: m === p.metal }, m[0].toUpperCase() + m.slice(1))))));
     if (typeOf === 'linear' || typeOf === 'metal') box.append(range('Angle', path + '.angle', 0, 360, 1));
-    if (typeOf === 'radial') box.append(range('Centre x', path + '.cx', 0, 1, 0.01, { def: 0.5 }), range('Centre y', path + '.cy', 0, 1, 0.01, { def: 0.5 }), range('Radius', path + '.r', 0.1, 1.5, 0.01, { def: 0.6 }));
+    if (typeOf === 'radial') box.append(range('Center x', path + '.cx', 0, 1, 0.01, { def: 0.5 }), range('Center y', path + '.cy', 0, 1, 0.01, { def: 0.5 }), range('Radius', path + '.r', 0.1, 1.5, 0.01, { def: 0.6 }));
     if (typeOf !== 'none' && typeOf !== 'solid' && o.leaf !== false) box.append(select('Applies to', path + '.scope', [['whole', 'Whole wreath'], ['leaf', 'Each leaf (foil)']]));
   };
   redraw();
   return box;
 }
 
-function fontSelect(path) {
-  const v = get(path), cats = [...new Set(FONTS.map((x) => x.c))];
-  const s = h('select', { onchange: async (e) => {
-    let val = e.target.value;
-    if (val === '__other') { val = prompt('Any Google Fonts family name (e.g. "Rubik Mono One")', ''); if (!val) { e.target.value = get(path); return; } }
-    change(path, val, true);
-  } }, cats.map((c) => h('optgroup', { label: c }, FONTS.filter((x) => x.c === c).map((x) => h('option', { value: x.f, selected: x.f === v }, x.f)))), !fontInfo(v) ? h('option', { value: v, selected: true }, v) : null, h('option', { value: '__other' }, 'Other Google font…'));
-  return s;
+// a font picker that shows every font in its own face (only the letters of its name are fetched for the preview)
+let fontPop = null;
+function closeFontPop() { if (fontPop) { fontPop.remove(); fontPop = null; } }
+function fontPicker(path) {
+  const v = get(path), info = fontInfo(v);
+  const btn = h('button', { class: 'fontbtn', type: 'button', 'aria-haspopup': 'listbox', style: `font-family:"pv ${v}","${v}",serif`, onclick: (e) => { e.stopPropagation(); openFontPop(btn, path); } }, h('span', {}, v), h('small', {}, info ? info.c : 'Google font'));
+  return btn;
 }
-function roleEditor(key, label) {
+function openFontPop(anchor, path) {
+  closeFontPop();
+  loadPreviewFonts(FONTS.map((x) => x.f));
+  const cur = get(path), cats = [...new Set(FONTS.map((x) => x.c))];
+  const listEl = h('div', { class: 'flist', role: 'listbox' });
+  const fill2 = (q = '') => {
+    listEl.innerHTML = '';
+    const qq = q.trim().toLowerCase();
+    for (const c of cats) {
+      const fs = FONTS.filter((x) => x.c === c && (!qq || x.f.toLowerCase().includes(qq)));
+      if (!fs.length) continue;
+      listEl.append(h('div', { class: 'fcat' }, c));
+      for (const x of fs) listEl.append(h('button', { class: 'fopt' + (x.f === cur ? ' on' : ''), role: 'option', style: `font-family:"pv ${x.f}","${x.f}",serif`, onclick: () => { closeFontPop(); change(path, x.f, true); } }, x.f, h('small', {}, x.v ? 'variable' : x.w.length > 1 ? `${x.w.length} weights` : '')));
+    }
+    if (qq && !FONTS.some((x) => x.f.toLowerCase() === qq)) listEl.append(h('div', { class: 'fcat' }, 'Any Google font'), h('button', { class: 'fopt', onclick: () => { closeFontPop(); change(path, q.trim().replace(/\b\w/g, (m) => m.toUpperCase()), true); } }, `Use “${q.trim()}”`, h('small', {}, 'from Google Fonts')));
+  };
+  const search = h('input', { type: 'search', placeholder: 'Search fonts, or name any Google font', 'aria-label': 'Search fonts', oninput: (e) => fill2(e.target.value), onkeydown: (e) => { if (e.key === 'Escape') closeFontPop(); } });
+  fontPop = h('div', { class: 'fontpop', onclick: (e) => e.stopPropagation() }, h('div', { class: 'fhead' }, search, h('div', { class: 'hint' }, 'All open-license fonts: free to use in anything you make.')), listEl);
+  document.body.append(fontPop);
+  const r = anchor.getBoundingClientRect(), H = Math.min(520, innerHeight * 0.7);
+  fontPop.style.left = Math.min(innerWidth - 340, r.left) + 'px';
+  fontPop.style.top = Math.max(10, Math.min(innerHeight - H - 10, r.bottom + 6)) + 'px';
+  fill2(); search.focus();
+  const on = listEl.querySelector('.on'); if (on) on.scrollIntoView({ block: 'center' });
+}
+document.addEventListener('click', closeFontPop);
+
+function roleEditor(key, label, note) {
   const r = get('roles.' + key), info = fontInfo(r.font) || { w: [400, 900], v: 1 };
   const ws = info.v ? null : info.w, wmin = info.w[0], wmax = info.w[info.w.length - 1];
   return h('div', { class: 'role' },
-    h('b', {}, label),
-    h('div', { class: 'row wide' }, h('label', {}, 'Font'), fontSelect('roles.' + key + '.font')),
+    h('b', {}, label, note ? h('small', {}, note) : null),
+    fontPicker('roles.' + key + '.font'),
     ws && ws.length === 1 ? null : ws ? select('Weight', 'roles.' + key + '.weight', ws.map((w) => [w, String(w)]), { num: true }) : range('Weight', 'roles.' + key + '.weight', wmin, wmax, 50),
     info.it ? toggle('Italic', 'roles.' + key + '.italic') : null,
     select('Case', 'roles.' + key + '.case', [['upper', 'UPPERCASE'], ['asis', 'As typed'], ['title', 'Title Case'], ['lower', 'lowercase']]),
-    range('Tracking', 'roles.' + key + '.track', -0.05, 0.6, 0.01),
-    range(key === 'hero' ? 'Size' : 'Size vs hero', 'roles.' + key + '.ratio', key === 'hero' ? 0.5 : 0.15, key === 'big' ? 2.4 : 1.2, 0.01),
-    paintEditor('Colour', 'roles.' + key + '.paint', { nullable: true, noneLabel: 'Default', leaf: false }));
+    range('Letter spacing', 'roles.' + key + '.track', -0.05, 0.6, 0.01),
+    range(key === 'hero' ? 'Size' : 'Size vs name', 'roles.' + key + '.ratio', key === 'hero' ? 0.5 : 0.15, key === 'big' ? 2.4 : 1.2, 0.01),
+    paintEditor('Color', 'roles.' + key + '.paint', { nullable: true, noneLabel: 'Default', leaf: false }));
 }
 
-// ── fields ──
+// ── fields: every line of the laurel ──
+function addField(k) {
+  const fs = clone(doc.fields);
+  const f = { id: 'f' + ++uid, kind: k, text: k === 'logo' ? '' : k === 'icon' ? 'star' : k === 'year' ? String(new Date().getFullYear()) : '', role: KIND_ROLE[k], slot: 'inside', show: true };
+  if (k !== 'logo' && k !== 'icon' && k !== 'year') { f.text = { status: 'Official Selection', festival: 'Festival name', award: 'Best Documentary', category: 'Section', location: 'City', edition: '10th Edition', custom: 'Your line' }[k]; f.added = true; }
+  fs.push(f); selected = f.id; state.everyOpen = true;
+  change('fields', fs, true);
+  setTimeout(() => { const el = document.querySelector(`.field[data-id="${f.id}"] input[type=text]`); if (el) { el.focus(); el.select(); } }, 30);
+}
 function fieldRow(f, i) {
   const el = h('div', { class: 'field' + (selected === f.id ? ' sel' : '') + (f.show === false ? ' off' : ''), 'data-id': f.id, draggable: 'true' });
   el.addEventListener('dragstart', (e) => { e.dataTransfer.setData('text/plain', String(i)); el.style.opacity = 0.5; });
@@ -218,109 +291,191 @@ function fieldRow(f, i) {
     const has = !!(f.src && ASSETS[f.src]);
     return h('div', { class: 'logo-in' }, file,
       h('button', { class: 'btn small', onclick: () => file.click() }, has ? 'Replace logo' : 'Upload logo'),
+      h('button', { class: 'btn small', title: 'A festival file on white or black? Make it transparent and recolor it first', onclick: () => ctx.openFixer && ctx.openFixer((a) => { const fs = clone(doc.fields); Object.assign(fs[i], a); delete fs[i].added; change('fields', fs, true); }) }, 'Clean up a file…'),
       h('span', { class: 'logo-name' }, has ? f.name || 'Logo' : f.src ? 'Upload it again: logos stay on the device they were added on' : 'The festival’s official artwork, SVG or PNG'),
-      h('label', { title: 'Colour the logo with this line’s paint (best for one-colour artwork: shapes knocked out in another colour fill in). Many festivals ask for their artwork unchanged: check their rules first.' }, h('input', { type: 'checkbox', checked: !!f.tint, onchange: (e) => upd('tint', e.target.checked) }), ' tint'));
+      h('label', { title: 'Color the logo with this line’s paint (best for one-color artwork). Many festivals ask for their artwork unchanged: check their rules first.' }, h('input', { type: 'checkbox', checked: !!f.tint, onchange: (e) => upd('tint', e.target.checked) }), ' tint'));
   };
   const textInput = f.kind === 'logo' ? logoInput() : f.kind === 'icon'
-    ? h('select', { onchange: (e) => upd('text', e.target.value) }, ['star', 'stars', 'crown', 'dot', 'diamond', 'rule'].map((x) => h('option', { value: x, selected: x === f.text }, x)))
-    : h('input', { type: 'text', class: f.added ? 'example' : '', title: f.added ? 'Example text from the layout: type over it' : '', value: f.text, placeholder: f.kind, oninput: (e) => { e.target.classList.remove('example'); upd('text', e.target.value); } });
+    ? h('select', { 'aria-label': 'Ornament', onchange: (e) => upd('text', e.target.value) }, [['star', '★ Star'], ['stars', '★★★ Three stars'], ['crown', '♛ Crown'], ['dot', '• Dot'], ['diamond', '◆ Diamond'], ['rule', '— Rule']].map(([x, l]) => h('option', { value: x, selected: x === f.text }, l)))
+    : h('input', { type: 'text', class: f.added ? 'example' : '', title: f.added ? 'Example text: type over it' : '', value: f.text, placeholder: KIND_LABEL[f.kind], 'aria-label': KIND_LABEL[f.kind] + ' text', oninput: (e) => { e.target.classList.remove('example'); upd('text', e.target.value); }, onfocus: (e) => { if (f.added) e.target.select(); } });
   el.append(
     h('div', { class: 'handle', title: 'Drag to reorder' }, '⋮⋮'),
     h('div', {},
       textInput,
       h('div', { class: 'meta' },
-        h('select', { title: 'What it is', onchange: (e) => upd('kind', e.target.value, true) }, KINDS.map((k) => h('option', { value: k, selected: k === f.kind }, k))),
-        h('select', { title: 'Size role', onchange: (e) => upd('role', e.target.value) }, ROLES.map(([k, l]) => h('option', { value: k, selected: k === f.role }, l))),
-        h('select', { title: 'Where it sits', onchange: (e) => upd('slot', e.target.value) }, (f.kind === 'logo' ? SLOTS.filter(([k]) => LOGO_SLOTS.includes(k)) : SLOTS).map(([k, l]) => h('option', { value: k, selected: k === (f.slot || 'inside') }, l)))),
+        h('select', { title: 'What it is', 'aria-label': 'What it is', onchange: (e) => upd('kind', e.target.value, true) }, KINDS.map((k) => h('option', { value: k, selected: k === f.kind }, KIND_LABEL[k]))),
+        h('select', { title: 'How big', 'aria-label': 'Size', onchange: (e) => upd('role', e.target.value) }, ROLES.map(([k, l]) => h('option', { value: k, selected: k === f.role }, l))),
+        h('select', { title: 'Where it sits', 'aria-label': 'Where it sits', onchange: (e) => upd('slot', e.target.value) }, (f.kind === 'logo' ? SLOTS.filter(([k]) => LOGO_SLOTS.includes(k)) : SLOTS).map(([k, l]) => h('option', { value: k, selected: k === (f.slot || 'inside') }, l)))),
       h('div', { class: 'flags' },
-        h('label', {}, h('input', { type: 'checkbox', checked: f.show !== false, onchange: (e) => upd('show', e.target.checked) }), ' show'),
-        f.kind === 'logo' ? null : h('label', { title: 'Join onto the line above (e.g. TRIBECA 2026)' }, h('input', { type: 'checkbox', checked: !!f.join, onchange: (e) => upd('join', e.target.checked) }), ' join above'),
-        f.dx || f.dy ? h('button', { class: 'btn small', onclick: () => { const fs = clone(doc.fields); fs[i].dx = 0; fs[i].dy = 0; change('fields', fs, true); } }, 'reset nudge') : null)),
+        h('label', {}, h('input', { type: 'checkbox', checked: f.show !== false, onchange: (e) => upd('show', e.target.checked, true) }), 'Show'),
+        f.kind === 'logo' ? null : h('label', { title: 'Join onto the line above (e.g. TRIBECA 2026)' }, h('input', { type: 'checkbox', checked: !!f.join, onchange: (e) => upd('join', e.target.checked) }), 'Join line above'),
+        f.dx || f.dy ? h('button', { class: 'btn small', onclick: () => { const fs = clone(doc.fields); fs[i].dx = 0; fs[i].dy = 0; change('fields', fs, true); } }, 'Reset nudge') : null)),
     h('div', { class: 'tools' },
-      h('button', { class: 'btn small', title: 'Move up', onclick: () => { if (!i) return; const fs = clone(doc.fields); [fs[i - 1], fs[i]] = [fs[i], fs[i - 1]]; change('fields', fs, true); } }, '↑'),
-      h('button', { class: 'btn small', title: 'Remove', onclick: () => { const fs = clone(doc.fields); fs.splice(i, 1); change('fields', fs, true); } }, '×')));
+      h('button', { class: 'btn small', title: 'Move up', 'aria-label': 'Move up', onclick: (e) => { e.stopPropagation(); if (!i) return; const fs = clone(doc.fields); [fs[i - 1], fs[i]] = [fs[i], fs[i - 1]]; change('fields', fs, true); } }, '↑'),
+      h('button', { class: 'btn small', title: 'Remove', 'aria-label': 'Remove line', onclick: (e) => { e.stopPropagation(); const fs = clone(doc.fields); fs.splice(i, 1); change('fields', fs, true); } }, '×')));
   el.addEventListener('click', () => selectField(f.id));
   return el;
 }
 
-// ── panel ──
+// ── the rail and the tabs ──
+const ICON = {
+  words: '<path d="M4 7V5h11v2"/><path d="M9.5 5v14"/><path d="M7 19h5"/><path d="M14 12h6M14 16h6M14 20h4"/>',
+  looks: '<rect x="3.5" y="3.5" width="7" height="7" rx="1.6"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.6"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.6"/><path d="M17 13.5v7M13.5 17h7"/>',
+  wreath: '<path d="M8 21C3.5 17 2.5 10 5 4"/><path d="M16 21c4.5-4 5.5-11 3-17"/><path d="M5.2 15.5c-2-.2-3-1.4-3.2-3 2 .1 3 1.3 3.2 3Z"/><path d="M4.4 10c-1.8-.6-2.5-2-2.4-3.6 1.8.6 2.6 2 2.4 3.6Z"/><path d="M18.8 15.5c2-.2 3-1.4 3.2-3-2 .1-3 1.3-3.2 3Z"/><path d="M19.6 10c1.8-.6 2.5-2 2.4-3.6-1.8.6-2.6 2-2.4 3.6Z"/>',
+  type: '<path d="M5 20 11 4h2l6 16"/><path d="M7.5 14h9"/>',
+  color: '<path d="M12 3.5c3.5 4.2 6 7.4 6 10.5a6 6 0 0 1-12 0c0-3.1 2.5-6.3 6-10.5Z"/><path d="M9 15a3 3 0 0 0 3 3"/>',
+  canvas: '<rect x="3.5" y="5.5" width="17" height="13" rx="2"/><path d="M3.5 9.5h17"/><path d="M8 5.5v-2M16 5.5v-2"/>',
+  about: '<circle cx="12" cy="12" r="8.5"/><path d="M12 11v5"/><path d="M12 7.6v.4"/>',
+};
+const TABS = [['words', 'Words'], ['looks', 'Looks'], ['wreath', 'Wreath'], ['type', 'Type'], ['color', 'Color'], ['canvas', 'Canvas']];
+const railEl = document.getElementById('rail');
+function buildRail() {
+  railEl.innerHTML = '';
+  const btn = ([k, l], cls = '') => { const b = h('button', { class: (state.tab === k ? 'on ' : '') + cls, role: 'tab', 'aria-selected': String(state.tab === k), title: l, onclick: () => setTab(k) }); b.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON[k]}</svg>`; b.append(h('span', {}, l)); return b; };
+  railEl.append(...TABS.map((t) => btn(t)), h('div', { class: 'grow' }), btn(['about', 'About'], 'about'));
+}
+function setTab(k) { state.tab = k; saveUi(); buildRail(); buildPanel(); document.getElementById('panel').scrollTop = 0; }
+
 const sectionsEl = document.getElementById('sections');
-const openState = { Presets: true, Text: true };
-function sec(title, ...kids) { const d = h('details', { open: !!openState[title] }, h('summary', {}, title), h('div', { class: 'sec' }, ...kids)); d.addEventListener('toggle', () => (openState[title] = d.open)); return d; }
 let thumbsDirty = true, thumbTimer = 0;
+const head = (title, sub, ...actions) => h('div', { class: 'tabhead' }, h('h2', {}, title), sub ? h('p', {}, sub) : null, actions.length ? h('div', { class: 'actions' }, ...actions) : null);
+const ui = {
+  get doc() { return doc; }, state, h, clone, change, replaceDoc, schedule, toast, layoutById, applyLayout, LAYOUTS, fieldRow, addField, selectField,
+  newId: () => 'f' + ++uid, rebuild: () => buildPanel(),
+};
+// the first visit: what this is, in two lines, until it's closed or something is made
+let seen = false; try { seen = !!localStorage.getItem('daphne.seen'); } catch (e) { /* a convenience */ }
+const markSeen = () => { if (seen) return; seen = true; try { localStorage.setItem('daphne.seen', '1'); } catch (e) { /* a convenience */ } };
+function intro() {
+  if (seen) return null;
+  return h('div', { class: 'intro' }, h('h3', {}, 'Your film did the hard part. Now make the laurel.'),
+    h('p', {}, 'Type what the festival gave you, pick a look, then Export for your poster, trailer and socials. Free, with no account and no watermark.'),
+    h('button', { class: 'btn ghost small x', 'aria-label': 'Close the introduction', onclick: () => { markSeen(); buildPanel(); } }, '✕'));
+}
 function buildPanel() {
   const scroll = document.getElementById('panel').scrollTop;
   sectionsEl.innerHTML = '';
+  const T = state.tab;
+  if (T === 'words') sectionsEl.append(...[intro()].filter(Boolean), head('Your words', 'What the festival gave your film, exactly as it gave it.'), wordsTab(ui));
+  else if (T === 'looks') sectionsEl.append(...looksTab());
+  else if (T === 'wreath') sectionsEl.append(...wreathTab());
+  else if (T === 'type') sectionsEl.append(head('Type', 'Five roles, each with its own font. Every font here is open-license.'), h('div', { class: 'pane' }, roleEditor('hero', 'The name', 'festival or award'), roleEditor('eyebrow', 'Status line', 'Official Selection'), roleEditor('sub', 'Details', 'year, place, section'), roleEditor('big', 'Big numeral', 'a hero year or edition'), roleEditor('arc', 'Curved and ribbon text', 'seals, ribbons, medallions')));
+  else if (T === 'color') sectionsEl.append(...colorTab());
+  else if (T === 'canvas') sectionsEl.append(...canvasTab());
+  else if (T === 'about') sectionsEl.append(...aboutTab());
+  // the wrapper selects coerce numbers for dy/gap
+  sectionsEl.querySelectorAll('select').forEach((s) => s.addEventListener('change', () => { const v = get('layout.dy'); if (typeof v === 'string' && v !== 'auto') set('layout.dy', +v); const g = get('branch.spine.gap'); if (typeof g === 'string' && g !== 'auto') set('branch.spine.gap', +g); }));
+  document.getElementById('panel').scrollTop = scroll;
+  thumbsDirty = true; schedule();
+}
+
+// ── Looks: presets and layouts, previewed on the stage as you hover ──
+function looksTab() {
+  const shuffles = [h('button', { class: 'btn gold small', title: 'A new look from curated pools. Keeps your words.', onclick: () => shuffle('all') }, '✦ Surprise me'), h('button', { class: 'btn small', onclick: () => shuffle('wreath') }, 'Wreath'), h('button', { class: 'btn small', onclick: () => shuffle('color') }, 'Color'), h('button', { class: 'btn small', onclick: () => shuffle('type') }, 'Type')];
+  const top = head('Looks', 'Hover to preview on the stage, click to use. Your words stay.', ...shuffles);
+  const view = segctl([['looks', `Looks · ${PRESETS.length}`], ['layouts', `Layouts · ${LAYOUTS.length}`]], state.looksView, (v) => { state.looksView = v; saveUi(); buildPanel(); });
+  const pane = h('div', { class: 'pane' }, view);
+  if (state.looksView === 'looks') {
+    const groups = ['All', ...GROUPS];
+    pane.append(h('div', { class: 'filter' }, groups.map((g) => h('button', { class: 'chip' + (state.group === g ? ' on' : ''), onclick: () => { state.group = g; saveUi(); buildPanel(); } }, g))));
+    const list = PRESETS.filter((p) => state.group === 'All' || p.group === state.group);
+    const tile = (p) => h('button', { class: 'preset' + (doc.presetName === p.name ? ' on' : ''), title: p.name, onclick: () => { endPeek(); replaceDoc(applyPreset(p)); toast(`${p.name}: your words kept`); }, onpointerenter: (e) => { if (e.pointerType === 'mouse') peek(() => applyPreset(p, true, tmpId)); }, onpointerleave: endPeek, onfocus: () => peek(() => applyPreset(p, true, tmpId)), onblur: endPeek },
+      h('div', { class: 'thumb', 'data-i': PRESETS.indexOf(p) }), h('span', {}, p.name));
+    if (state.group === 'All') for (const g of GROUPS) { const ps = list.filter((p) => p.group === g); pane.append(h('div', { class: 'label' }, g, h('span', { class: 'opt' }, String(ps.length)), h('span', { class: 'grow' })), h('div', { class: 'presets', id: 'presets-' + GROUPS.indexOf(g) }, ps.map(tile))); }
+    else pane.append(h('div', { class: 'presets' }, list.map(tile)));
+  } else {
+    // the layout lit up is the one the words are actually in (so hand edits that land on a layout light it too)
+    const sig = (x) => `${x.role || 'eyebrow'}:${x.slot || 'inside'}:${x.join ? 1 : 0}`, vis = doc.fields.filter((f) => f.show !== false && (f.text || f.kind === 'icon' || (f.kind === 'logo' && f.src)));
+    const fits = (ln, f) => ln.kind.split('|').includes(f.kind) || (f.kind === 'logo' && ln.role === 'hero');
+    const activeId = (LAYOUTS.find((L) => L.lines.length === vis.length && L.lines.every((ln, i) => fits(ln, vis[i]) && sig(ln) === sig(vis[i]))) || {}).id;
+    const apply = (L, d = doc, idf = () => 'f' + ++uid) => ({ ...applyLayout(d, L, idf), layoutBy: 'user', userLayoutId: L.id });
+    const tile = (L) => h('button', { class: 'preset' + (activeId === L.id ? ' on' : ''), title: L.note, onclick: () => { endPeek(); replaceDoc(apply(L)); }, onpointerenter: (e) => { if (e.pointerType === 'mouse') peek(() => apply(L, clone(doc), tmpId)); }, onpointerleave: endPeek },
+      h('div', { class: 'thumb', 'data-l': LAYOUTS.indexOf(L) }), h('span', {}, L.name), h('small', {}, L.note));
+    pane.append(h('div', { class: 'hint' }, 'Layouts move your words and keep the look. Lines a layout leaves out are hidden, not deleted; new lines arrive as examples to type over.'));
+    for (const g of LAYOUT_GROUPS) pane.append(h('div', { class: 'label' }, g, h('span', { class: 'grow' })), h('div', { class: 'presets' }, LAYOUTS.filter((L) => L.group === g).map(tile)));
+  }
+  return [top, pane];
+}
+let tmpK = 0; const tmpId = () => 'tmp' + tmpK++;
+// preview a look on the stage without changing anything
+let peekTimer = 0;
+function peek(make) {
+  if (mode !== 'laurel') return;
+  clearTimeout(peekTimer);
+  peekTimer = setTimeout(() => {
+    const d = make(); peeking = d;
+    const r = render(d, { measure, scale: 2 });
+    stage.innerHTML = r.svg; stage.classList.add('previewing');
+    stage.append(h('div', { class: 'peek' }, 'Preview · click to use'));
+    ensureFonts(d).then(() => { if (peeking === d) { stage.innerHTML = render(d, { measure, scale: 2 }).svg; stage.append(h('div', { class: 'peek' }, 'Preview · click to use')); } });
+  }, 70);
+}
+function endPeek() { clearTimeout(peekTimer); if (!peeking) return; peeking = null; stage.classList.remove('previewing'); if (last) MODES[mode].draw(last); }
+
+// ── Wreath ──
+function wreathTab() {
   const L = 'layout.', B = 'branch.', LF = 'branch.leaf.', SP = 'branch.spine.', OR = 'branch.orn.';
-  const presetBtn = (p) => h('button', { class: 'preset', title: p.name, onclick: () => replaceDoc(applyPreset(p)) }, h('div', { class: 'thumb', 'data-i': PRESETS.indexOf(p) }), h('span', {}, p.name));
-  const presetGrid = h('div', { id: 'presets', style: 'display:grid;gap:6px' }, GROUPS.flatMap((g) => [h('div', { class: 'sub' }, `${g} · ${PRESETS.filter((p) => p.group === g).length}`), h('div', { class: 'presets' }, PRESETS.filter((p) => p.group === g).map(presetBtn))]));
-  // the layout lit up is the one the words are actually in (so hand edits that land on a layout light it too)
-  const sig = (x) => `${x.role || 'eyebrow'}:${x.slot || 'inside'}:${x.join ? 1 : 0}`, vis = doc.fields.filter((f) => f.show !== false && (f.text || f.kind === 'icon' || (f.kind === 'logo' && f.src)));
-  const fits = (ln, f) => ln.kind.split('|').includes(f.kind) || (f.kind === 'logo' && ln.role === 'hero'); // a logo can be the name
-  const activeId = (LAYOUTS.find((L) => L.lines.length === vis.length && L.lines.every((ln, i) => fits(ln, vis[i]) && sig(ln) === sig(vis[i]))) || {}).id;
-  const layoutBtn = (L) => h('button', { class: 'preset' + (activeId === L.id ? ' on' : ''), title: L.note, onclick: () => replaceDoc({ ...applyLayout(doc, L, () => 'f' + ++uid), layoutBy: 'user', userLayoutId: L.id }) }, h('div', { class: 'thumb', 'data-l': LAYOUTS.indexOf(L) }), h('span', {}, L.name), h('small', {}, L.note));
-  const layoutGrid = h('div', { id: 'layouts', style: 'display:grid;gap:6px' }, LAYOUT_GROUPS.flatMap((g) => [h('div', { class: 'sub' }, g), h('div', { class: 'presets' }, LAYOUTS.filter((L) => L.group === g).map(layoutBtn))]));
   const family = get(LF + 'family');
-  const wreathControls = () => [
+  const FORM_LABEL = { open: 'Open', wreath: 'Closed', single: 'Single', crown: 'Crown', swoop: 'Swoop', flank: 'Flank', text: 'No branches' };
+  const forms = h('div', { class: 'chips' }, Object.keys(FORMS).map((k) => h('button', { class: 'chip' + (doc.form === k ? ' on' : ''), onclick: () => replaceDoc(applyForm(doc, k)) }, FORM_LABEL[k])));
+  const top = head('Wreath', doc.form === 'text' ? 'No branches: type and a frame, the way most top-tier festivals look now.' : 'Every part of the branch, from the arc to each leaf.');
+  const pane = h('div', { class: 'pane' }, h('div', { class: 'group' }, h('div', { class: 'label' }, 'Form', h('span', { class: 'grow' })), forms));
+  if (doc.form === 'text') {
+    const FK = get('frame.kind') || 'none', fixed = ['ring', 'oval', 'scallop'].includes(FK);
+    pane.append(
+      h('div', { class: 'group' }, h('div', { class: 'label' }, 'Frame', h('span', { class: 'grow' })), h('div', { class: 'chips' }, Object.entries(FRAMES).map(([k, l]) => h('button', { class: 'chip' + (FK === k ? ' on' : ''), onclick: () => change('frame.kind', k, true) }, l)))),
+      FK !== 'none' ? h('div', { class: 'group' },
+        FILLABLE_FRAMES.includes(FK) ? toggle('Filled', 'frame.filled', { rebuild: true }) : null,
+        FK !== 'corners' ? toggle(FK === 'rules' ? 'Heavy + fine rule' : 'Double line', 'frame.double') : null,
+        range('Line weight', 'frame.w', 0.4, 5, 0.1, { def: 1.6 }), range('Line gap', 'frame.gap', 1, 10, 0.1, { def: 3 }),
+        fixed || FK === 'rules' ? select('Ornament', 'frame.orn', [['star', 'Star'], ['dot', 'Dot'], ['diamond', 'Diamond'], ['none', 'None']]) : null,
+        fixed ? [range('Size', 'frame.size', 0.6, 1.6, 0.01, { def: 1 }), range('Band for text', 'frame.band', 0.16, 0.4, 0.01, { def: 0.27 })] : null,
+        FK === 'box' ? range('Corner radius', 'frame.radius', 0, 1, 0.01, { def: 0.25 }) : null,
+        paintEditor('Frame color', 'frame.paint', { nullable: true, noneLabel: 'Same as leaves' }),
+        get('frame.filled') && FILLABLE_FRAMES.includes(FK) ? paintEditor('Text on the frame', 'frame.ink', { nullable: true, noneLabel: 'Auto (always readable)', leaf: false }) : null,
+        h('div', { class: 'hint' }, fixed ? 'Seals carry curved text in their band: put the status on "Curved, top" and the year on "Curved, under" (or pick the Seal layout).' : 'The frame is sized round your words.'))
+        : h('div', { class: 'hint' }, 'Text only. Pick a frame for a seal, a medal, a ticket or a film strip.'));
+    return [top, pane];
+  }
+  pane.append(
+    fold('Shape', 'the arc', true,
       range('Width', SP + 'rx', 0.4, 1.3, 0.01), range('Height', SP + 'ry', 0.4, 1.3, 0.01), range('Start angle', SP + 'a0', 60, 200, 1), range('End angle', SP + 'a1', 160, 300, 1), range('Curl tips', SP + 'curl', -80, 80, 1), range('Spiral', SP + 'spiral', -0.4, 0.6, 0.01), range('Cross stems', SP + 'cross', 0, 50, 1),
-      select('Tip gap', SP + 'gap', [['auto', 'Smart'], ...[4, 8, 12, 18, 26, 36].map((g) => [g, String(g)])], { num: false }),
+      select('Tip gap', SP + 'gap', [['auto', 'Smart'], ...[4, 8, 12, 18, 26, 36].map((g) => [g, String(g)])]),
       range('Stem width', 'branch.stem.w', 0, 6, 0.1), range('Stem taper', 'branch.stem.taper', 0, 1, 0.01),
-      select('Rows', B + 'rows', [[1, 'Single'], [2, 'Double']], { num: true }),
-      h('div', { class: 'sub' }, 'Ornaments'),
-      select('Tip', OR + 'tip', [['leaf', 'Leaf'], ['bud', 'Bud'], ['berry', 'Berry'], ['star', 'Star'], ['curl', 'Tendril'], ['none', 'None']]), range('Berries every', OR + 'berries', 0, 4, 1), select('Berries sit', OR + 'berryPos', [['inner', 'Inside'], ['outer', 'Outside'], ['axil', 'In the forks']]), select('Berry shape', OR + 'berryShape', [['dot', 'Round'], ['olive', 'Olive on a stalk'], ['cluster', 'Cluster of three']]), range('Berry size', OR + 'berrySize', 0.4, 2.5, 0.05), range('Flowers every', OR + 'flowers', 0, 5, 1),
-      select('Tie at base', OR + 'tie', [['none', 'None'], ['band', 'Band'], ['knot', 'Knot'], ['rosette', 'Rosette'], ['bow', 'Bow'], ['streamers', 'Bow + streamers']]),
-      h('div', { class: 'sub' }, 'Mixed wreath'),
-      h('div', { class: 'seg' },
-        h('button', { class: 'btn small' + (doc.branch.right ? ' on' : ''), onclick: () => { if (doc.branch.right) { const b = clone(doc.branch); delete b.right; change('branch', b, true); } else { const s = shuffleBranch(Date.now() % 100000); change('branch.right', { leaf: s.leaf, orn: { tip: s.orn.tip } }, true); } } }, doc.branch.right ? 'Same both sides' : 'Different right side'),
-        doc.branch.right ? h('button', { class: 'btn small', onclick: () => { const s = shuffleBranch(Date.now() % 100000); change('branch.right', { leaf: s.leaf, orn: { tip: s.orn.tip } }, true); } }, 'Shuffle right side') : null)];
-  // the badge form: a frame round the words instead of branches
-  const FK = get('frame.kind') || 'none', fixed = ['ring', 'oval', 'scallop'].includes(FK);
-  const frameControls = () => [
-    h('div', { class: 'sub' }, 'Frame'),
-    select('Frame', 'frame.kind', Object.entries(FRAMES), { rebuild: true }),
-    FK !== 'none' ? [
-      FILLABLE_FRAMES.includes(FK) ? toggle('Filled', 'frame.filled', { rebuild: true }) : null,
-      FK !== 'corners' ? toggle(FK === 'rules' ? 'Heavy + fine rule' : 'Double line', 'frame.double') : null,
-      range('Line weight', 'frame.w', 0.4, 5, 0.1, { def: 1.6 }), range('Line gap', 'frame.gap', 1, 10, 0.1, { def: 3 }),
-      fixed || FK === 'rules' ? select('Ornament', 'frame.orn', [['star', 'Star'], ['dot', 'Dot'], ['diamond', 'Diamond'], ['none', 'None']]) : null,
-      fixed ? [range('Size', 'frame.size', 0.6, 1.6, 0.01, { def: 1 }), range('Band for curved text', 'frame.band', 0.16, 0.4, 0.01, { def: 0.27 })] : null,
-      FK === 'box' ? range('Corner radius', 'frame.radius', 0, 1, 0.01, { def: 0.25 }) : null,
-      paintEditor('Frame colour', 'frame.paint', { nullable: true, noneLabel: 'Same as leaves' }),
-      get('frame.filled') && FILLABLE_FRAMES.includes(FK) ? paintEditor('Text on the frame', 'frame.ink', { nullable: true, noneLabel: 'Auto (always readable)', leaf: false }) : null,
-      h('div', { class: 'hint' }, fixed ? 'Seals carry curved text in their band: put the status on "Arc top" and the year on "Arc under" (or pick the Seal layout).' : 'The frame is sized round your words.'),
-    ] : h('div', { class: 'hint' }, 'Text only. The top-tier festivals mostly look like this now: pick a frame for a seal, a medal, a ticket or a film strip.'),
-  ];
-  sectionsEl.append(
-    sec('Presets', presetGrid, h('div', { class: 'hint' }, 'Presets change the look and keep your words.')),
-    sec('Layout', layoutGrid, h('div', { class: 'hint' }, 'Layouts move your words and keep the look. Lines a layout leaves out are hidden, not deleted (they come back with the next layout that uses them); new lines arrive with example text to type over.')),
-    sec('Text',
-      h('div', { id: 'fields', style: 'display:grid;gap:6px' }, doc.fields.map(fieldRow)),
-      h('div', { class: 'hint' }, 'Use the festival\'s current official name and the exact wording it gave you (Tribeca dropped "Film" in 2021; Sundance asks for "Sundance Film Festival" in full).'),
-      h('div', { class: 'seg' }, ['status', 'festival', 'award', 'category', 'location', 'year', 'edition', 'custom', 'icon', 'logo'].map((k) => h('button', { class: 'btn small', onclick: () => { const fs = clone(doc.fields); fs.push({ id: 'f' + ++uid, kind: k, text: k === 'logo' ? '' : k === 'icon' ? 'star' : k === 'year' ? '2026' : k[0].toUpperCase() + k.slice(1), role: KIND_ROLE[k], slot: 'inside', show: true }); change('fields', fs, true); } }, '+ ' + k))),
-      h('div', { class: 'sub' }, 'Fit & spacing'),
-      select('Smallest use', L + 'targetPx', [[0, 'No floor'], [600, 'Big: 600 px and up'], [300, 'Medium: 300 px'], [160, 'Poster row: 160 px'], [100, 'Tiny: 100 px']], { num: true }),
-      toggle('Auto-widen', L + 'autoWiden'), range('Max hero', L + 'heroMax', 10, 60, 0.5), range('Min small', L + 'minSmall', 3, 14, 0.1),
-      range('Air to leaves', L + 'pad', 0, 16, 0.5), range('Air grows ×', L + 'padK', 0, 0.5, 0.01), range('Line spacing', L + 'spacing', 0.4, 2.5, 0.05), range('Wrapped lines', L + 'lineGap', 0, 0.8, 0.01),
-      select('Vertical', L + 'dy', [['auto', 'Smart (best fit)'], ['-20', 'High'], ['-8', 'Slightly high'], ['2', 'Centre'], ['12', 'Slightly low'], ['24', 'Low']].map(([a, b]) => [a, b]), { rebuild: false }),
-      select('Wrapping', L + 'wrap', [['auto', 'Smart'], ['off', 'Never wrap']]),
-      range('Arc top radius', L + 'arcTopR', 0.6, 1.6, 0.01), range('Arc bottom r.', L + 'arcBottomR', 0.3, 1.2, 0.01), range('Arc under r.', L + 'arcUnderR', 0.9, 1.6, 0.01, { def: 1.04 }), range('Ribbon position', L + 'ribbonY', 0.3, 1.1, 0.01), range('Ribbon width', L + 'ribbonW', 0.5, 2, 0.01), range('Badge size', L + 'badgeR', 0.4, 2, 0.01), range('Outside gap', L + 'outerGap', 0, 30, 0.5), range('Flank fill', L + 'flankFill', 0.3, 0.9, 0.01, { def: 0.56 })),
-    sec('Wreath',
-      h('div', { class: 'seg' }, Object.keys(FORMS).map((k) => h('button', { class: 'btn small' + (doc.form === k ? ' on' : ''), onclick: () => replaceDoc(applyForm(doc, k)) }, { open: 'Open', wreath: 'Wreath', single: 'Single', crown: 'Crown', swoop: 'Swoop', flank: 'Flank', text: 'Badge (no branches)' }[k]))),
-      doc.form === 'text' ? frameControls() : wreathControls()),
-    doc.form === 'text' ? null : sec('Leaves',
+      select('Rows', B + 'rows', [[1, 'Single'], [2, 'Double (nested)']], { num: true })),
+    fold('Leaves', `${family} · ${get(LF + 'n')} a side`, true,
       select('Family', LF + 'family', opt(Object.keys(FAMILIES)), { rebuild: true }),
       ['simple', 'twig', 'trefoil'].includes(family) ? select('Shape', LF + 'profile', opt(Object.keys(PROFILES).filter((k) => k !== 'rachis'))) : null,
       family === 'custom' ? h('div', { class: 'row wide' }, h('label', {}, 'Your shape'), h('textarea', { placeholder: 'Paste any SVG path (d="…"): a leaf, a star, a film frame. Base on the left, tip on the right.', onchange: (e) => change(LF + 'path', e.target.value) }, get(LF + 'path') || '')) : null,
       select('Style', LF + 'style', [['solid', 'Solid'], ['slit', 'Slit (hairline midrib)'], ['carved', 'Carved veins'], ['inline', 'Inline (engraved outline)'], ['engraved', 'Engraved (outline + veins)'], ['hatch', 'Hatched (etching)'], ['split', 'Split two-tone']]),
       range('Fold shading', LF + 'fold', 0, 0.6, 0.01), select('Shaded half', LF + 'foldSide', [[1, 'Lower half'], [-1, 'Upper half']], { num: true }),
       range('Line weight', LF + 'ring', 0.06, 0.3, 0.01),
-      range('Count', LF + 'n', 2, 32, 1), range('Size at base', LF + 'L0', 8, 80, 0.5), range('Size at tip', LF + 'L1', 4, 60, 0.5), range('Width', LF + 'wr', 0.08, 1.2, 0.01), range('Swell (middle)', LF + 'bulge', -0.5, 1, 0.01),
-      range('Bend', LF + 'bend', -0.4, 0.6, 0.01), range('S-curve', LF + 'scurve', -1, 1, 0.01), range('Fan out', LF + 'fan', -1, 1, 0.01), range('Big–small rhythm', LF + 'alt', 0, 0.6, 0.01), range('Lopsided', LF + 'asym', -0.6, 0.6, 0.01), range('Angle out', LF + 'aOut', 0, 90, 1), range('Angle in', LF + 'aIn', 0, 90, 1), range('Inner size', LF + 'inScale', 0.3, 1.3, 0.01),
+      range('Count', LF + 'n', 2, 32, 1), range('Size at base', LF + 'L0', 8, 80, 0.5), range('Size at tip', LF + 'L1', 4, 60, 0.5), range('Width', LF + 'wr', 0.08, 1.2, 0.01), range('Swell', LF + 'bulge', -0.5, 1, 0.01)),
+    fold('Leaf rhythm', 'angles, bend, spacing', false,
+      range('Bend', LF + 'bend', -0.4, 0.6, 0.01), range('S-curve', LF + 'scurve', -1, 1, 0.01), range('Fan out', LF + 'fan', -1, 1, 0.01), range('Big–small', LF + 'alt', 0, 0.6, 0.01), range('Lopsided', LF + 'asym', -0.6, 0.6, 0.01), range('Angle out', LF + 'aOut', 0, 90, 1), range('Angle in', LF + 'aIn', 0, 90, 1), range('Inner size', LF + 'inScale', 0.3, 1.3, 0.01),
       select('Arrangement', LF + 'arr', [['alternate', 'Alternate'], ['paired', 'Paired'], ['outer', 'Outer only'], ['inner', 'Inner only'], ['whorl', 'Whorled']]),
       range('Spacing', LF + 'gamma', 0.5, 1.8, 0.01), range('Stalks', LF + 'petiole', 0, 0.8, 0.01), range('Midrib', LF + 'vein', 0, 0.3, 0.01), range('Natural jitter', LF + 'jitter', 0, 1, 0.01), range('Hand-drawn', LF + 'wobble', 0, 1.5, 0.01),
       toggle('Point to base', LF + 'reverse'),
-      h('div', { class: 'row' }, h('label', {}, 'Seed'), h('input', { type: 'number', value: doc.seed, onchange: (e) => change('seed', +e.target.value) }), h('button', { class: 'btn small', onclick: () => change('seed', Math.floor(Math.random() * 99999), true) }, '⚄'))),
-    sec('Colour',
+      h('div', { class: 'row' }, h('label', {}, 'Seed'), h('input', { type: 'number', value: doc.seed, 'aria-label': 'Seed', onchange: (e) => change('seed', +e.target.value) }), h('button', { class: 'btn small', title: 'New natural variation', onclick: () => change('seed', Math.floor(Math.random() * 99999), true) }, '⚄'))),
+    fold('Ornaments', 'tips, berries, ties', false,
+      select('Tip', OR + 'tip', [['leaf', 'Leaf'], ['bud', 'Bud'], ['berry', 'Berry'], ['star', 'Star'], ['curl', 'Tendril'], ['none', 'None']]), range('Berries every', OR + 'berries', 0, 4, 1), select('Berries sit', OR + 'berryPos', [['inner', 'Inside'], ['outer', 'Outside'], ['axil', 'In the forks']]), select('Berry shape', OR + 'berryShape', [['dot', 'Round'], ['olive', 'Olive on a stalk'], ['cluster', 'Cluster of three']]), range('Berry size', OR + 'berrySize', 0.4, 2.5, 0.05), range('Flowers every', OR + 'flowers', 0, 5, 1),
+      select('Tie at base', OR + 'tie', [['none', 'None'], ['band', 'Band'], ['knot', 'Knot'], ['rosette', 'Rosette'], ['bow', 'Bow'], ['streamers', 'Bow + streamers']])),
+    fold('Mixed wreath', doc.branch.right ? 'on' : 'off', false,
+      h('div', { class: 'hint' }, 'A different branch on the right: oak and palm, laurel and olive.'),
+      h('div', { class: 'seg' },
+        h('button', { class: 'btn small' + (doc.branch.right ? ' on' : ''), onclick: () => { if (doc.branch.right) { const b = clone(doc.branch); delete b.right; change('branch', b, true); } else { const s = shuffleBranch(Date.now() % 100000); change('branch.right', { leaf: s.leaf, orn: { tip: s.orn.tip } }, true); } } }, doc.branch.right ? 'Same both sides' : 'Different right side'),
+        doc.branch.right ? h('button', { class: 'btn small', onclick: () => { const s = shuffleBranch(Date.now() % 100000); change('branch.right', { leaf: s.leaf, orn: { tip: s.orn.tip } }, true); } }, 'Shuffle right side') : null)));
+  return [top, pane];
+}
+
+// ── Color ──
+function colorTab() {
+  const top = head('Color', 'Metals, inks and gradients. Click a palette for a starting point.');
+  const pal = h('div', { class: 'palettes' }, PALETTES.map((p, i) => h('button', { title: 'Palette ' + (i + 1), 'aria-label': 'Palette ' + (i + 1), style: `background:${p.bg}`, onclick: () => applyPalette(p) }, h('i', { style: `background:${paintCss(p.branch)}` }))));
+  const fx = (k) => !!get('paint.effects.' + k);
+  return [top, h('div', { class: 'pane' },
+    h('div', { class: 'group' }, h('div', { class: 'label' }, 'Palettes', h('span', { class: 'grow' })), pal),
+    fold('Leaves', null, true,
       paintEditor('Leaves', 'paint.branch', { leaf: true }),
       paintEditor('Inner leaves', 'paint.inner', { nullable: true, noneLabel: 'Same, dimmed', leaf: true }),
       range('Inner dimming', 'paint.depth', 0, 0.9, 0.01),
@@ -328,48 +483,67 @@ function buildPanel() {
       paintEditor('Berries & flowers', 'paint.ornament', { nullable: true, noneLabel: 'Same as leaves' }),
       select('Draw', 'paint.mode', [['fill', 'Filled'], ['outline', 'Outline'], ['both', 'Filled + outline']]),
       range('Outline width', 'paint.stroke.w', 0.2, 4, 0.05),
-      paintEditor('Outline colour', 'paint.stroke.paint', { nullable: true, noneLabel: 'Same as leaves' }),
+      paintEditor('Outline color', 'paint.stroke.paint', { nullable: true, noneLabel: 'Same as leaves' })),
+    fold('Text', null, true,
       paintEditor('Main text', 'text.paint', { leaf: false }),
-      paintEditor('Small text', 'text.sub', { nullable: true, noneLabel: 'Same as main', leaf: false }),
+      paintEditor('Small text', 'text.sub', { nullable: true, noneLabel: 'Same as main', leaf: false })),
+    fold('Ribbon, badge and background', null, false,
       paintEditor('Ribbon & badge', 'ribbon.paint', { nullable: true, noneLabel: 'Same as leaves' }),
       paintEditor('Text on ribbon', 'ribbon.text', { nullable: true, noneLabel: 'Auto (always readable)', leaf: false }),
-      paintEditor('Background', 'canvas.bg', { nullable: true, noneLabel: 'Transparent', leaf: false }),
-      h('div', { class: 'sub' }, 'Effects'),
-      h('div', { class: 'hint' }, 'Misprint: a second ink off register. Foil: stamped metal catching the light. Letterpress: pressed into the paper. Grain: worn ink.'),
-      toggle('Shadow', 'paint.effects.shadow', { rebuild: true }),
-      get('paint.effects.shadow') ? [range('Blur', 'paint.effects.shadow.blur', 0, 12, 0.1, { def: 3 }), range('Drop', 'paint.effects.shadow.dy', -6, 12, 0.1, { def: 2 }), range('Strength', 'paint.effects.shadow.opacity', 0, 1, 0.01, { def: 0.55 }), color('Shadow colour', 'paint.effects.shadow.color')] : null,
-      toggle('Glow', 'paint.effects.glow', { rebuild: true }),
-      get('paint.effects.glow') ? [range('Glow blur', 'paint.effects.glow.blur', 0, 16, 0.1, { def: 6 }), range('Glow strength', 'paint.effects.glow.opacity', 0, 1, 0.01, { def: 0.6 }), color('Glow colour', 'paint.effects.glow.color')] : null,
-      toggle('Misprint', 'paint.effects.misreg', { rebuild: true }),
-      get('paint.effects.misreg') ? [range('Shift across', 'paint.effects.misreg.dx', -4, 4, 0.1, { def: 1.4 }), range('Shift down', 'paint.effects.misreg.dy', -4, 4, 0.1, { def: 0.9 }), range('Ink strength', 'paint.effects.misreg.opacity', 0, 1, 0.01, { def: 0.8 }), color('Second ink', 'paint.effects.misreg.color')] : null,
-      toggle('Foil', 'paint.effects.foil', { rebuild: true }),
-      get('paint.effects.foil') ? [range('Shine', 'paint.effects.foil.strength', 0, 1.5, 0.01, { def: 0.75 }), range('Crinkle', 'paint.effects.foil.crinkle', 0, 1, 0.01, { def: 0.5 }), range('Crinkle size', 'paint.effects.foil.size', 0.5, 5, 0.1, { def: 1.6 }), range('Light from', 'paint.effects.foil.light', 0, 360, 1, { def: 235 })] : null,
-      toggle('Letterpress', 'paint.effects.press', { rebuild: true }),
-      get('paint.effects.press') ? [range('Depth', 'paint.effects.press.depth', 0.2, 2.5, 0.05, { def: 0.8 }), range('Press strength', 'paint.effects.press.strength', 0, 1, 0.01, { def: 0.5 })] : null,
-      toggle('Grain', 'paint.effects.grain', { rebuild: true }),
-      get('paint.effects.grain') ? [range('Amount', 'paint.effects.grain.amount', 0, 1, 0.01, { def: 0.35 }), range('Speck size', 'paint.effects.grain.size', 0.2, 3, 0.05, { def: 0.6 })] : null,
+      paintEditor('Background', 'canvas.bg', { nullable: true, noneLabel: 'Transparent', leaf: false })),
+    fold('Effects', ['shadow', 'glow', 'misreg', 'foil', 'press', 'grain'].filter(fx).length + ' on', false,
+      h('div', { class: 'hint' }, 'Foil: stamped metal catching the light. Letterpress: pressed into the paper. Misprint: a second ink off register. Grain: worn ink.'),
+      toggle('Foil', 'paint.effects.foil', { rebuild: true, on: { strength: 0.75, crinkle: 0.5, size: 1.6, light: 235 }, off: null }),
+      fx('foil') ? [range('Shine', 'paint.effects.foil.strength', 0, 1.5, 0.01, { def: 0.75 }), range('Crinkle', 'paint.effects.foil.crinkle', 0, 1, 0.01, { def: 0.5 }), range('Crinkle size', 'paint.effects.foil.size', 0.5, 5, 0.1, { def: 1.6 }), range('Light from', 'paint.effects.foil.light', 0, 360, 1, { def: 235 })] : null,
+      toggle('Letterpress', 'paint.effects.press', { rebuild: true, on: { depth: 0.8, strength: 0.5 }, off: null }),
+      fx('press') ? [range('Depth', 'paint.effects.press.depth', 0.2, 2.5, 0.05, { def: 0.8 }), range('Press strength', 'paint.effects.press.strength', 0, 1, 0.01, { def: 0.5 })] : null,
+      toggle('Shadow', 'paint.effects.shadow', { rebuild: true, on: { blur: 3, dy: 2, opacity: 0.55, color: '#000000' }, off: null }),
+      fx('shadow') ? [range('Blur', 'paint.effects.shadow.blur', 0, 12, 0.1, { def: 3 }), range('Drop', 'paint.effects.shadow.dy', -6, 12, 0.1, { def: 2 }), range('Strength', 'paint.effects.shadow.opacity', 0, 1, 0.01, { def: 0.55 }), color('Shadow color', 'paint.effects.shadow.color')] : null,
+      toggle('Glow', 'paint.effects.glow', { rebuild: true, on: { blur: 6, opacity: 0.6, color: '#ffe8a8' }, off: null }),
+      fx('glow') ? [range('Glow blur', 'paint.effects.glow.blur', 0, 16, 0.1, { def: 6 }), range('Glow strength', 'paint.effects.glow.opacity', 0, 1, 0.01, { def: 0.6 }), color('Glow color', 'paint.effects.glow.color')] : null,
+      toggle('Misprint', 'paint.effects.misreg', { rebuild: true, on: { dx: 1.4, dy: 0.9, opacity: 0.8, color: '#ff4f79' }, off: null }),
+      fx('misreg') ? [range('Shift across', 'paint.effects.misreg.dx', -4, 4, 0.1, { def: 1.4 }), range('Shift down', 'paint.effects.misreg.dy', -4, 4, 0.1, { def: 0.9 }), range('Ink strength', 'paint.effects.misreg.opacity', 0, 1, 0.01, { def: 0.8 }), color('Second ink', 'paint.effects.misreg.color')] : null,
+      toggle('Grain', 'paint.effects.grain', { rebuild: true, on: { amount: 0.35, size: 0.6 }, off: null }),
+      fx('grain') ? [range('Amount', 'paint.effects.grain.amount', 0, 1, 0.01, { def: 0.35 }), range('Speck size', 'paint.effects.grain.size', 0.2, 3, 0.05, { def: 0.6 })] : null,
       toggle('Effects on text', 'paint.effects.text'),
-      h('div', { class: 'hint' }, 'Effects are in the PNG and the video. SVG keeps them as filters; PDF leaves them out (printers add foil and letterpress as their own plates).')),
-    sec('Type', roleEditor('hero', 'Hero (festival or award)'), roleEditor('eyebrow', 'Eyebrow (status)'), roleEditor('sub', 'Sub (year, location)'), roleEditor('big', 'Big (a big year)'), roleEditor('arc', 'Arc, ribbon & badge')),
-    sec('Canvas & export',
-      select('Shape', 'canvas.aspect', [[0, 'Fit the laurel'], [1, 'Square 1:1'], [0.8, 'Portrait 4:5'], [0.5625, 'Story 9:16'], [1.7778, 'Wide 16:9'], [0.6667, 'Poster 2:3']], { num: true }),
-      range('Padding', 'canvas.pad', 0, 80, 1),
-      h('div', { class: 'row wide' }, h('label', {}, 'PNG width'), h('select', { id: 'png-w' }, [1000, 2000, 3000, 4000, 6000].map((w) => h('option', { value: w, selected: w === 3000 }, w + ' px')))),
-      h('div', { class: 'row wide' }, h('label', {}, 'Background'), h('select', { id: 'png-bg' }, h('option', { value: '1' }, 'Include'), h('option', { value: '0' }, 'Transparent'))),
-      select('SVG text', 'out.svgText', [['outline', 'As shapes (no fonts needed)'], ['live', 'Live text (editable, needs the fonts)']]),
-      select('PDF width', 'out.pdfMm', [[50, '50 mm (2 in)'], [75, '75 mm (3 in)'], [100, '100 mm (4 in)'], [150, '150 mm (6 in)'], [200, '200 mm (8 in)']], { num: true }),
-      h('div', { class: 'hint' }, 'Vector files are the same at any size; the PDF width is the size it opens at. Outlining fetches the font files once from the Google Fonts library.'),
-      h('div', { class: 'hint' }, 'Laurels are for promoting the film itself: some festivals forbid them on merchandise.'),
-      h('div', { class: 'seg' }, h('button', { class: 'btn small', onclick: () => { if (confirm('Start over with the default laurel?')) replaceDoc(clone(DEFAULT_DOC)); } }, 'Reset everything'))),
-  );
-  // the wrapper selects coerce numbers for dy/gap
-  sectionsEl.querySelectorAll('select').forEach((s) => s.addEventListener('change', () => { const v = get('layout.dy'); if (typeof v === 'string' && v !== 'auto') set('layout.dy', +v); const g = get('branch.spine.gap'); if (typeof g === 'string' && g !== 'auto') set('branch.spine.gap', +g); }));
-  document.getElementById('panel').scrollTop = scroll;
-  thumbsDirty = true; schedule();
+      h('div', { class: 'hint' }, 'Effects are in the PNG, the video and the SVG. The PDF leaves them out: printers add foil and letterpress as their own plates.')))];
+}
+function applyPalette(p) { const d = clone(doc); d.paint.branch = clone(p.branch); d.paint.inner = p.inner || null; d.text.paint = p.text; d.text.sub = p.sub; d.canvas.bg = p.bg; for (const k of Object.keys(d.roles)) d.roles[k].paint = null; delete d.presetName; replaceDoc(d); }
+
+// ── Canvas ──
+function canvasTab() {
+  const L = 'layout.';
+  const top = head('Canvas', 'Shape, margins and how small it will be seen.');
+  return [top, h('div', { class: 'pane' },
+    select('Shape', 'canvas.aspect', [[0, 'Fit the laurel'], [1, 'Square 1:1'], [0.8, 'Portrait 4:5'], [0.5625, 'Story 9:16'], [1.7778, 'Wide 16:9'], [0.6667, 'Poster 2:3']], { num: true }),
+    range('Padding', 'canvas.pad', 0, 80, 1),
+    paintEditor('Background', 'canvas.bg', { nullable: true, noneLabel: 'Transparent', leaf: false }),
+    h('div', { class: 'group' }, h('div', { class: 'label' }, 'Smallest use', h('span', { class: 'grow' })),
+      h('div', { class: 'hint' }, 'How small will people see it? Daphne keeps the small lines readable at that size: 6 px or more.'),
+      h('div', { class: 'chips' }, [[0, 'No floor'], [600, 'Big · 600 px'], [300, 'Medium · 300 px'], [160, 'Poster row · 160 px'], [100, 'Tiny · 100 px']].map(([v, l]) => h('button', { class: 'chip' + (get(L + 'targetPx') === v ? ' on' : ''), onclick: () => change(L + 'targetPx', v, true) }, l)))),
+    fold('Fit and spacing', null, false,
+      toggle('Auto-widen', L + 'autoWiden', { tip: 'Widen the wreath when a long name would otherwise get small' }), range('Max name size', L + 'heroMax', 10, 60, 0.5), range('Min small size', L + 'minSmall', 3, 14, 0.1),
+      range('Air to leaves', L + 'pad', 0, 16, 0.5), range('Air grows ×', L + 'padK', 0, 0.5, 0.01), range('Line spacing', L + 'spacing', 0.4, 2.5, 0.05), range('Wrapped lines', L + 'lineGap', 0, 0.8, 0.01),
+      select('Vertical', L + 'dy', [['auto', 'Smart (best fit)'], ['-20', 'High'], ['-8', 'Slightly high'], ['2', 'Center'], ['12', 'Slightly low'], ['24', 'Low']]),
+      select('Wrapping', L + 'wrap', [['auto', 'Smart'], ['off', 'Never wrap']])),
+    fold('Outside text', 'arcs, ribbon, medallion', false,
+      range('Arc top radius', L + 'arcTopR', 0.6, 1.6, 0.01), range('Arc base radius', L + 'arcBottomR', 0.3, 1.2, 0.01), range('Arc under radius', L + 'arcUnderR', 0.9, 1.6, 0.01, { def: 1.04 }), range('Ribbon position', L + 'ribbonY', 0.3, 1.1, 0.01), range('Ribbon width', L + 'ribbonW', 0.5, 2, 0.01), range('Medallion size', L + 'badgeR', 0.4, 2, 0.01), range('Outside gap', L + 'outerGap', 0, 30, 0.5), range('Flank fill', L + 'flankFill', 0.3, 0.9, 0.01, { def: 0.56 })),
+    h('div', { class: 'seg' }, h('button', { class: 'btn small', onclick: () => { if (confirm('Start over with the default laurel? (Undo brings this one back.)')) replaceDoc(applyPreset(PRESETS[0], true, undefined, merge(clone(DEFAULT_DOC), { row: doc.row }))); } }, 'Start over')))];
 }
 
-// preset thumbnails: every preset rendered live with the user's own words
-// drawn lazily: only the thumbnails scrolled into view are rendered
+// ── About ──
+function aboutTab() {
+  return [head('About Daphne', 'Make festival laurels for your film. It’s free.'), h('div', { class: 'pane about-pane' },
+    h('p', { class: 'lead' }, 'Your film did the hard part. Now make the laurel.'),
+    h('p', {}, 'Daphne makes festival laurels, the wreaths on a film’s poster that say it was selected for, or won at, a festival. Type the festival, your selection and the year, pick a look, and download it for your poster, trailer and socials as a PNG, SVG, PDF or video. It’s free and works in your browser, with no account and no watermark. Nothing you make leaves your device unless you share it. Made by pitch.dog, and open source.'),
+    h('div', { class: 'pledge' }, ['No account, no watermark, no paid tier, no limits.', 'Everything you make is yours to use however you like.', 'No festival logos ship with Daphne, and no lookalikes. Use the official files festivals send you.', 'The festival list and the looks are open data: corrections welcome.'].map((t) => h('div', {}, t))),
+    h('p', { class: 'hint' }, 'Daphne isn’t affiliated with or endorsed by any festival. A laurel is the filmmaker’s own claim: use the wording the festival gave you.'),
+    h('div', { class: 'group' }, h('div', { class: 'label' }, 'Keyboard', h('span', { class: 'grow' })), h('div', { class: 'hint' }, h('span', { class: 'kbd' }, '⌘Z'), ' undo  ', h('span', { class: 'kbd' }, '⇧⌘Z'), ' redo  ', h('span', { class: 'kbd' }, '⌘E'), ' export  ', h('span', { class: 'kbd' }, 'S'), ' surprise me')),
+    h('p', { class: 'why' }, h('b', {}, 'Why Daphne? '), 'In Greek myth, Daphne turned into the first laurel tree. Every laurel since comes from her.'),
+    h('div', { class: 'hint' }, 'Made by pitch.dog · ', h('a', { href: 'https://github.com/bomkino/Daphne', target: '_blank', rel: 'noopener' }, 'Source on GitHub')))];
+}
+
+// preset and layout thumbnails, rendered live with the user's own words, lazily as they scroll into view
 function drawThumb(el) {
   delete el.dataset.dirty;
   let k = 0; const tmp = () => 'tmp' + k++;
@@ -378,10 +552,8 @@ function drawThumb(el) {
   el.innerHTML = render(d, { measure, scale: 1 }).svg; // draw now, sharpen when the fonts arrive
   ensureFonts(d).then(() => { el.innerHTML = render(d, { measure, scale: 1 }).svg; });
 }
-const thumbIO = new IntersectionObserver((es) => es.forEach((e) => { if (e.isIntersecting && e.target.dataset.dirty) drawThumb(e.target); }), { root: document.getElementById('panel'), rootMargin: '300px' });
-function drawThumbs() {
-  document.querySelectorAll('#presets .thumb, #layouts .thumb').forEach((el) => { el.dataset.dirty = 1; thumbIO.unobserve(el); thumbIO.observe(el); });
-}
+const thumbIO = new IntersectionObserver((es) => es.forEach((e) => { if (e.isIntersecting && e.target.dataset.dirty) drawThumb(e.target); }), { root: matchMedia('(max-width: 860px)').matches ? null : document.getElementById('panel'), rootMargin: '300px' });
+function drawThumbs() { document.querySelectorAll('.preset .thumb').forEach((el) => { el.dataset.dirty = 1; thumbIO.unobserve(el); thumbIO.observe(el); }); }
 
 // ── shuffle: coherent looks from curated pools ──
 const PALETTES = [
@@ -410,6 +582,9 @@ const PALETTES = [
   { bg: '#f2efe4', branch: { type: 'linear', angle: 0, scope: 'whole', stops: [[0, '#4f6446'], [1, '#a3b58a']] }, text: '#3a4a2f', sub: '#6b7d55' },
   { bg: '#1b1630', branch: { type: 'linear', angle: 0, scope: 'whole', stops: [[0, '#7c67c4'], [1, '#c9b8f2']] }, text: '#efe9ff', sub: '#b7a6e6' },
   { bg: '#fff6ef', branch: { type: 'linear', angle: 0, scope: 'whole', stops: [[0, '#ff6a88'], [0.55, '#ff9a8b'], [1, '#ffd56b']] }, text: '#d6336c', sub: '#f0758f' },
+  { bg: null, branch: { type: 'metal', metal: 'gold', scope: 'leaf', angle: 28 }, text: '#f4e3a8', sub: '#d8b866' },
+  { bg: null, branch: '#ffffff', text: '#ffffff', sub: '#ffffff' },
+  { bg: null, branch: '#111111', text: '#111111', sub: '#111111' },
 ];
 const PAIRINGS = [['Figtree', 'Figtree', 800, 700], ['Cinzel', 'Cinzel', 700, 600], ['Cormorant Garamond', 'Cormorant SC', 600, 600, 'asis'], ['Playfair Display', 'Playfair Display', 700, 600, 'asis'], ['Bodoni Moda', 'Bodoni Moda', 800, 600], ['Jost', 'Jost', 600, 500], ['Bebas Neue', 'Figtree', 400, 700], ['Syne', 'Syne', 800, 700], ['Libre Baskerville', 'Libre Baskerville', 700, 400, 'asis'], ['Marcellus', 'Marcellus', 400, 400], ['Italiana', 'Italiana', 400, 400], ['Fraunces', 'Inter Tight', 700, 600, 'asis'], ['Instrument Serif', 'Inter Tight', 400, 600, 'asis'], ['Archivo', 'Archivo', 900, 700], ['Poiret One', 'Poiret One', 400, 400], ['Montserrat', 'Montserrat', 800, 600], ['IM Fell English SC', 'IM Fell English SC', 400, 400], ['Space Grotesk', 'Space Grotesk', 700, 500], ['Big Shoulders Display', 'Big Shoulders Display', 800, 600], ['Gloock', 'Inter Tight', 400, 600, 'asis']];
 function shuffle(part) {
@@ -425,126 +600,172 @@ function shuffle(part) {
     if (r() < 0.12) d.branch.orn.tip = 'curl';
     d.branch.rows = r() < 0.12 ? 2 : 1;
     d.seed = Math.floor(r() * 99999);
+    if (d.form === 'text') d.form = 'open';
   }
-  if (part === 'colour' || part === 'all') {
-    const p = pick(PALETTES);
+  if (part === 'color' || part === 'all') {
+    const p = pick(PALETTES.filter((x) => x.bg));
     d.paint.branch = clone(p.branch); d.paint.inner = p.inner || null; d.text.paint = p.text; d.text.sub = p.sub; d.canvas.bg = p.bg;
     d.paint.mode = r() < 0.12 ? 'outline' : 'fill'; d.paint.depth = +(0.1 + r() * 0.35).toFixed(2);
     for (const k of Object.keys(d.roles)) d.roles[k].paint = null;
   }
   if (part === 'type' || part === 'all') {
-    const [hf, sf, hw, sw, hc] = pick(PAIRINGS);
+    const [hf, sf, hw, sw2, hc] = pick(PAIRINGS);
     Object.assign(d.roles.hero, { font: hf, weight: hw, case: hc || 'upper', italic: false });
     Object.assign(d.roles.big, { font: hf, weight: hw });
-    for (const k of ['eyebrow', 'sub', 'arc']) Object.assign(d.roles[k], { font: sf, weight: sw, case: 'upper' });
+    for (const k of ['eyebrow', 'sub', 'arc']) Object.assign(d.roles[k], { font: sf, weight: sw2, case: 'upper' });
     d.roles.eyebrow.track = d.roles.sub.track = +(0.14 + r() * 0.16).toFixed(2);
   }
+  delete d.presetName;
   replaceDoc(d);
 }
-document.getElementById('shuffle-all').onclick = () => shuffle('all');
-document.querySelectorAll('[data-shuffle]').forEach((b) => (b.onclick = () => shuffle(b.dataset.shuffle)));
 
 // ── undo / redo ──
 function undo() { if (!undoStack.length) return; future.push(JSON.stringify(doc)); doc = JSON.parse(undoStack.pop()); lastSnap = JSON.stringify(doc); buildPanel(); refreshMode(); schedule(); saveHash(); }
 function redo() { if (!future.length) return; undoStack.push(JSON.stringify(doc)); doc = JSON.parse(future.pop()); lastSnap = JSON.stringify(doc); buildPanel(); refreshMode(); schedule(); saveHash(); }
 const refreshMode = () => { if (MODES[mode] && MODES[mode].refresh) MODES[mode].refresh(); };
 document.getElementById('undo').onclick = undo; document.getElementById('redo').onclick = redo;
-window.addEventListener('keydown', (e) => { if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z' && !/input|textarea/i.test(document.activeElement.tagName)) { e.preventDefault(); e.shiftKey ? redo() : undo(); } });
+window.addEventListener('keydown', (e) => {
+  const typing = /input|textarea|select/i.test(document.activeElement.tagName) && document.activeElement.type !== 'checkbox' && document.activeElement.type !== 'range';
+  const mod = e.metaKey || e.ctrlKey;
+  if (mod && e.key.toLowerCase() === 'z' && !typing) { e.preventDefault(); e.shiftKey ? redo() : undo(); }
+  else if (mod && e.key.toLowerCase() === 'e') { e.preventDefault(); openExport(); }
+  else if (!mod && !typing && e.key.toLowerCase() === 's' && !document.querySelector('.scrim')) shuffle('all');
+  else if (e.key === 'Escape') { closeFontPop(); endPeek(); }
+});
 
-// ── share link: the whole document, deflated into the URL hash. No server, no account. ──
-const b64u = (buf) => btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+// ── share link and autosave: the whole document, deflated into the URL hash. No server, no account. ──
+const b64u = (buf) => { const b = new Uint8Array(buf); let s = ''; for (let i = 0; i < b.length; i += 0x8000) s += String.fromCharCode.apply(null, b.subarray(i, i + 0x8000)); return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); };
 const unb64u = (s) => Uint8Array.from(atob(s.replace(/-/g, '+').replace(/_/g, '/')), (c) => c.charCodeAt(0));
 async function pack(o) { const cs = new CompressionStream('deflate-raw'); const w = cs.writable.getWriter(); w.write(new TextEncoder().encode(JSON.stringify(o))); w.close(); return b64u(await new Response(cs.readable).arrayBuffer()); }
 async function unpack(s) { const ds = new DecompressionStream('deflate-raw'); const w = ds.writable.getWriter(); w.write(unb64u(s)); w.close(); return JSON.parse(await new Response(ds.readable).text()); }
 let hashTimer = 0;
-function saveHash() { clearTimeout(hashTimer); hashTimer = setTimeout(async () => { try { window.history.replaceState(null, '', '#l=' + (await pack(doc))); } catch (e) { /* hash is a convenience */ } }, 500); }
+function saveHash() { clearTimeout(hashTimer); hashTimer = setTimeout(async () => { try { const p = await pack(doc); window.history.replaceState(null, '', '#l=' + p); try { localStorage.setItem('daphne.autosave', p); } catch (e) { /* storage is a convenience */ } } catch (e) { /* hash is a convenience */ } }, 500); }
 document.getElementById('copy-link').onclick = async () => { const url = location.href.split('#')[0] + '#l=' + (await pack(doc)); try { await navigator.clipboard.writeText(url); toast('Link copied: it holds the whole laurel'); } catch { prompt('Copy this link', url); } };
-function toast(msg) { const t = h('div', { style: 'position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:#e3c27a;color:#1a1408;padding:8px 14px;border-radius:999px;font-weight:700;z-index:9' }, msg); document.body.append(t); setTimeout(() => t.remove(), 1800); }
+function toast(msg, ms = 2200) { const t = h('div', { class: 'toast', role: 'status' }, msg); document.getElementById('toasts').append(t); setTimeout(() => { t.style.transition = 'opacity .3s'; t.style.opacity = 0; setTimeout(() => t.remove(), 320); }, ms); }
 
 // ── export ──
-const download = (blob, name) => { const a = h('a', { href: URL.createObjectURL(blob), download: name }); document.body.append(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000); };
-const slug = (s) => String(s || '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '-').replace(/^-|-$/g, '');
-const fileName = (d = doc) => slug(((d.fields.find((f) => f.role === 'hero' && f.text && f.show !== false) || {}).text) || 'laurel') || 'laurel';
+const download = (blob, name) => { const a = h('a', { href: URL.createObjectURL(blob), download: name }); document.body.append(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1500); };
+const slug = (s) => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^\p{L}\p{N}]+/gu, '-').replace(/^-|-$/g, '');
+// file names say what the laurel is: 2026-northlight-official-selection
+const fileName = (d = doc) => {
+  const t = (k) => ((d.fields.find((f) => f.kind === k && f.text && f.show !== false) || {}).text || '');
+  const parts = [t('year').match(/\d{4}/)?.[0], t('festival'), t('award') || t('status')].filter(Boolean);
+  return (slug(parts.join(' ')) || slug((d.fields.find((f) => f.role === 'hero' && f.text && f.show !== false) || {}).text) || 'laurel').slice(0, 80);
+};
 async function svgWithFonts(svg, embed, d = doc) {
   const fams = [...new Set(Object.values(d.roles).map((r) => r.font))];
   const css = embed ? await embedFontCss(fams) : fams.map((f) => `@import url('${cssUrl(f).replace(/&/g, '&amp;')}');`).join('');
   return svg.replace(/^<svg([^>]*)>/, `<svg$1><style>${css}</style>`);
 }
-// a disclaimer travels inside every vector file (research/01 §2.3, guardrail 9)
-const stamp = (svg) => svg.replace(/^<svg([^>]*)>/, '<svg$1><!-- Made with Daphne, the free festival laurel maker by pitch.dog. Not affiliated with or endorsed by any festival: the claim on this laurel is the filmmaker\'s own. -->');
+const xmlEsc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+// every vector file says what it is (for screen readers and search) and carries the not-affiliated note (research/01 §2.3)
+const stamp = (svg, d = doc) => svg.replace(/^<svg([^>]*)>/, (m, a) => `<svg${a.replace(/\s(role|aria-labelledby)="[^"]*"/g, '')} role="img" aria-labelledby="daphne-title"><title id="daphne-title">${xmlEsc(altText(d))}</title><desc>Festival laurel made with Daphne, the free laurel maker by pitch.dog. Not affiliated with or endorsed by any festival: the claim is the filmmaker's own.</desc>`);
 // outlined text when asked (the default), live text with the fonts linked otherwise; falls back to live text offline
 async function exportSvgText(svg, d = doc) {
   if ((d.out && d.out.svgText) !== 'live') {
-    try { const r = await outlineSvg(svg); if (r.notes.length) toast(`Drawn in ${r.notes.join(', ')} where the font has no glyphs`); return stamp(r.svg); }
+    try { const r = await outlineSvg(svg); if (r.notes.length) toast(`Drawn in ${r.notes.join(', ')} where the font has no glyphs`); return stamp(r.svg, d); }
     catch (e) { console.warn(e); toast('Couldn\'t fetch the fonts to outline the text: saved with live text'); }
   }
-  return stamp(await svgWithFonts(svg, false, d));
+  return stamp(await svgWithFonts(svg, false, d), d);
 }
-async function toPng(svgText, vb, width, withBg, d = doc) {
+async function toPng(svgText, vb, width, withBg, d = doc, height) {
   let svg = svgText;
   if (!withBg) svg = svg.replace(/<rect data-bg="1"[^>]*\/>/, '');
-  svg = await svgWithFonts(svg.replace(/width="[^"]+" height="[^"]+"/, `width="${width}" height="${Math.round((width * vb[3]) / vb[2])}"`), true, d);
+  const H = height || Math.round((width * vb[3]) / vb[2]);
+  svg = await svgWithFonts(svg.replace(/width="[^"]+" height="[^"]+"/, `width="${width}" height="${H}"`), true, d);
   const img = new Image(); img.src = URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml' }));
   await img.decode();
-  const c = document.createElement('canvas'); c.width = width; c.height = Math.round((width * vb[3]) / vb[2]);
+  const c = document.createElement('canvas'); c.width = width; c.height = H;
   c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+  URL.revokeObjectURL(img.src);
   return new Promise((res) => c.toBlob(res, 'image/png'));
 }
-async function toPdf(svg, d = doc, title = 'Laurel') {
-  toast('Building the PDF…');
+async function toPdf(svg, d = doc, title = 'Laurel', mm) {
   let outl;
   try { outl = (await outlineSvg(svg)).svg; } catch (e) { toast('Couldn\'t fetch the fonts for the PDF: check your connection'); throw e; }
-  return svgToPdf(stamp(outl), (d.out && d.out.pdfMm) || 100, { title, subject: 'Festival laurel. Not affiliated with or endorsed by any festival.' });
+  return svgToPdf(stamp(outl, d), mm || (d.out && d.out.pdfMm) || 100, { title: altText(d).replace(/\.$/, '') || title, subject: 'Festival laurel. Not affiliated with or endorsed by any festival.' });
 }
-// what the export buttons save depends on the view: the row in Row, the laurel everywhere else
-const exporter = () => (MODES[mode].exports || LAUREL_EXPORTS);
-const LAUREL_EXPORTS = {
-  svg: async () => { const r = render(doc, { measure, scale: 1 }); ctx.download(new Blob([await exportSvgText(r.svg)], { type: 'image/svg+xml' }), fileName() + '.svg'); },
-  pdf: async () => { const r = render(doc, { measure, scale: 1 }); ctx.download(await toPdf(r.svg, doc, fileName()), fileName() + '.pdf'); },
-  png: async () => { toast('Rendering PNG…'); const w = +(document.getElementById('png-w')?.value || 3000), bg = (document.getElementById('png-bg')?.value || '1') === '1'; const r = render(doc, { measure, scale: 1 }); ctx.download(await toPng(r.svg, r.viewBox, w, bg && !!doc.canvas.bg), fileName() + '.png'); },
-};
-document.getElementById('dl-svg').onclick = () => exporter().svg().catch((e) => console.warn(e));
-document.getElementById('dl-pdf').onclick = () => exporter().pdf().catch((e) => console.warn(e));
-document.getElementById('dl-png').onclick = () => exporter().png().catch((e) => console.warn(e));
+function openExport() { endPeek(); markSeen(); openStudio(ctx); }
+document.getElementById('open-export').onclick = openExport;
 
 // ── views: the laurel, on the poster, a row, motion ──
 const modebar = document.getElementById('modebar'), modepanel = document.getElementById('modepanel');
 const ctx = {
   get doc() { return doc; }, change, replaceDoc, schedule, clone, merge, h, toast, download, measure, render: (d, scale = 1) => render(d, { measure, scale }),
-  ensureFonts, svgWithFonts, exportSvgText, toPng, toPdf, fileName, slug, stamp, ASSETS, saveAssets, stage, modebar, modepanel, showNotes, layoutFields, layoutById, LAYOUTS,
-  pushUndo: () => { undoStack.push(lastSnap); future.length = 0; }, settle: () => { lastSnap = JSON.stringify(doc); saveHash(); }, rebuild: () => buildPanel(), get last() { return last; },
-  fixNote: null,
+  ensureFonts, svgWithFonts, exportSvgText, toPng, toPdf, fileName, slug, stamp, altText, ASSETS, saveAssets, addAsset, readLogo, stage, modebar, modepanel, showNotes, layoutFields, layoutById, LAYOUTS, PRESETS, applyPreset, zip,
+  pushUndo: () => { undoStack.push(lastSnap); future.length = 0; }, settle: () => { lastSnap = JSON.stringify(doc); saveHash(); }, rebuild: () => buildPanel(), get last() { return last; }, get mode() { return mode; }, get modes() { return MODES; },
+  prefs: () => ({ pngW: (doc.out && doc.out.pngW) || 3000, bg: !(doc.out && doc.out.pngBg === false) }),
+  fixNote: null, openFixer: null, shareLink: async () => location.href.split('#')[0] + '#l=' + (await pack(doc)),
   // size an SVG to the stage, keeping its shape (no letterboxing)
-  fit: (svg, vb) => { stage.classList.add('fitted'); const sw = document.getElementById('stagewrap'), k = Math.min((sw.clientWidth - 48) / vb[2], (sw.clientHeight - 48) / vb[3]); Object.assign(svg.style, { width: Math.max(1, vb[2] * k) + 'px', height: Math.max(1, vb[3] * k) + 'px', maxWidth: 'none', maxHeight: 'none' }); },
+  fit: (svg, vb) => { stage.classList.add('fitted'); const sw2 = document.getElementById('stagewrap'), k = Math.min((sw2.clientWidth - 56) / vb[2], (sw2.clientHeight - 92) / vb[3]); Object.assign(svg.style, { width: Math.max(1, vb[2] * k) + 'px', height: Math.max(1, vb[3] * k) + 'px', maxWidth: 'none', maxHeight: 'none' }); },
 };
 const MODES = {
-  laurel: { draw: (r) => { stage.className = 'stage'; stage.innerHTML = r.svg; decorateStage(); }, enter() { modebar.append(h('span', { class: 'hint' }, 'Drag any line to nudge it · double-click to reset')); } },
+  laurel: { draw: (r) => { stage.className = 'stage'; stage.innerHTML = r.svg; decorateStage(); }, enter() {} },
   poster: posterMode(ctx), row: rowMode(ctx), motion: motionMode(ctx),
 };
 let mode = 'laurel';
 function setMode(m) {
   if (!MODES[m] || m === mode && modebar.childElementCount) { return; }
-  if (MODES[mode].leave) MODES[mode].leave();
+  endPeek();
+  if (MODES[mode] && MODES[mode].leave) MODES[mode].leave();
   mode = m; ctx.fixNote = null;
-  document.querySelectorAll('#modes button').forEach((b) => b.classList.toggle('on', b.dataset.mode === m));
+  document.querySelectorAll('#modes button').forEach((b) => { b.classList.toggle('on', b.dataset.mode === m); b.setAttribute('aria-selected', String(b.dataset.mode === m)); });
   modebar.innerHTML = ''; modepanel.innerHTML = '';
   if (MODES[m].enter) MODES[m].enter();
   modebar.classList.toggle('on', !!modebar.childElementCount); modepanel.classList.toggle('on', !!modepanel.childElementCount);
-  showNotes([]); schedule();
+  showNotes([]); buildStagebar(); schedule();
   try { sessionStorage.setItem('daphne.mode', m); } catch (e) { /* a convenience */ }
 }
 document.querySelectorAll('#modes button').forEach((b) => (b.onclick = () => setMode(b.dataset.mode)));
 
+// ── the stage bar: backdrop, and the laurel at the sizes it will really be seen ──
+const stagebar = document.getElementById('stagebar');
+function buildStagebar() {
+  stagebar.innerHTML = '';
+  mainEl.classList.toggle('light', state.backdrop === 'light'); mainEl.classList.toggle('check', state.backdrop === 'check');
+  if (mode !== 'laurel') { document.querySelector('.small-sizes')?.remove(); return; }
+  stagebar.append(
+    segctl([['dark', h('span', {}, h('i', { class: 'bd', style: 'background:#16161a' }), ' Dark')], ['light', h('span', {}, h('i', { class: 'bd', style: 'background:#efece4' }), ' Light')], ['check', h('span', {}, h('i', { class: 'bd', style: 'background:repeating-conic-gradient(#999 0 25%,#ddd 0 50%) 0 0/7px 7px' }), ' Clear')]], state.backdrop, (v) => { state.backdrop = v; saveUi(); buildStagebar(); }),
+    h('span', { class: 'grow' }),
+    segctl([[true, state.smallSizes ? '✓ Small sizes' : 'Small sizes']], state.smallSizes ? true : null, () => { state.smallSizes = !state.smallSizes; buildStagebar(); if (state.smallSizes) drawSmallSizes(); else document.querySelector('.small-sizes')?.remove(); }));
+}
+// the laurel at 160, 100 and 64 px tall, on dark and light: how a poster row, a listing and a thumbnail show it
+function drawSmallSizes() {
+  if (!last) return;
+  let box = document.querySelector('.small-sizes');
+  if (!box) { box = h('div', { class: 'small-sizes', 'aria-label': 'The laurel at small sizes' }); document.getElementById('stagearea').append(box); }
+  const svg = last.svg.replace(/<rect data-bg="1"[^>]*\/>/, ''), vb = last.viewBox, ar = vb[2] / vb[3];
+  const fig = (px) => { const w = Math.round(px * ar); const mk = (bg) => h('div', { style: `background:${bg}`, html: svg.replace(/width="[^"]+" height="[^"]+"/, `width="${w}" height="${px}"`) }); return h('figure', {}, h('div', { class: 'pair' }, mk('#0a0a0a'), mk('#f2efe8')), h('figcaption', {}, `${px} px`)); };
+  box.innerHTML = '';
+  box.append(h('div', { class: 'hint', style: 'font-size:11px' }, 'Real size on a standard screen: a poster row, a festival listing, a thumbnail.'), h('div', { class: 'ss-row' }, fig(160), fig(100), fig(64)));
+}
+
+// the brand mark is a laurel drawn by the engine itself
+function drawMark() {
+  try {
+    const d = merge(clone(DEFAULT_DOC), { fields: [], canvas: { pad: 2, bg: null }, branch: { leaf: { profile: 'laurel', n: 7, L0: 30, L1: 18, wr: 0.42, style: 'solid', fold: 0.3 }, stem: { w: 2.6 } }, paint: { branch: { type: 'metal', metal: 'gold', scope: 'leaf', angle: 28 } } });
+    document.getElementById('mark').innerHTML = render(d, { measure, scale: 1 }).svg;
+  } catch (e) { /* the mark is decoration */ }
+}
+
 // ── boot ──
 (async () => {
   const m = location.hash.match(/#l=([\w-]+)/);
+  let restored = false;
   if (m) { try { doc = merge(clone(DEFAULT_DOC), await unpack(m[1])); } catch { doc = applyPreset(PRESETS[0]); } }
-  else doc = applyPreset(PRESETS[0]);
+  else {
+    let saved = null; try { saved = localStorage.getItem('daphne.autosave'); } catch (e) { /* a convenience */ }
+    if (saved) { try { doc = merge(clone(DEFAULT_DOC), await unpack(saved)); restored = true; } catch { doc = applyPreset(PRESETS[0]); } }
+    else doc = applyPreset(PRESETS[0]);
+  }
+  for (const f of doc.fields) { const n = +String(f.id).replace(/\D/g, ''); if (n >= uid) uid = n + 1; }
   lastSnap = JSON.stringify(doc);
-  buildPanel();
+  drawMark(); buildRail(); buildPanel();
   let m0 = 'laurel'; try { m0 = sessionStorage.getItem('daphne.mode') || 'laurel'; } catch (e) { /* a convenience */ }
   mode = ''; MODES[''] = {}; setMode(MODES[m0] ? m0 : 'laurel'); delete MODES[''];
   schedule();
+  if (restored) toast('Welcome back: here’s the laurel you were working on');
   setTimeout(() => preloadOutlines(doc.roles).catch(() => null), 2500); // warm the shaper for the first SVG or PDF
-  window.__laurel = { get doc() { return doc; }, render: (d) => render(d || doc, { measure }), PRESETS, applyPreset, measure, setMode, get mode() { return mode; }, ctx, MODES };
+  import('./fixer.js').then((mod) => { ctx.openFixer = (onDone) => mod.openFixer(ctx, onDone); }).catch(() => null);
+  window.__laurel = { get doc() { return doc; }, render: (d) => render(d || doc, { measure }), PRESETS, applyPreset, measure, setMode, get mode() { return mode; }, ctx, MODES, setTab, altText, openExport };
 })();

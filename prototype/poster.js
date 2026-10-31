@@ -1,12 +1,12 @@
 // poster.js — the laurel on the filmmaker's own poster. Drag it into place, size it, read the contrast against what's
-// actually behind it, let the ink follow the artwork (auto ink), take colours from the poster, and see it at 160 px.
+// actually behind it, let the ink follow the artwork (auto ink), take colors from the poster, and see it at 160 px.
 // The poster stays in this browser (like logos): share links carry only where the laurel sits.
 import { METALS } from './engine.mjs';
 
 const DEFAULT = { x: 0.5, y: 0.2, w: 0.34, autoInk: false, actual: false };
 const MAXSIDE = 2400;
 
-// ── colour maths ──
+// ── color math ──
 const hex = (r, g, b) => '#' + [r, g, b].map((v) => Math.round(Math.max(0, Math.min(255, v))).toString(16).padStart(2, '0')).join('');
 const rgbOf = (c) => { const m = /^#?([\da-f]{6})$/i.exec(String(c).trim()); if (!m) return [200, 200, 200]; const n = parseInt(m[1], 16); return [n >> 16, (n >> 8) & 255, n & 255]; };
 const lin = (v) => { v /= 255; return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; };
@@ -15,10 +15,10 @@ const ratio = (a, b) => (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
 function hsl([r, g, b]) { r /= 255; g /= 255; b /= 255; const mx = Math.max(r, g, b), mn = Math.min(r, g, b), l = (mx + mn) / 2; if (mx === mn) return [0, 0, l]; const d = mx - mn, s = l > 0.5 ? d / (2 - mx - mn) : d / (mx + mn); const h = mx === r ? (g - b) / d + (g < b ? 6 : 0) : mx === g ? (b - r) / d + 2 : (r - g) / d + 4; return [h * 60, s, l]; }
 function fromHsl(h, s, l) { const k = (n) => (n + h / 30) % 12, a = s * Math.min(l, 1 - l), f = (n) => l - a * Math.max(-1, Math.min(k(n) - 3, 9 - k(n), 1)); return hex(f(0) * 255, f(8) * 255, f(4) * 255); }
 const withL = (c, l, sMul = 1) => { const [h, s] = hsl(rgbOf(c)); return fromHsl(h, Math.min(1, s * sMul), l); };
-// the paint's typical colour (what the eye reads at a distance)
+// the paint's typical color (what the eye reads at a distance)
 const inkOf = (p) => (!p ? '#000000' : typeof p === 'string' ? p : p.type === 'solid' ? p.color : p.type === 'metal' ? (METALS[p.metal] || METALS.gold)[2][1] : p.stops[Math.floor(p.stops.length / 2)][1]);
 
-// k-means on a small copy of the poster: the colours it's made of, most used first
+// k-means on a small copy of the poster: the colors it's made of, most used first
 function paletteOf(px, k = 6) {
   const pts = []; for (let i = 0; i < px.length; i += 4 * 3) if (px[i + 3] > 200) pts.push([px[i], px[i + 1], px[i + 2]]);
   if (!pts.length) return [];
@@ -53,7 +53,7 @@ export function posterMode(ctx) {
 
   // where the laurel sits, as fractions of the poster
   const box = (vb) => { const p = P(), ar = img ? img.naturalWidth / img.naturalHeight : 0.67, hf = p.w * ar * (vb[3] / vb[2]); return { x0: p.x - p.w / 2, x1: p.x + p.w / 2, y0: p.y - hf / 2, y1: p.y + hf / 2, hf }; };
-  // what's behind the laurel: luminances (for contrast), mean colour and how busy it is
+  // what's behind the laurel: luminances (for contrast), mean color and how busy it is
   function behind(vb) {
     if (!data) return null;
     const b = box(vb), { sw, sh, px } = data, L = [], X0 = Math.max(0, Math.floor(b.x0 * sw)), X1 = Math.min(sw - 1, Math.ceil(b.x1 * sw)), Y0 = Math.max(0, Math.floor(b.y0 * sh)), Y1 = Math.min(sh - 1, Math.ceil(b.y1 * sh));
@@ -70,7 +70,7 @@ export function posterMode(ctx) {
   }
   const verdict = (c) => (c.worst >= 4.5 ? ['good', 'reads well'] : c.worst >= 3 ? ['', 'readable when large'] : ['bad', 'hard to read here']);
 
-  // ── auto ink: the most readable ink, preferring the poster's own colours and the current metal ──
+  // ── auto ink: the most readable ink, preferring the poster's own colors and the current metal ──
   function pickInk(bh) {
     const d = ctx.doc, cur = d.paint.branch, cands = [];
     const darkBg = bh.mean < 0.35;
@@ -121,12 +121,12 @@ export function posterMode(ctx) {
     ctx.schedule(); buildBar();
   }
 
-  // ── colours from the poster: four looks, each checked against what's behind the laurel ──
+  // ── colors from the poster: four looks, each checked against what's behind the laurel ──
   function suggestions(bh) {
     const pal = (data.palette || []).filter((p) => p.share > 0.02);
     if (!pal.length) return [];
     const darkBg = bh.mean < 0.35, lightest = [...pal].sort((a, b) => b.l - a.l)[0], darkest = [...pal].sort((a, b) => a.l - b.l)[0];
-    // the accent: a colour that stands apart from what's behind the laurel (another hue, some saturation, not near black)
+    // the accent: a color that stands apart from what's behind the laurel (another hue, some saturation, not near black)
     const [bgH] = hsl(bh.rgb), hueGap = (c) => { const d = Math.abs(hsl(rgbOf(c))[0] - bgH) % 360; return Math.min(d, 360 - d); };
     const accScore = (p) => p.sat * (0.35 + p.share) * (hueGap(p.c) > 40 ? 1.6 : 0.5) * (p.l > 0.12 && p.l < 0.9 ? 1 : 0.3);
     const accent = [...pal].sort((a, b) => accScore(b) - accScore(a))[0];
@@ -191,14 +191,14 @@ export function posterMode(ctx) {
     if (has()) {
       bar.append(
         h('label', {}, 'Size', h('input', { type: 'range', min: 0.08, max: 0.95, step: 0.005, value: p.w, oninput: (e) => { setPlace({ w: +e.target.value }, false); }, onchange: () => { setPlace({}, true); } })),
-        h('button', { class: 'btn small', title: 'Centre it across the poster', onclick: () => setPlace({ x: 0.5 }, true) }, 'Centre'),
-        h('label', { title: 'Keep the leaves and text readable against the poster wherever the laurel sits. Your own colours come back when you turn it off.' }, h('input', { type: 'checkbox', checked: !!p.autoInk, onchange: (e) => setAuto(e.target.checked) }), 'Auto ink'),
+        h('button', { class: 'btn small', title: 'Center it across the poster', onclick: () => setPlace({ x: 0.5 }, true) }, 'Center'),
+        h('label', { title: 'Keep the leaves and text readable against the poster wherever the laurel sits. Your own colors come back when you turn it off.' }, h('input', { type: 'checkbox', checked: !!p.autoInk, onchange: (e) => setAuto(e.target.checked) }), 'Auto ink'),
         contrastEl = h('span', { class: 'contrast' }),
         h('span', { class: 'grow' }),
         h('label', { title: 'See it the size it will be in a poster row or a listing: 160 px tall, on a standard screen' }, h('input', { type: 'checkbox', checked: !!p.actual, onchange: (e) => { ctx.change('poster.actual', e.target.checked); } }), 'At 160 px'),
         h('button', { class: 'btn small', title: 'The poster with the laurel on it, as a PNG (for sharing a draft)', onclick: mockup }, 'Mockup PNG'));
       ctx.modepanel.append(
-        h('div', { class: 'rowtools' }, h('b', { style: 'color:var(--text)' }, 'Colours from your poster'), h('span', { class: 'swatches' }, (data ? data.palette : []).map((sw) => h('i', { style: `background:${sw.c}`, title: sw.c }))), h('span', { class: 'hint' }, 'Each is checked against what\'s behind the laurel. Click one to use it.')),
+        h('div', { class: 'rowtools' }, h('b', { style: 'color:var(--text)' }, 'Colors from your poster'), h('span', { class: 'swatches' }, (data ? data.palette : []).map((sw) => h('i', { style: `background:${sw.c}`, title: sw.c }))), h('span', { class: 'hint' }, 'Each is checked against what\'s behind the laurel. Click one to use it.')),
         h('div', { class: 'suggest', id: 'poster-suggest' }));
     } else bar.append(h('span', { class: 'hint' }, 'Your poster stays on this device: nothing is uploaded anywhere.'));
     ctx.modebar.classList.add('on'); ctx.modepanel.classList.toggle('on', has());
@@ -256,7 +256,7 @@ export function posterMode(ctx) {
       if (!has()) {
         layer = null;
         st.className = 'stage poster'; st.innerHTML = '';
-        st.append(h('div', { class: 'poster-empty' }, h('b', {}, 'See the laurel on your poster'), h('div', {}, P().src ? 'This link\'s poster stays on the device it was added on. Upload it again to see it here.' : 'Upload the poster or a still. Drag the laurel into place, check the contrast and try colours taken from the artwork.'), h('button', { class: 'btn primary', onclick: () => fileInput.click() }, 'Upload poster'), h('div', { class: 'hint' }, 'JPEG, PNG or WebP. It stays on this device.')));
+        st.append(h('div', { class: 'poster-empty' }, h('b', {}, 'See the laurel on your poster'), h('div', {}, P().src ? 'This link\'s poster stays on the device it was added on. Upload it again to see it here.' : 'Upload the poster or a still. Drag the laurel into place, check the contrast and try colors taken from the artwork.'), h('button', { class: 'btn primary', onclick: () => fileInput.click() }, 'Upload poster'), h('div', { class: 'hint' }, 'JPEG, PNG or WebP. It stays on this device.')));
         return;
       }
       if (imgKey !== P().src) { await load(); buildBar(); }
@@ -294,6 +294,6 @@ export function posterMode(ctx) {
     contrastEl.className = 'contrast ' + cls;
     contrastEl.innerHTML = '';
     contrastEl.append('Contrast ', h('b', {}, k.worst.toFixed(1) + ':1'), ` · ${word}`, bh.sd > 0.16 ? ' · busy background' : '');
-    contrastEl.title = `Text colour against what's behind the laurel: ${k.worst.toFixed(1)}:1 where it's weakest, ${k.mid.toFixed(1)}:1 typically. 4.5:1 reads well small; 3:1 is the floor for large text.`;
+    contrastEl.title = `Text color against what's behind the laurel: ${k.worst.toFixed(1)}:1 where it's weakest, ${k.mid.toFixed(1)}:1 typically. 4.5:1 reads well small; 3:1 is the floor for large text.`;
   }
 }
