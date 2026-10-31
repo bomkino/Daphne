@@ -328,6 +328,10 @@ const ICON = {
   about: '<circle cx="12" cy="12" r="8.5"/><path d="M12 11v5"/><path d="M12 7.6v.4"/>',
 };
 const TABS = [['words', 'Words'], ['looks', 'Looks'], ['wreath', 'Wreath'], ['type', 'Type'], ['color', 'Color'], ['canvas', 'Canvas']];
+// remembered UI state from an older version can name a tab or group that's since been renamed
+if (state.tab === 'colour') state.tab = 'color';
+if (![...TABS.map((t) => t[0]), 'about'].includes(state.tab)) state.tab = 'words';
+if (state.group !== 'All' && !GROUPS.includes(state.group)) state.group = 'All';
 const railEl = document.getElementById('rail');
 function buildRail() {
   railEl.innerHTML = '';
@@ -381,7 +385,7 @@ function looksTab() {
     const groups = ['All', ...GROUPS];
     pane.append(h('div', { class: 'filter' }, groups.map((g) => h('button', { class: 'chip' + (state.group === g ? ' on' : ''), onclick: () => { state.group = g; saveUi(); buildPanel(); } }, g))));
     const list = PRESETS.filter((p) => state.group === 'All' || p.group === state.group);
-    const tile = (p) => h('button', { class: 'preset' + (doc.presetName === p.name ? ' on' : ''), title: p.name, onclick: () => { endPeek(); replaceDoc(applyPreset(p)); toast(`${p.name}: your words kept`); }, onpointerenter: (e) => { if (e.pointerType === 'mouse') peek(() => applyPreset(p, true, tmpId)); }, onpointerleave: endPeek, onfocus: () => peek(() => applyPreset(p, true, tmpId)), onblur: endPeek },
+    const tile = (p) => h('button', { class: 'preset' + (doc.presetName === p.name ? ' on' : ''), title: p.name, onclick: () => { endPeek(); replaceDoc(applyPreset(p)); toast(`${p.name}: your words kept`); }, onpointerenter: (e) => { if (e.pointerType === 'mouse') peek(() => applyPreset(p, true, tmpId)); }, onpointerleave: endPeek, onfocus: (e) => { if (e.target.matches(':focus-visible')) peek(() => applyPreset(p, true, tmpId)); }, onblur: endPeek },
       h('div', { class: 'thumb', 'data-i': PRESETS.indexOf(p) }), h('span', {}, p.name));
     if (state.group === 'All') for (const g of GROUPS) { const ps = list.filter((p) => p.group === g); pane.append(h('div', { class: 'label' }, g, h('span', { class: 'opt' }, String(ps.length)), h('span', { class: 'grow' })), h('div', { class: 'presets', id: 'presets-' + GROUPS.indexOf(g) }, ps.map(tile))); }
     else pane.append(h('div', { class: 'presets' }, list.map(tile)));
@@ -391,7 +395,7 @@ function looksTab() {
     const fits = (ln, f) => ln.kind.split('|').includes(f.kind) || (f.kind === 'logo' && ln.role === 'hero');
     const activeId = (LAYOUTS.find((L) => L.lines.length === vis.length && L.lines.every((ln, i) => fits(ln, vis[i]) && sig(ln) === sig(vis[i]))) || {}).id;
     const apply = (L, d = doc, idf = () => 'f' + ++uid) => ({ ...applyLayout(d, L, idf), layoutBy: 'user', userLayoutId: L.id });
-    const tile = (L) => h('button', { class: 'preset' + (activeId === L.id ? ' on' : ''), title: L.note, onclick: () => { endPeek(); replaceDoc(apply(L)); }, onpointerenter: (e) => { if (e.pointerType === 'mouse') peek(() => apply(L, clone(doc), tmpId)); }, onpointerleave: endPeek },
+    const tile = (L) => h('button', { class: 'preset' + (activeId === L.id ? ' on' : ''), title: L.note, onclick: () => { endPeek(); replaceDoc(apply(L)); }, onpointerenter: (e) => { if (e.pointerType === 'mouse') peek(() => apply(L, clone(doc), tmpId)); }, onpointerleave: endPeek, onfocus: (e) => { if (e.target.matches(':focus-visible')) peek(() => apply(L, clone(doc), tmpId)); }, onblur: endPeek },
       h('div', { class: 'thumb', 'data-l': LAYOUTS.indexOf(L) }), h('span', {}, L.name), h('small', {}, L.note));
     pane.append(h('div', { class: 'hint' }, 'Layouts move your words and keep the look. Lines a layout leaves out are hidden, not deleted; new lines arrive as examples to type over.'));
     for (const g of LAYOUT_GROUPS) pane.append(h('div', { class: 'label' }, g, h('span', { class: 'grow' })), h('div', { class: 'presets' }, LAYOUTS.filter((L) => L.group === g).map(tile)));
