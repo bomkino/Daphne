@@ -6,3 +6,6 @@ _state — generator.md
 Daphne — *summary.md
 *.jpg
 spike/out/
+
+# The pitch.dog build (node tools/build-pitchdog.mjs)
+dist-pitchdog/

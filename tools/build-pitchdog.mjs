@@ -1,0 +1,69 @@
+#!/usr/bin/env node
+// Builds Daphne for https://pitch.dog/daphne/ into dist-pitchdog/.
+//
+// The app in prototype/ has no build step and works under any base path, so this
+// copies it as it is, minus the test and QA pages, and adds what only pitch.dog
+// needs: the canonical link, pitch.dog's page-view analytics (no session replay)
+// and BUILD.json, which names the commit it came from.
+//
+// pitch.dog/daphne/story/ belongs to the story film. Its page goes in
+// prototype/story/, and this build ships it from there. Nothing else uses that path.
+//
+//   node tools/build-pitchdog.mjs
+//
+// Run it from a clean checkout of main, then copy dist-pitchdog/ into the
+// website as apps/main-site/daphne/ (see the README, "Publish to pitch.dog").
+import { execFileSync } from 'node:child_process'
+import { cp, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises'
+import { join, relative } from 'node:path'
+
+const root = new URL('..', import.meta.url).pathname
+const app = join(root, 'prototype')
+const out = join(root, 'dist-pitchdog')
+const base = '/daphne/'
+
+// Development-only pages and tools: the stress suite, QA sheets, timing, specimens and the headless runners.
+const devOnly = (name) => ['tools', 'stress.html', 'stress.js', 'lab.html', 'perf.html', '.DS_Store'].includes(name) || /^qa.*\.html$/.test(name)
+
+const git = (...args) => execFileSync('git', args, { cwd: root, encoding: 'utf8' }).trim()
+const commit = git('rev-parse', 'HEAD')
+const dirty = git('status', '--porcelain', '--untracked-files=normal').split('\n').filter((line) => line && !line.endsWith('dist-pitchdog/')).length > 0
+
+await rm(out, { recursive: true, force: true })
+await cp(app, out, { recursive: true, filter: (src) => src === app || !devOnly(relative(app, src).split('/')[0]) && !src.endsWith('.DS_Store') })
+await cp(join(root, 'LICENSE'), join(out, 'LICENSE.txt'))
+await cp(join(root, 'LICENSE-CC0.md'), join(out, 'LICENSE-CC0.md'))
+
+function replaceOnce(text, from, to) {
+  const at = text.indexOf(from)
+  if (at < 0 || text.indexOf(from, at + 1) >= 0) throw new Error(`index.html: expected exactly one ${from}`)
+  return text.slice(0, at) + to + text.slice(at + from.length)
+}
+const indexPath = join(out, 'index.html')
+let html = await readFile(indexPath, 'utf8')
+html = replaceOnce(html, '<link rel="manifest"', `<link rel="canonical" href="https://pitch.dog${base}">\n<link rel="manifest"`)
+// Page views only: the script drops the URL's #l= laurel link before anything is sent, and replay stays off.
+html = replaceOnce(html, '</head>', '<script src="/assets/site-analytics.js" data-analytics-replay="off" defer></script>\n</head>')
+await writeFile(indexPath, html)
+
+const build = {
+  name: 'Daphne',
+  source: 'https://github.com/bomkino/Daphne',
+  commit,
+  dirty,
+  base,
+  builtAt: new Date().toISOString(),
+  built_with: 'node tools/build-pitchdog.mjs',
+}
+await writeFile(join(out, 'BUILD.json'), JSON.stringify(build, null, 2) + '\n')
+
+let files = 0, bytes = 0
+async function count(dir) {
+  for (const entry of await readdir(dir, { withFileTypes: true })) {
+    const path = join(dir, entry.name)
+    if (entry.isDirectory()) await count(path)
+    else { files++; bytes += (await stat(path)).size }
+  }
+}
+await count(out)
+console.log(`dist-pitchdog/: ${files} files, ${(bytes / 1048576).toFixed(1)} MB, from ${commit.slice(0, 7)}${dirty ? ' with uncommitted changes (commit first; the website check refuses a dirty build)' : ''}.`)

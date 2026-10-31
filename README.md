@@ -2,7 +2,7 @@
 
 **Make festival laurels for your film. It's free.**
 
-Daphne makes festival laurels, the wreaths on a film's poster that say it was selected for, or won at, a festival. Type the festival, your selection and the year, pick a look, and download it for your poster, trailer and socials as a PNG, SVG, PDF or video. It's free and works in your browser, with no account and no watermark. Nothing you make leaves your device unless you share it. Made by pitch.dog, and open source. It will live at pitch.dog/daphne.
+Daphne makes festival laurels, the wreaths on a film's poster that say it was selected for, or won at, a festival. Type the festival, your selection and the year, pick a look, and download it for your poster, trailer and socials as a PNG, SVG, PDF or video. It's free and works in your browser, with no account and no watermark. Nothing you make leaves your device unless you share it. Made by pitch.dog, and open source. It lives at https://pitch.dog/daphne/.
 
 This repository holds the working prototype, the product plan and the research behind it.
 
@@ -66,6 +66,17 @@ node tools/cdp-run.mjs "http://127.0.0.1:5178/stress.html?px=160" "JSON.stringif
 ```
 
 `cdp-run.mjs` looks for Chrome at its macOS path. Anywhere else, open the same page in any browser, or with Playwright, and read `window.__stress` once it appears.
+
+## Publish to pitch.dog
+
+Daphne is served at https://pitch.dog/daphne/ from pitch.dog's website repository, which holds a copy of a build from here. To publish a new version:
+
+1. From a clean checkout of `main`, run `node tools/build-pitchdog.mjs`. It copies the app from `prototype/` into `dist-pitchdog/` without the stress suite, QA pages and tools, adds the canonical link, pitch.dog's page-view analytics (no session replay; the `#l=` laurel link is never sent) and the licenses, and writes `BUILD.json` with the commit.
+2. In the website repository, replace `apps/main-site/daphne/` with `dist-pitchdog/`, run its checks and open a pull request. The pull request gets a preview, and merging it puts the new version live.
+
+**https://pitch.dog/daphne/story/ is kept for the story film.** Its page goes in `prototype/story/`, and the build ships it from there. Keep each file under 25 MiB, the website host's limit per file, so a long film needs a smaller encode or a video host.
+
+pitch.dog serves scripts with up to four hours of browser caching, so for a while after a release a returning visitor can run an older module beside a newer one. Keep what each module exports backward compatible from one release to the next.
 
 ## Notes
 
