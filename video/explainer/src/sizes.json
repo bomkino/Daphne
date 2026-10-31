@@ -1,0 +1,23 @@
+[
+  {
+    "id": "1080x1920",
+    "width": 1080,
+    "height": 1920,
+    "canvas": "story",
+    "safe": { "top": 250, "right": 80, "bottom": 320, "left": 80 }
+  },
+  {
+    "id": "1080x1080",
+    "width": 1080,
+    "height": 1080,
+    "canvas": "square",
+    "safe": { "top": 80, "right": 80, "bottom": 80, "left": 80 }
+  },
+  {
+    "id": "1920x1080",
+    "width": 1920,
+    "height": 1080,
+    "canvas": "landscape",
+    "safe": { "top": 90, "right": 90, "bottom": 90, "left": 90 }
+  }
+]

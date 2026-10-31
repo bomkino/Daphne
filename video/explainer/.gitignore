@@ -1,0 +1,22 @@
+node_modules
+dist
+.DS_Store
+.env
+
+# Renders, negatives and stills.
+out
+
+# Python
+__pycache__
+
+# Takes are large: keep them on the drive beside the project.
+public/footage
+
+# Python venv
+.venv
+
+# The repo ignores *.jpg at its root; the fixer's "before" laurel is part of the piece.
+!public/laurels/*.jpg
+
+# The working notes live in the project's shared files, as the repo keeps internal notes out.
+notes/
