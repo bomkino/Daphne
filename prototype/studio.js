@@ -200,7 +200,7 @@ export function openStudio(ctx) {
   const toggle = (text, on, set) => h('label', { class: 'switch' }, h('input', { type: 'checkbox', checked: !!on, onchange: (e) => set(e.target.checked) }), text);
   const set = (k, v, o = {}) => { const path = k.split('.'); let t = P; while (path.length > 1) t = t[path.shift()]; t[path[0]] = v; save(); if (o.opts !== false) show(); else drawPreview(); };
   const copy = async (text, what = 'Copied') => { try { await navigator.clipboard.writeText(text); ctx.toast(what); } catch (e) { window.prompt('Copy this', text); } };
-  const run = (label, fn, cls = 'btn gold') => { const b = h('button', { class: cls, onclick: async () => { if (b.disabled) return; const was = b.textContent; b.disabled = true; b.textContent = 'Making…'; try { await fn((s) => (b.textContent = s)); } catch (e) { console.error(e); ctx.toast('That didn’t work: ' + (e.message || e)); } finally { b.disabled = false; b.textContent = was; } } }, label); return b; };
+  const run = (label, fn, cls = 'btn primary') => { const b = h('button', { class: cls, onclick: async () => { if (b.disabled) return; const was = b.textContent; b.disabled = true; b.textContent = 'Making…'; try { await fn((s) => (b.textContent = s)); } catch (e) { console.error(e); ctx.toast('That didn’t work: ' + (e.message || e)); } finally { b.disabled = false; b.textContent = was; } } }, label); return b; };
   function ways(cur = P.way, on = (v) => set('way', v)) {
     return h('div', { class: 'ways', role: 'radiogroup', 'aria-label': 'Colorway' }, WAYS.map((W) => {
       const r = rendered(W.id), sw = h('div', { class: 'sw ' + (W.id === 'black' ? 'light' : 'dark'), html: (W.id === 'color' ? r.svg : stripBg(r.svg)).replace(/width="[^"]+" height="[^"]+"/, '') });
@@ -416,7 +416,7 @@ export function openStudio(ctx) {
       const cur = forms[P.words] ? P.words : 'list';
       put(seg(Object.entries(forms).map(([k, v]) => [k, v[0]]), cur, (v) => set('words', v), 'Format'),
         h('pre', {}, forms[cur][1] || 'Nothing yet: fill in the festival first.'),
-        go(h('button', { class: 'btn gold', onclick: () => copy(forms[cur][1], 'Copied') }, 'Copy')),
+        go(h('button', { class: 'btn primary', onclick: () => copy(forms[cur][1], 'Copied') }, 'Copy')),
         h('div', { class: 'hint' }, a.list.length > 1 ? 'Ordered by what carries furthest: wins, then premieres, then selections.' : 'Add laurels to the row (Row, in the top bar) and they all appear here, in order.'),
         altBlock());
     } else if (D.id === 'pack') {

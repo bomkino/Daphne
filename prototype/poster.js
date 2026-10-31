@@ -198,7 +198,7 @@ export function posterMode(ctx) {
         h('label', { title: 'See it the size it will be in a poster row or a listing: 160 px tall, on a standard screen' }, h('input', { type: 'checkbox', checked: !!p.actual, onchange: (e) => { ctx.change('poster.actual', e.target.checked); } }), 'At 160 px'),
         h('button', { class: 'btn small', title: 'The poster with the laurel on it, as a PNG (for sharing a draft)', onclick: mockup }, 'Mockup PNG'));
       ctx.modepanel.append(
-        h('div', { class: 'rowtools' }, h('b', { style: 'color:var(--text)' }, 'Colors from your poster'), h('span', { class: 'swatches' }, (data ? data.palette : []).map((sw) => h('i', { style: `background:${sw.c}`, title: sw.c }))), h('span', { class: 'hint' }, 'Each is checked against what\'s behind the laurel. Click one to use it.')),
+        h('div', { class: 'rowtools' }, h('b', { style: 'color:var(--text)' }, 'Colors from your poster'), h('span', { class: 'swatches' }, (data ? data.palette : []).map((sw) => h('i', { style: `background:${sw.c}`, title: sw.c }))), h('span', { class: 'hint' }, 'Each is checked against what’s behind the laurel. Click one to use it.')),
         h('div', { class: 'suggest', id: 'poster-suggest' }));
     } else bar.append(h('span', { class: 'hint' }, 'Your poster stays on this device: nothing is uploaded anywhere.'));
     ctx.modebar.classList.add('on'); ctx.modepanel.classList.toggle('on', has());
@@ -256,7 +256,7 @@ export function posterMode(ctx) {
       if (!has()) {
         layer = null;
         st.className = 'stage poster'; st.innerHTML = '';
-        st.append(h('div', { class: 'poster-empty' }, h('b', {}, 'See the laurel on your poster'), h('div', {}, P().src ? 'This link\'s poster stays on the device it was added on. Upload it again to see it here.' : 'Upload the poster or a still. Drag the laurel into place, check the contrast and try colors taken from the artwork.'), h('button', { class: 'btn primary', onclick: () => fileInput.click() }, 'Upload poster'), h('div', { class: 'hint' }, 'JPEG, PNG or WebP. It stays on this device.')));
+        st.append(h('div', { class: 'poster-empty' }, h('b', {}, 'See the laurel on your poster'), h('div', {}, P().src ? 'This link’s poster stays on the device it was added on. Upload it again to see it here.' : 'Upload the poster or a still. Drag the laurel into place, check the contrast and try colors taken from the artwork.'), h('button', { class: 'btn primary', onclick: () => fileInput.click() }, 'Upload poster'), h('div', { class: 'hint' }, 'JPEG, PNG or WebP. It stays on this device.')));
         return;
       }
       if (imgKey !== P().src) { await load(); buildBar(); }

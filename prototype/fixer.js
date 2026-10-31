@@ -127,9 +127,9 @@ export function openFixer(ctx, onDone, opt = {}) {
       h('div', { class: 'row' }, h('label', {}, 'Margin'), h('input', { type: 'range', min: 0, max: 0.2, step: 0.01, value: o.pad, oninput: (e) => { o.pad = +e.target.value; redo(); } }), h('span', {})),
       lbl('Check it on'), seg([['dark', 'Dark'], ['light', 'Light']], o.view, (v) => { o.view = v; draw(); }),
       h('div', { class: 'go' },
-        onDone ? h('button', { class: 'btn gold', disabled: !result, onclick: () => { const a = ctx.addAsset(result.toDataURL('image/png'), result.width / result.height, name + ' (cleaned)'); onDone(a); close(); ctx.toast('Added to the laurel'); } }, 'Use it in the laurel') : null,
+        onDone ? h('button', { class: 'btn primary', disabled: !result, onclick: () => { const a = ctx.addAsset(result.toDataURL('image/png'), result.width / result.height, name + ' (cleaned)'); onDone(a); close(); ctx.toast('Added to the laurel'); } }, 'Use it in the laurel') : null,
         opt.row && ctx.addRowArt ? h('button', { class: 'btn', disabled: !result, title: 'Placed in your row of laurels at the same height as the others', onclick: () => { const a = ctx.addAsset(result.toDataURL('image/png'), result.width / result.height, name + ' (cleaned)'); ctx.addRowArt({ ...a, festival: opt.festival || '' }); close(); ctx.toast('Added to your row: open Row in the top bar to see it'); } }, 'Add it to my row') : null,
-        h('button', { class: onDone ? 'btn' : 'btn gold', disabled: !result, onclick: () => result.toBlob((b) => ctx.download(b, ctx.slug(name) + '-clean.png'), 'image/png') }, 'Download PNG'),
+        h('button', { class: onDone ? 'btn' : 'btn primary', disabled: !result, onclick: () => result.toBlob((b) => ctx.download(b, ctx.slug(name) + '-clean.png'), 'image/png') }, 'Download PNG'),
         h('button', { class: 'btn ghost', onclick: () => file.click() }, 'Choose another file')),
       o.ink ? h('div', { class: 'note rule' }, 'Recoloring official artwork may need the festival’s OK. If they sent a one-color version, use theirs.') : null);
   }

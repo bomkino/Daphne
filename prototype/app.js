@@ -159,7 +159,7 @@ function altText(d = doc) {
   const by = (k) => vis.filter((f) => f.kind === k).map((f) => f.text.trim()).filter(Boolean);
   const parts = [...by('status'), ...by('award'), ...by('category'), [...by('festival'), ...by('edition')].join(' '), [...by('location'), ...by('year')].join(' '), ...by('custom')].filter((s) => s && s.trim());
   const logo = d.fields.some((f) => f.kind === 'logo' && f.show !== false && f.src);
-  return (parts.join(', ') || 'Festival laurel') + (logo ? ' (with the festival\'s logo)' : '') + '.';
+  return (parts.join(', ') || 'Festival laurel') + (logo ? ' (with the festival’s logo)' : '') + '.';
 }
 
 // ── UI builders ──
@@ -352,9 +352,11 @@ const ui = {
 // the first visit: what this is, in two lines, until it's closed or something is made
 let seen = false; try { seen = !!localStorage.getItem('daphne.seen'); } catch (e) { /* a convenience */ }
 const markSeen = () => { if (seen) return; seen = true; try { localStorage.setItem('daphne.seen', '1'); } catch (e) { /* a convenience */ } };
+// a phrase held between the logo's two leaves, the way the identity honors one thing per screen
+const held = (t) => h('span', { class: 'held' }, h('i', { class: 'leafb', 'aria-hidden': 'true' }), t, h('i', { class: 'leafb r', 'aria-hidden': 'true' }));
 function intro() {
   if (seen) return null;
-  return h('div', { class: 'intro' }, h('h3', {}, 'Your film did the hard part. Now make the laurel.'),
+  return h('div', { class: 'intro' }, h('h3', {}, held('Your film'), ' did the hard part. Now make the laurel.'),
     h('p', {}, 'Paste the festival’s email or type what it gave you, pick a look, then Export for your poster, trailer and socials. Free, with no account and no watermark. ', h('a', { href: '#', onclick: (e) => { e.preventDefault(); setTab('about'); setTimeout(() => document.getElementById('guide')?.scrollIntoView({ block: 'start' }), 50); } }, 'New to laurels? Six things to know.')),
     h('button', { class: 'btn ghost small x', 'aria-label': 'Close the introduction', onclick: () => { markSeen(); buildPanel(); } }, '✕'));
 }
@@ -377,7 +379,7 @@ function buildPanel() {
 
 // ── Looks: presets and layouts, previewed on the stage as you hover ──
 function looksTab() {
-  const shuffles = [h('button', { class: 'btn gold small', title: 'A new look from curated pools. Keeps your words.', onclick: () => shuffle('all') }, '✦ Surprise me'), h('button', { class: 'btn small', onclick: () => shuffle('wreath') }, 'Wreath'), h('button', { class: 'btn small', onclick: () => shuffle('color') }, 'Color'), h('button', { class: 'btn small', onclick: () => shuffle('type') }, 'Type')];
+  const shuffles = [h('button', { class: 'btn primary small', title: 'A new look from curated pools. Keeps your words.', onclick: () => shuffle('all') }, '✦ Surprise me'), h('button', { class: 'btn small', onclick: () => shuffle('wreath') }, 'Wreath'), h('button', { class: 'btn small', onclick: () => shuffle('color') }, 'Color'), h('button', { class: 'btn small', onclick: () => shuffle('type') }, 'Type')];
   const top = head('Looks', 'Hover to preview on the stage, click to use. Your words stay.', ...shuffles);
   const view = segctl([['looks', `Looks · ${PRESETS.length}`], ['layouts', `Layouts · ${LAYOUTS.length}`]], state.looksView, (v) => { state.looksView = v; saveUi(); buildPanel(); });
   const pane = h('div', { class: 'pane' }, view);
@@ -540,7 +542,7 @@ function canvasTab() {
 // ── About ──
 function aboutTab() {
   return [head('About Daphne', 'Make festival laurels for your film. It’s free.'), h('div', { class: 'pane about-pane' },
-    h('p', { class: 'lead' }, 'Your film did the hard part. Now make the laurel.'),
+    h('p', { class: 'lead' }, held('Your film'), ' did the hard part. Now make the laurel.'),
     h('p', {}, 'Daphne makes festival laurels, the wreaths on a film’s poster that say it was selected for, or won at, a festival. Type the festival, your selection and the year, pick a look, and download it for your poster, trailer and socials as a PNG, SVG, PDF or video. It’s free and works in your browser, with no account and no watermark. Nothing you make leaves your device unless you share it. Made by pitch.dog, and open source.'),
     h('div', { class: 'guide', id: 'guide' }, h('div', { class: 'label' }, 'Using laurels well', h('span', { class: 'grow' })),
       [['Ask the festival first.', 'Most send official laurels to selected films, often through FilmFreeway. Some, like Cannes and the Berlinale, require their own. Make one here when they send none, or to match a row.'],
@@ -677,7 +679,7 @@ const stamp = (svg, d = doc) => svg.replace(/^<svg([^>]*)>/, (m, a) => `<svg${a.
 async function exportSvgText(svg, d = doc) {
   if ((d.out && d.out.svgText) !== 'live') {
     try { const r = await outlineSvg(svg); if (r.notes.length) toast(`Drawn in ${r.notes.join(', ')} where the font has no glyphs`); return stamp(r.svg, d); }
-    catch (e) { console.warn(e); toast('Couldn\'t fetch the fonts to outline the text: saved with live text'); }
+    catch (e) { console.warn(e); toast('Couldn’t fetch the fonts to outline the text: saved with live text'); }
   }
   return stamp(await svgWithFonts(svg, false, d), d);
 }
@@ -695,7 +697,7 @@ async function toPng(svgText, vb, width, withBg, d = doc, height) {
 }
 async function toPdf(svg, d = doc, title = 'Laurel', mm) {
   let outl;
-  try { outl = (await outlineSvg(svg)).svg; } catch (e) { toast('Couldn\'t fetch the fonts for the PDF: check your connection'); throw e; }
+  try { outl = (await outlineSvg(svg)).svg; } catch (e) { toast('Couldn’t fetch the fonts for the PDF: check your connection'); throw e; }
   return svgToPdf(stamp(outl, d), mm || (d.out && d.out.pdfMm) || 100, { title: altText(d).replace(/\.$/, '') || title, subject: 'Festival laurel. Not affiliated with or endorsed by any festival.' });
 }
 function openExport() { endPeek(); markSeen(); openStudio(ctx); }
@@ -738,7 +740,7 @@ function buildStagebar() {
   mainEl.classList.toggle('light', state.backdrop === 'light'); mainEl.classList.toggle('check', state.backdrop === 'check');
   if (mode !== 'laurel') { document.querySelector('.small-sizes')?.remove(); return; }
   stagebar.append(
-    segctl([['dark', h('span', {}, h('i', { class: 'bd', style: 'background:#16161a' }), ' Dark')], ['light', h('span', {}, h('i', { class: 'bd', style: 'background:#efece4' }), ' Light')], ['check', h('span', {}, h('i', { class: 'bd', style: 'background:repeating-conic-gradient(#999 0 25%,#ddd 0 50%) 0 0/7px 7px' }), ' Clear')]], state.backdrop, (v) => { state.backdrop = v; saveUi(); buildStagebar(); }),
+    segctl([['dark', h('span', {}, h('i', { class: 'bd', style: 'background:#12291E' }), ' Dark')], ['light', h('span', {}, h('i', { class: 'bd', style: 'background:#F3F6EF' }), ' Light')], ['check', h('span', {}, h('i', { class: 'bd', style: 'background:repeating-conic-gradient(#999 0 25%,#ddd 0 50%) 0 0/7px 7px' }), ' Clear')]], state.backdrop, (v) => { state.backdrop = v; saveUi(); buildStagebar(); }),
     h('span', { class: 'grow' }),
     segctl([[true, state.smallSizes ? '✓ Small sizes' : 'Small sizes']], state.smallSizes ? true : null, () => { state.smallSizes = !state.smallSizes; buildStagebar(); if (state.smallSizes) drawSmallSizes(); else document.querySelector('.small-sizes')?.remove(); }));
 }
@@ -753,13 +755,9 @@ function drawSmallSizes() {
   box.append(h('div', { class: 'hint', style: 'font-size:11px' }, 'Real size on a standard screen: a poster row, a festival listing, a thumbnail.'), h('div', { class: 'ss-row' }, fig(160), fig(100), fig(64)));
 }
 
-// the brand mark is a laurel drawn by the engine itself
-function drawMark() {
-  try {
-    const d = merge(clone(DEFAULT_DOC), { fields: [], canvas: { pad: 2, bg: null }, branch: { leaf: { profile: 'laurel', n: 7, L0: 30, L1: 18, wr: 0.42, style: 'solid', fold: 0.3 }, stem: { w: 2.6 } }, paint: { branch: { type: 'metal', metal: 'gold', scope: 'leaf', angle: 28 } } });
-    document.getElementById('mark').innerHTML = render(d, { measure, scale: 1 }).svg;
-  } catch (e) { /* the mark is decoration */ }
-}
+
+// the phone layout keeps the rail just under the header, however tall the header wraps
+{ const top = document.querySelector('header.top'); new ResizeObserver(() => document.documentElement.style.setProperty('--hh', top.offsetHeight + 'px')).observe(top); }
 
 // ── boot ──
 (async () => {
@@ -773,7 +771,7 @@ function drawMark() {
   }
   for (const f of doc.fields) { const n = +String(f.id).replace(/\D/g, ''); if (n >= uid) uid = n + 1; }
   lastSnap = JSON.stringify(doc);
-  drawMark(); buildRail(); buildPanel();
+  buildRail(); buildPanel();
   let m0 = 'laurel'; try { m0 = sessionStorage.getItem('daphne.mode') || 'laurel'; } catch (e) { /* a convenience */ }
   mode = ''; MODES[''] = {}; setMode(MODES[m0] ? m0 : 'laurel'); delete MODES[''];
   schedule();

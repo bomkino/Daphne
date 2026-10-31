@@ -123,8 +123,8 @@ export function wordsTab(ui) {
     const secs = f.sections ? h('div', { class: 'group' }, h('div', { class: 'label' }, 'Sections', h('span', { class: 'opt' }, 'add one as a line'), h('span', { class: 'grow' })), h('div', { class: 'chips' }, f.sections.map((s) => h('button', { class: 'chip', onclick: () => setKind('category', s.replace(/ \(Competition\)$/, ''), { rebuild: true }) }, s)))) : null;
     card = h('div', { class: 'fcard' },
       h('div', { class: 't' }, h('div', {}, h('b', {}, f.name), h('div', { class: 'meta' }, [f.city, countryName(f.country)].join(' · '), f.month ? ` · usually ${MONTHS[f.month]}` : '', f.founded ? ` · since ${f.founded}` : '')),
-        f.site ? h('a', { class: 'site', href: f.site, target: '_blank', rel: 'noopener', title: 'The festival\'s official site' }, 'Official site ↗') : null),
-      h('div', { class: 'tags' }, f.focus.map((k) => h('span', { class: 'tag' }, FOCUS[k] || k)), f.tier === 1 ? h('span', { class: 'tag gold' }, 'Major') : null),
+        f.site ? h('a', { class: 'site', href: f.site, target: '_blank', rel: 'noopener', title: 'The festival’s official site' }, 'Official site ↗') : null),
+      h('div', { class: 'tags' }, f.focus.map((k) => h('span', { class: 'tag' }, FOCUS[k] || k)), f.tier === 1 ? h('span', { class: 'tag major' }, 'Major') : null),
       f.local ? h('div', { class: 'meta' }, 'In its own language: ', h('i', {}, f.local)) : null,
       f.note ? h('div', { class: 'rules' }, h('div', { class: 'rule tip' }, f.note)) : null,
       notes.length ? h('div', { class: 'rules' }, notes.map((n) => h('div', { class: 'rule' + (n.level === 'rule' ? '' : ' tip') }, n.text, n.source ? [' ', h('a', { href: n.source.url, target: '_blank', rel: 'noopener', class: 'site' }, 'Source')] : null))) : null,
@@ -133,7 +133,7 @@ export function wordsTab(ui) {
       h('div', { class: 'official' }, h('div', { class: 'hint' }, 'Festivals send official laurels to selected films, and where a festival asks you to use its own, use theirs. Daphne draws text-only laurels and no festival marks.'),
         h('button', { class: 'btn small', title: 'Take a white or black background out of the festival’s file, trim it, and add it to your laurel or your row', onclick: () => ui.openFixer((a) => ui.addLogo(a), { row: true, festival: f.name }) }, 'Got their file? Clean it up…')));
   } else if (fest.trim().length > 2) {
-    card = h('div', { class: 'hint' }, 'Not in Daphne\'s festival list, and that\'s fine: most festivals aren\'t. Check the spelling against the festival\'s own site and the wording it sent you.');
+    card = h('div', { class: 'hint' }, 'Not in Daphne’s festival list, and that’s fine: most festivals aren’t. Check the spelling against the festival’s own site and the wording it sent you.');
   }
   const q2 = h('section', { class: 'q' }, h('h3', {}, h('span', { class: 'num' }, '2'), 'Which ', h('em', {}, 'festival'), '?'), combo, card);
 
@@ -188,7 +188,7 @@ export function wordsTab(ui) {
       const on = st.emailPick[k] ?? !OPTIONAL.includes(k);
       return h('label', { class: 'frow' }, h('input', { type: 'checkbox', checked: on, onchange: (e) => { st.emailPick[k] = e.target.checked; } }), h('span', { class: 'k' }, KLABEL[k]), h('span', { class: 'v' }, r[k]));
     })),
-      h('div', { class: 'acts' }, h('button', { class: 'btn small gold', onclick: () => applyEmail(r) }, 'Use these'), h('button', { class: 'btn small ghost', onclick: () => { st.emailText = ''; st.emailOpen = false; st.emailPick = null; ui.rebuild(); } }, 'Clear')),
+      h('div', { class: 'acts' }, h('button', { class: 'btn small primary', onclick: () => applyEmail(r) }, 'Use these'), h('button', { class: 'btn small ghost', onclick: () => { st.emailText = ''; st.emailOpen = false; st.emailPick = null; ui.rebuild(); } }, 'Clear')),
       h('div', { class: 'hint' }, 'Read in your browser; nothing is sent anywhere. Check each line against the email.'));
   }
   function applyEmail(r) {
@@ -211,6 +211,6 @@ export function wordsTab(ui) {
   if (st.emailOpen) showFound();
 
   return h('div', { class: 'pane' }, q0, q1, q2, q3, q4,
-    h('div', { class: 'hint' }, 'Use the festival\'s current official name and the exact wording it gave you. Laurels mark a result: a selection, a premiere, an award.'),
+    h('div', { class: 'hint' }, 'Use the festival’s current official name and the exact wording it gave you. Laurels mark a result: a selection, a premiere, an award.'),
     every);
 }

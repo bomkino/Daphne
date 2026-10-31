@@ -174,12 +174,12 @@ export function motionMode(ctx) {
     return { W, H, n };
   }
   async function exportMp4() {
-    if (!('VideoEncoder' in window)) { alert('This browser can\'t make video files. Try Chrome, Edge or Safari 17 or later, or export the PNG sequence.'); return; }
+    if (!('VideoEncoder' in window)) { alert('This browser can’t make video files. Try Chrome, Edge or Safari 17 or later, or export the PNG sequence.'); return; }
     const m = M(), [W, H] = dims(), { Muxer, ArrayBufferTarget } = await import('./vendor/mp4-muxer.mjs');
     const codecs = W * H > 1920 * 1088 ? ['avc1.640033', 'avc1.4d0033', 'avc1.42e033'] : ['avc1.640028', 'avc1.4d0028', 'avc1.42e028', 'avc1.42001f'];
     let cfg = null;
     for (const codec of codecs) { const c = { codec, width: W, height: H, bitrate: W * H > 1920 * 1088 ? 40e6 : 14e6, framerate: m.fps }; try { if ((await VideoEncoder.isConfigSupported(c)).supported) { cfg = c; break; } } catch (e) { /* try the next */ } }
-    if (!cfg) { alert('This browser can\'t encode H.264 video at this size. Try a smaller frame or the PNG sequence.'); return; }
+    if (!cfg) { alert('This browser can’t encode H.264 video at this size. Try a smaller frame or the PNG sequence.'); return; }
     const target = new ArrayBufferTarget(), muxer = new Muxer({ target, video: { codec: 'avc', width: W, height: H, frameRate: m.fps }, fastStart: 'in-memory' });
     let err = null;
     const enc = new VideoEncoder({ output: (chunk, meta) => muxer.addVideoChunk(chunk, meta), error: (e) => (err = e) });
@@ -258,7 +258,7 @@ export function motionMode(ctx) {
         sel('Length', 'dur', [3, 4, 5, 6, 8].map((s) => [s, s + ' s']), true),
         sel('Frame', 'frame', FRAMES),
         h('label', {}, 'Size', h('input', { type: 'range', min: 0.2, max: 0.95, step: 0.01, value: m.size, onchange: (e) => { ctx.change('motion', { ...M(), size: +e.target.value }); built = ''; } })),
-        sel('Background', 'bg', [['look', 'The look\'s'], ['black', 'Black'], ['white', 'White'], ['transparent', 'Transparent']])),
+        sel('Background', 'bg', [['look', 'The look’s'], ['black', 'Black'], ['white', 'White'], ['transparent', 'Transparent']])),
       h('div', { class: 'rowtools' },
         h('button', { class: 'btn small primary', title: 'H.264 video for editors and social. No transparency: the background is filled', onclick: () => run(exportMp4, 'Rendering the video…') }, 'MP4 video'),
         h('button', { class: 'btn small', title: 'Every frame as a PNG with transparency, for Premiere, Resolve or After Effects', onclick: () => run(exportPngSeq, 'Rendering the frames…') }, 'PNG sequence (transparent)'),

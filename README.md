@@ -49,6 +49,7 @@ Then open http://127.0.0.1:5178/. `serve.py` is a small static server for `proto
 | `prototype/poster.js`, `row.js`, `motion.js` | The On poster, Row and Motion views |
 | `prototype/outline.js`, `zip.js` | Outlined SVG, PDF and ZIP |
 | `prototype/presets.js`, `layouts.js`, `rules.js`, `fonts.js` | Looks, layouts, the festival rules registry and the font list |
+| `prototype/assets/`, `manifest.webmanifest` | Daphne's logo, favicons, app icons, social card and leaf brackets, and the PD fonts (CC0) trimmed to Latin and to the weights the app uses. Copied from the identity in `brand/` |
 | `prototype/vendor/` | harfbuzzjs, jsPDF, svg2pdf.js and mp4-muxer, copied unchanged with their MIT licenses |
 | `prototype/stress.html`, `qa*.html`, `perf.html`, `lab.html` | The stress suite, visual QA pages, timing and leaf-craft specimens |
 | `prototype/tools/` | Headless Chrome runners for the stress suite and screenshots, and a feature sheet |

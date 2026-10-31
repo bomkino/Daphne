@@ -156,7 +156,7 @@ export function rowMode(ctx) {
       tableEl = table(row),
       h('div', { class: 'rowtools' },
         h('button', { class: 'btn small', onclick: () => { const r = R(); r.items.push({ id: 'r' + ++uid + Date.now().toString(36), status: 'Official Selection', festival: '', award: '', year: String(new Date().getFullYear()) }); setRow(r, true); setTimeout(() => { const ins = P.querySelectorAll('tr.item input[data-k="festival"]'); ins[ins.length - 1]?.focus(); }, 30); } }, '+ Laurel'),
-        h('button', { class: 'btn small', title: 'A festival\'s own laurel file, placed in the row at the same height', onclick: () => fileInput.click() }, '+ Official artwork'),
+        h('button', { class: 'btn small', title: 'A festival’s own laurel file, placed in the row at the same height', onclick: () => fileInput.click() }, '+ Official artwork'),
         h('button', { class: 'btn small', onclick: () => { pasteBox.style.display = pasteBox.style.display === 'none' ? 'grid' : 'none'; } }, 'Paste from a spreadsheet'),
         h('span', { class: 'grow', style: 'flex:1' }),
         h('button', { class: 'btn small', title: 'Every laurel as its own SVG and PNG, drawn at the same scale so the type matches when placed', onclick: zipAll }, 'ZIP of separate files'), fileInput),
