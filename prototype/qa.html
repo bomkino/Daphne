@@ -26,7 +26,7 @@ const fonts = new Set(); PRESETS.forEach((p) => Object.values(p.doc.roles || {})
 await Promise.all([...fonts].map((f) => loadFont(f, [400, 500, 600, 700, 800, 900])));
 const g = document.getElementById('g'), sheet = q.get('sheet') === '1', cols = q.get('cols') || 3; g.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
 const head = (t) => g.insertAdjacentHTML('beforeend', `<h2 style="grid-column:1/-1;margin:${g.children.length ? 26 : 4}px 0 2px;font:700 20px Figtree,sans-serif;color:#e3c27a;letter-spacing:.02em">${t}</h2>`);
-if (sheet) g.insertAdjacentHTML('beforebegin', `<h1 style="margin:6px 0 4px;font:800 34px Figtree,sans-serif;color:#e9e6df">Daph<span style="color:#e3c27a">ne</span> · ${only ? PRESETS.filter((p) => only.includes(p.name)).length + (PRESETS.filter((p) => only.includes(p.name)).every((p) => p.group === 'Badges') ? ' badges' : ' presets') : PRESETS.length + ' presets'}</h1><p style="margin:0 0 10px;font-size:15px">${only ? 'The same looks with short words, then long ones. Seals carry the status and year round their band; every frame is sized round your words or fits them to its shape.' : 'Every preset with the same words. Pick the looks you love; they all change colour, type and text freely.'}</p>`);
+if (sheet) g.insertAdjacentHTML('beforebegin', `<h1 style="margin:6px 0 4px;font:800 34px Figtree,sans-serif;color:#e9e6df">Daph<span style="color:#e3c27a">ne</span> · ${only ? PRESETS.filter((p) => only.includes(p.name)).length + (PRESETS.filter((p) => only.includes(p.name)).every((p) => p.group === 'Badges') ? ' badges' : ' presets') : PRESETS.length + ' presets'}</h1><p style="margin:0 0 10px;font-size:15px">${only ? 'The same looks with short words, then long ones. Seals carry the status and year round their band; every frame is sized round your words or fits them to its shape.' : 'Every preset with the same words. Pick the looks you love; they all change color, type and text freely.'}</p>`);
 let lastGroup = null, k = 0;
 const tmp = () => 'x' + k++;
 const lookOf = (p) => { let d = merge(clone(DEFAULT_DOC), p.doc); if (p.doc.form) d = merge(applyForm(d, p.doc.form), p.doc); return d; };
@@ -43,7 +43,7 @@ if (q.get('layouts') === '1') {
 } else if (q.get('logo') === '1') {
   // ?logo=1&looks=…: uploaded artwork (original test marks, not festival logos): square, wide, tall and PNG, plain and tinted
   const looks = (q.get('looks') || 'Classic Gold').split(',').map((n) => PRESETS.find((p) => p.name === n)).filter(Boolean);
-  if (sheet) { document.querySelector('h1').innerHTML = 'Daph<span style="color:#e3c27a">ne</span> · logos'; document.querySelector('h1 + p').textContent = 'Upload a festival’s official artwork (SVG or PNG) and it takes a line of its own, sized by its shape. These marks are made-up stand-ins; tinting suits one-colour artwork.'; }
+  if (sheet) { document.querySelector('h1').innerHTML = 'Daph<span style="color:#e3c27a">ne</span> · logos'; document.querySelector('h1 + p').textContent = 'Upload a festival’s official artwork (SVG or PNG) and it takes a line of its own, sized by its shape. These marks are made-up stand-ins; tinting suits one-color artwork.'; }
   const svgUrl = (vb, body) => 'data:image/svg+xml;base64,' + btoa(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="${vb}">${body}</svg>`);
   const ink = '#f4ead2';
   const MARKS = {

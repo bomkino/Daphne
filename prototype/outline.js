@@ -3,7 +3,16 @@
 // kerning, ligatures and every script. Characters the chosen font lacks are drawn in the matching Noto font.
 // Everything runs in the browser; nothing is uploaded.
 
-const GF = 'https://cdn.jsdelivr.net/gh/google/fonts@main/';
+// two mirrors of the same repository: jsDelivr first (fast, cached), GitHub's raw host if a network blocks it
+const MIRRORS = ['https://cdn.jsdelivr.net/gh/google/fonts@main/', 'https://raw.githubusercontent.com/google/fonts/main/'];
+let GF = MIRRORS[0];
+async function gfFetch(path) {
+  for (const base of [GF, ...MIRRORS.filter((m) => m !== GF)]) {
+    const r = await fetch(base + path).catch(() => null);
+    if (r && (r.ok || r.status === 404)) { GF = base; return r; }
+  }
+  return null;
+}
 let HBP = null;
 const hb = () => HBP || (HBP = import('./vendor/hb-index.mjs'));
 const metaCache = new Map(), blobCache = new Map();
@@ -14,12 +23,12 @@ const fileUrl = (u) => u.replace(/\[/g, '%5B').replace(/\]/g, '%5D');
 function meta(fam) {
   if (!metaCache.has(fam)) metaCache.set(fam, (async () => {
     for (const lic of ['ofl', 'apache', 'ufl']) {
-      const r = await fetch(`${GF}${lic}/${dirOf(fam)}/METADATA.pb`).catch(() => null);
+      const r = await gfFetch(`${lic}/${dirOf(fam)}/METADATA.pb`);
       if (!r || !r.ok) continue;
       const t = await r.text();
       const fonts = [...t.matchAll(/\nfonts \{([\s\S]*?)\n\}/g)].map((m) => ({ style: (/style: "(\w+)"/.exec(m[1]) || [, 'normal'])[1], weight: +(/weight: (\d+)/.exec(m[1]) || [, 400])[1], file: /filename: "([^"]+)"/.exec(m[1])[1] }));
       const axes = [...t.matchAll(/axes \{\s*tag: "(\w+)"\s*min_value: ([-\d.]+)\s*max_value: ([-\d.]+)/g)].map((m) => ({ tag: m[1], min: +m[2], max: +m[3] }));
-      if (fonts.length) return { base: `${GF}${lic}/${dirOf(fam)}/`, fonts, axes };
+      if (fonts.length) return { base: `${lic}/${dirOf(fam)}/`, fonts, axes };
     }
     throw new Error(`Couldn't find the font files for ${fam}`);
   })());
@@ -33,7 +42,7 @@ async function fontFor(fam, weight = 400, italic = false) {
   const vf = cands.find((x) => x.file.includes('['));
   const pick = vf || cands.reduce((a, b) => (Math.abs(b.weight - weight) < Math.abs(a.weight - weight) ? b : a));
   const url = m.base + pick.file;
-  if (!blobCache.has(url)) blobCache.set(url, (async () => { const r = await fetch(fileUrl(url)); if (!r.ok) throw new Error(`Couldn't load ${pick.file}`); const face = new H.Face(new H.Blob(await r.arrayBuffer())); return face; })());
+  if (!blobCache.has(url)) blobCache.set(url, (async () => { const r = await gfFetch(fileUrl(url)); if (!r || !r.ok) throw new Error(`Couldn't load ${pick.file}`); const face = new H.Face(new H.Blob(await r.arrayBuffer())); return face; })());
   const face = await blobCache.get(url), font = new H.Font(face);
   if (vf) { const wa = m.axes.find((a) => a.tag === 'wght'); if (wa) font.setVariations([new H.Variation('wght', Math.min(wa.max, Math.max(wa.min, weight)))]); }
   return { H, font, upem: face.upem, fam };

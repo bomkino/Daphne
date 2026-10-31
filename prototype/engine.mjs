@@ -2,7 +2,7 @@
 //
 // A laurel is a document: { seed, branch, paint, fields, roles, layout, canvas }.
 //   branch  – the procedural wreath: spine × stem × leaf family/profile × arrangement × ornaments
-//   paint   – every colour is a Paint: solid, linear, radial or metal, applied to the whole wreath or per leaf
+//   paint   – every color is a Paint: solid, linear, radial or metal, applied to the whole wreath or per leaf
 //   fields  – any number of text lines (status, festival, award, year, …), each with a role and a slot
 //   roles   – type styles (font, weight, case, tracking, size ratio, paint) shared by fields
 //   layout  – how the slots are arranged; the inside stack is auto-fitted to the free space between branches
@@ -101,7 +101,7 @@ function drawHugFrame(FR, blk, m) {
     else { paint.push(line(0)); if (FR.double) paint.push(line(-(gap + w * 0.8), w * 0.55)); }
     pts = rectPts(X0, Y0, W, Hh); box = [X0 - w, Y0 - w, W + 2 * w, Hh + 2 * w];
   } else if (k === 'rules') {
-    // a heavy rule outside a fine one, above and below; an ornament can break each rule at its centre
+    // a heavy rule outside a fine one, above and below; an ornament can break each rule at its center
     const o = FR.orn && FR.orn !== 'none' ? FR.orn : null, os = Math.max(4, m * 0.9), og = o ? os * 1.1 : 0;
     const seg = (y, h) => o ? [rrD(X0, y - h / 2, W / 2 - og, h, 0), rrD(X1 - (W / 2 - og), y - h / 2, W / 2 - og, h, 0)].join('') : rrD(X0, y - h / 2, W, h, 0);
     const heavy = FR.double ? w * 1.7 : w, fine = w * 0.55;
@@ -420,7 +420,7 @@ function buildOnce(p, seed) {
     } else if (orn.berries && i % orn.berries === 1 && i < n - 2) {
       const q = atT(S0, t + half * 0.5), r = Math.min(lerp(lf.L0, lf.L1, t) * 0.13 + 1, 3.4) * (orn.berrySize || 1), s = orn.berryPos === 'outer' ? -1 : 1, shape = orn.berryShape || 'dot';
       const cx = q.p[0] - s * q.N[0] * r * 3, cy = q.p[1] - s * q.N[1] * r * 3;
-      if (shape === 'olive') { // an olive on a short stalk, hanging towards the tip
+      if (shape === 'olive') { // an olive on a short stalk, hanging toward the tip
         const ang = Math.atan2(-s * q.N[1] + q.T[1] * 0.7, -s * q.N[0] + q.T[0] * 0.7), dx = Math.cos(ang), dy = Math.sin(ang);
         orns.push(profileD('rachis', r * 1.5, Math.max(0.6, r * 0.32), 0, X(q.p[0], q.p[1], ang)), profileD('almond', r * 2.7, r * 1.65, 0, X(q.p[0] + dx * r * 1.3, q.p[1] + dy * r * 1.3, ang)));
       } else if (shape === 'cluster') { for (let k = 0; k < 3; k++) { const a = rnd() * 0.4 + (k * 2 * Math.PI) / 3; orns.push(dotD(cx + Math.cos(a) * r * 0.85, cy + Math.sin(a) * r * 0.85, r * 0.72)); } }
@@ -446,7 +446,7 @@ function buildOnce(p, seed) {
   if (orn.tip === 'star') orns.push(polyD(starPts(qt.p[0] + qt.T[0] * 7, qt.p[1] + qt.T[1] * 7, 7).map(sink)));
   SINK = null; SHADE = null;
   let top = Infinity, bottom = -Infinity, halfW = 0, innerX = -Infinity;
-  // where a tie would sit: the lowest point where the stems come closest to the centre line
+  // where a tie would sit: the lowest point where the stems come closest to the center line
   let tieAt = S0.pts[0].p; for (const q of S0.pts) if (q.p[1] > 0 && Math.abs(q.p[0]) < Math.abs(tieAt[0])) tieAt = q.p;
   for (const [x, y] of pts) { if (y < top) top = y; if (y > bottom) bottom = y; if (-x > halfW) halfW = -x; if (x > innerX) innerX = x; }
   if (sp.cross) for (const q of S0.pts) { bottom = Math.max(bottom, q.p[1]); top = Math.min(top, q.p[1]); halfW = Math.max(halfW, -q.p[0]); }
@@ -559,7 +559,7 @@ export const DEFAULT_DOC = {
     inner: null,          // null = same as branch, dimmed by depth
     ornament: null,       // null = same as branch
     depth: 0.25,
-    shade: null,          // colour of the folded (shaded) half of each leaf; null = black
+    shade: null,          // color of the folded (shaded) half of each leaf; null = black
     mode: 'fill',         // fill | outline | both
     stroke: { w: 1.2, paint: null },
     effects: { shadow: null, glow: null, misreg: null, foil: null, press: null, grain: null, text: true },
@@ -598,7 +598,7 @@ export function applyForm(doc, form) { const d = merge(doc, FORMS[form] || {}); 
 
 // ── layout + render ───────────────────────────────────────────────────────
 const MCACHE = new WeakMap(); // measured widths, kept per measure function across renders
-// built branches, keyed by their parameters: typing, recolouring and re-layout passes reuse the leaves
+// built branches, keyed by their parameters: typing, recoloring and re-layout passes reuse the leaves
 const BCACHE = new Map();
 function branchOf(br, seed) {
   const k = seed + JSON.stringify(br);
@@ -675,8 +675,8 @@ export function render(docIn, env = {}) {
   // For every way of wrapping the lines (none; any split of a multi-word line into 2, or 3 for long heroes) and
   // every vertical position of the block, find the largest hero size at which each line fits the free width at
   // its own height, with padding that grows with the type. Tight small-caps lines give up tracking (down to
-  // trackMin) before anything shrinks. The winner is the biggest type, nudged towards the optical centre and
-  // towards fewer, balanced wraps.
+  // trackMin) before anything shrinks. The winner is the biggest type, nudged toward the optical center and
+  // toward fewer, balanced wraps.
   const flank = br.flank && !noBranch;
   const insideBase = toLines(fieldsIn('inside'));
   const maxW = (FG ? 2 * FG.ta : noBranch ? 200 : 2 * B.halfW) * 0.98;
@@ -916,7 +916,7 @@ export function render(docIn, env = {}) {
     const size = Math.max(MS, H * r.ratio * 1.45), hh = size * 0.92;
     const tw = measure(s, r.font, r.weight, r.italic, size) + r.track * size * [...s].length;
     const halfW = Math.max(tw / 2 + hh * 1.6, Math.min(B.halfW * 0.86, 100) * L.ribbonW);
-    const Rc = Math.max(100 * br.spine.ry * 2.4, halfW * 2.6), rise = (x) => Rc - Math.sqrt(Math.max(0, Rc * Rc - x * x)); // big circle, centre above: a soft smile
+    const Rc = Math.max(100 * br.spine.ry * 2.4, halfW * 2.6), rise = (x) => Rc - Math.sqrt(Math.max(0, Rc * Rc - x * x)); // big circle, center above: a soft smile
     // the banner's ends rise: slide it down until it clears every inside line along their whole width
     let y0 = ribbonY;
     for (const it of items) if (it.slot === 'inside') { const xe = Math.min(halfW, Math.max(Math.abs(it.bbox[0]), Math.abs(it.bbox[0] + it.bbox[2]))); y0 = Math.max(y0, it.bbox[1] + it.bbox[3] + size * 0.45 + hh + rise(xe)); }
@@ -947,7 +947,7 @@ export function render(docIn, env = {}) {
   for (const [slot, Rm, sweep] of [['arc-top', L.arcTopR, 1], ['arc-bottom', L.arcBottomR, 0], ['arc-under', L.arcUnderR ?? 1.04, 0]]) {
     const ls = toLines(fieldsIn(slot)); if (!ls.length) continue;
     const r = roleOf('arc'), s = ls.map((l) => caseOf(l.s || '', r.case)).join(L.joinSep);
-    if (FG && FG.hasBand) { // a seal: the words run round the ring's band, centred in it, over the top and under the base
+    if (FG && FG.hasBand) { // a seal: the words run round the ring's band, centered in it, over the top and under the base
       const under = slot !== 'arc-top', ma = FG.oa - FG.bt / 2, mb = FG.ob - FG.bt / 2, n = [...s].length;
       let size = FG.bt * 0.5; const len = () => measure(s, r.font, r.weight, r.italic, size) + r.track * size * n;
       const room = Math.PI * Math.sqrt((ma * ma + mb * mb) / 2) * (under ? 0.58 : 0.84);
