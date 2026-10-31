@@ -1,0 +1,10 @@
+/* Shared look for Daphne's social cards. Rendered to PNG by brand/tools/render.mjs. */
+@import url("../../tokens/daphne.css");
+html, body { margin: 0; }
+body { width: var(--w); height: var(--h); overflow: hidden; color: var(--daphne-paper);
+  background: radial-gradient(120% 140% at 18% 12%, #1A3A2A 0%, var(--daphne-grove) 45%, var(--daphne-grove-deep) 100%); }
+.card { position: relative; width: 100%; height: 100%; box-sizing: border-box; display: grid; }
+.logo { display: block; }
+.tag { font: 400 var(--tag) / 1.18 var(--daphne-font-lead); font-variation-settings: "wght" 400; margin: 0; text-wrap: balance; }
+.url { font: 500 var(--url) / 1 var(--daphne-font-data); font-variation-settings: "wght" 500; letter-spacing: .04em; color: var(--daphne-new-leaf); }
+.laurel img { display: block; width: 100%; height: auto; }

@@ -1,0 +1,19 @@
+/* Daphne brand tokens and faces. Public domain (CC0 1.0), fonts included. Paths are relative to brand/tokens/. */
+@font-face { font-family: "PD Head"; src: url("../fonts/pd-head.woff2") format("woff2"); font-weight: 265 900; font-display: swap; }
+@font-face { font-family: "PD Body"; src: url("../fonts/pd-body-roman.woff2") format("woff2"); font-weight: 100 900; font-display: swap; }
+@font-face { font-family: "PD Body Alt"; src: url("../fonts/pd-body-alt-roman.woff2") format("woff2"); font-weight: 100 900; font-display: swap; }
+@font-face { font-family: "PD Eyebrow"; src: url("../fonts/pd-eyebrow-site.woff2") format("woff2"); font-weight: 100 900; font-display: swap; }
+:root {
+  --daphne-grove: #12291E;
+  --daphne-grove-deep: #0B1B13;
+  --daphne-paper: #F3F6EF;
+  --daphne-new-leaf: #B8E59A;
+  --daphne-bay: #1F5C3B;
+  --daphne-bloom: #F59CC0;
+  --daphne-font-display: "PD Head", Georgia, serif;
+  --daphne-font-text: "PD Body", system-ui, sans-serif;
+  --daphne-font-lead: "PD Body Alt", system-ui, sans-serif;
+  --daphne-font-data: "PD Eyebrow", ui-monospace, monospace;
+  --daphne-ease-grow: cubic-bezier(.2, .7, .1, 1);
+  --daphne-ease-settle: cubic-bezier(.33, 0, .15, 1);
+}

@@ -1,0 +1,94 @@
+{
+  "$description": "Daphne brand tokens, public domain (CC0 1.0). Color names are the brand names; see brand/README.md for when to use each.",
+  "color": {
+    "grove": {
+      "$type": "color",
+      "$value": "#12291E"
+    },
+    "groveDeep": {
+      "$type": "color",
+      "$value": "#0B1B13"
+    },
+    "paper": {
+      "$type": "color",
+      "$value": "#F3F6EF"
+    },
+    "newLeaf": {
+      "$type": "color",
+      "$value": "#B8E59A"
+    },
+    "bay": {
+      "$type": "color",
+      "$value": "#1F5C3B"
+    },
+    "bloom": {
+      "$type": "color",
+      "$value": "#F59CC0"
+    }
+  },
+  "font": {
+    "display": {
+      "$type": "fontFamily",
+      "$value": [
+        "PD Head",
+        "Georgia",
+        "serif"
+      ],
+      "$description": "Wordmark (400), symbol (600), headlines."
+    },
+    "text": {
+      "$type": "fontFamily",
+      "$value": [
+        "PD Body",
+        "system-ui",
+        "sans-serif"
+      ],
+      "$description": "Interface, captions, running text. 400; 600 for emphasis."
+    },
+    "lead": {
+      "$type": "fontFamily",
+      "$value": [
+        "PD Body Alt",
+        "system-ui",
+        "sans-serif"
+      ],
+      "$description": "Taglines and large explanatory lines. 400."
+    },
+    "data": {
+      "$type": "fontFamily",
+      "$value": [
+        "PD Eyebrow",
+        "ui-monospace",
+        "monospace"
+      ],
+      "$description": "Formats, sizes, dates, file names. 500."
+    }
+  },
+  "motion": {
+    "frameRate": {
+      "$type": "number",
+      "$value": 24,
+      "$description": "One leaf per frame: a 24-leaf wreath grows in one second."
+    },
+    "grow": {
+      "$type": "cubicBezier",
+      "$value": [
+        0.2,
+        0.7,
+        0.1,
+        1
+      ],
+      "$description": "Growth along a stem: quick to start, long to settle."
+    },
+    "settle": {
+      "$type": "cubicBezier",
+      "$value": [
+        0.33,
+        0,
+        0.15,
+        1
+      ],
+      "$description": "Words arriving and settling."
+    }
+  }
+}
