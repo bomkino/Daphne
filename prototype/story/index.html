@@ -99,6 +99,21 @@
   }
   .go { display: flex; flex-wrap: wrap; align-items: center; gap: 14px 20px; margin-top: 44px; }
 
+  /* the film of the story, on the same night, before the chapter: a phone held upright gets the upright cut (film.js) */
+  .watch { background: var(--night); color-scheme: dark; border-top: 1px solid var(--hair); padding-block: clamp(64px, 9vw, 120px); text-align: center; }
+  .watch h2 { font-size: clamp(28px, 3.4vw, 44px); max-width: none; margin: 0 auto 28px; }
+  .screen { width: 100%; aspect-ratio: 16 / 9; margin: 0 auto; max-width: calc((100vh - var(--bar) - 72px) * 16 / 9); max-width: calc((100svh - var(--bar) - 72px) * 16 / 9); border-radius: 10px; overflow: hidden; background: var(--night); box-shadow: 0 0 0 1px var(--hair), 0 30px 80px rgba(0, 0, 0, .5); }
+  .screen.tall { aspect-ratio: 9 / 16; max-width: min(100%, calc((100vh - var(--bar) - 72px) * 9 / 16)); max-width: min(100%, calc((100svh - var(--bar) - 72px) * 9 / 16)); }
+  .screen video { display: block; width: 100%; height: 100%; object-fit: contain; background: var(--night); }
+  .words { max-width: 640px; margin: 28px auto 0; text-align: left; border-block: 1px solid var(--hair); }
+  .words summary { cursor: pointer; list-style: none; display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 16px 2px; font: 500 12px/1.2 var(--data); letter-spacing: .1em; text-transform: uppercase; color: var(--mist); }
+  .words summary::-webkit-details-marker { display: none; }
+  .words summary::after { content: '+'; font: 300 22px/1 var(--display); color: var(--leaf); transition: transform .3s cubic-bezier(.2, .7, .1, 1); }
+  .words[open] summary::after { transform: rotate(45deg); }
+  .words summary:hover { color: var(--paper); }
+  .words div { padding: 4px 2px 24px; font: 300 clamp(18px, 2.2vw, 21px)/1.55 var(--display); }
+  .words p { margin: 0 0 .8em; }
+
   footer { background: var(--deep); padding-block: 40px calc(env(safe-area-inset-bottom, 0px) + 48px); color: var(--mist); font: 400 14px/1.6 var(--text); }
   footer p { margin: 0 0 10px; max-width: 62ch; }
   footer .by { color: var(--paper); font: 400 16px/1.5 var(--lead); margin-bottom: 18px; }
@@ -107,6 +122,7 @@
   @media (prefers-reduced-motion: reduce) {
     .hint { display: none !important; }
     .make { transition: none; }
+    .words summary::after { transition: none; }
   }
 </style>
 </head>
@@ -124,6 +140,41 @@
     </div>
     <div class="cap end"><p class="tag">Make festival laurels for your film. It’s free.</p><a class="make" href="../">Make your laurel<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8h10M9 4l4 4-4 4"/></svg></a></div>
     <div class="hint" aria-hidden="true">Scroll</div>
+  </div>
+</section>
+
+<section class="watch" aria-labelledby="watch-it">
+  <div class="wrap">
+    <p class="eyebrow">A short film · 1 min 50 s · Sound on</p>
+    <h2 id="watch-it">Watch her story as a film</h2>
+    <div class="screen" id="screen">
+      <video id="film" controls playsinline preload="none" poster="poster-16x9.webp" data-size="16x9" aria-label="Daphne’s story, a short film with music. Its words are on screen, and written out below.">
+        <source src="daphne-story-16x9.mp4" type="video/mp4">
+      </video>
+    </div>
+    <details class="words">
+      <summary>Read the film’s words</summary>
+      <div>
+        <p>You’ve seen her on a thousand film posters.</p>
+        <p>You just never knew her name.</p>
+        <p>Daphne.</p>
+        <p>She was a river’s daughter, and she wanted to belong to no one.</p>
+        <p>Then a god saw her, and wanted her.</p>
+        <p>She ran.</p>
+        <p>And when she could run no farther, she begged her father, the river, to change her.</p>
+        <p>Her feet took root. Her arms became branches. Her hair became leaves.</p>
+        <p>When he laid his hand on the bark, he could still feel her heart, trembling underneath.</p>
+        <p>He kissed the wood. Even as wood, she pulled away.</p>
+        <p>He couldn’t have her. So he took her leaves, and wore them as a crown.</p>
+        <p>Ever since, her leaves have crowned the chosen. Poets. Athletes. Artists.</p>
+        <p>Now she sits on film posters, and quietly says: this film was chosen.</p>
+        <p>But she only ever asked to belong to no one.</p>
+        <p>So we made her free.</p>
+        <p>Daphne makes festival laurels for your film.</p>
+        <p>No account. No watermark. Nothing leaves your device.</p>
+        <p>For every filmmaker who’s earned one.</p>
+      </div>
+    </details>
   </div>
 </section>
 
@@ -148,10 +199,11 @@
 <footer>
   <div class="wrap">
     <p class="by" id="pitchdog">Made by <a href="/">pitch.dog</a>. We write and design pitch decks for film and TV. <a href="/work/">See our work</a></p>
-    <p>The story follows Ovid’s <i>Metamorphoses</i>, book I.</p>
+    <p>The story follows Ovid’s <i>Metamorphoses</i>, book I. The film’s score is original, played on VS Chamber Orchestra: Community Edition, by Versilian Studios and Ivy Audio.</p>
     <p class="data">Daphne is open source · <a href="https://github.com/bomkino/Daphne">Source on GitHub</a></p>
   </div>
 </footer>
 <script type="module" src="story.js"></script>
+<script type="module" src="film.js"></script>
 </body>
 </html>
