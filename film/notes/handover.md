@@ -7,13 +7,13 @@
 - pitch.dog's own piece: a ~1:50 film that tells the myth of Daphne, the first laurel, and lands on Daphne, the free laurel maker at pitch.dog/daphne. Asked for October 31, 2026: "Incredibly well told. Polished." With music, working with or without Manali's narration, based on the brand book.
 - The sentence: every festival laurel is a girl who ran so she could belong to no one, and now she's free for every filmmaker who earned one.
 - Repo: bomkino/Daphne, folder `film/`, branch `claude/project-thread-9k7rum`, draft PR #4 (base main). PR only: no merge, publish or post. Kay posts.
-- The page it will live on: https://pitch.dog/daphne/story/, served from `prototype/story/` by `tools/build-pitchdog.mjs`; each file under 25 MiB; the /daphne/* CSP allows media from the site itself only.
+- The page it will live on: https://pitch.dog/daphne/story/, served from `prototype/story/` by `tools/build-pitchdog.mjs`; each file under 25 MiB; the /daphne/* CSP allows media from the site itself only and scripts from files only (no inline). From PR #10 (another thread, merging November 1) that page is Daphne's story told as you scroll; the film joins it as a section, it doesn't replace it.
 - Learnings read with this: bomkino/remotion-starter-kit (AGENTS.md, guides/check.md, learnings/typecast for timing words before a voice).
 
 ## Where things stand
 
 - Picture, score and both voices run end to end at 1920×1080 and 1080×1920, ending on the intro/outro's outro (PR #5's `brand/motion/daphne-outro-*.mp4`; `npm run outro` copies it into `public/outro/`, which git ignores).
-- The story page (`prototype/story/`) carries the lead cut as 21 MiB H.264 encodes (`npm run render -- --web`), a 16:9 film for landscape screens and a 9:16 one for phones held upright, with posters from the heart frame (0:54).
+- PR #4's own story page (`prototype/story/`, to be folded into #10's page) carries the lead cut as 21 MiB H.264 encodes (`npm run render -- --web`), a 16:9 film for landscape screens and a 9:16 one for phones held upright, with posters from the heart frame (0:54).
 - Review copies: /mnt/project-files/daphne-film/ (half size, with REVIEW.md).
 - Now, next and blocked: `tasks.md`.
 

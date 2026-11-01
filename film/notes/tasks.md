@@ -12,7 +12,8 @@
 - [ ] Kay picks the lead voice from the two previews (hers or ours)
 - [ ] If Manali records: takes into `public/vo/<voice>/L01.wav`..., render the narrated cut (NARRATION.md)
 - [ ] When PR #5 (the intro/outro) merges, run `npm run outro` in a fresh checkout before rendering
-- [ ] Ship the story page with the next pitch.dog build (the launch thread does the publishing)
+- [ ] When PR #10 (the scroll story page) merges: rebase PR #4 onto main and fold the film into that page as a "Watch it as a film" section after the scroll story, before the laurels chapter. Videos and posters beside it in `prototype/story/`; player code in its own file (not story.js, which stays as #10 wrote it; no inline scripts). Drop PR #4's own index.html and story.js.
+- [ ] Ship the page with the next pitch.dog build once the film is approved (the launch thread does the publishing)
 - [ ] Covers and captions for posting (guides/packaging.md in the kit)
 
 ## Blocked
@@ -34,3 +35,4 @@
 
 - 2026-10-31 23:20 UTC: previews of Daphne and DaphneUs at both sizes rendering; masters and the story page next.
 - 2026-11-01 00:05 UTC: previews in /mnt/project-files/daphne-film/ with REVIEW.md; story page pushed with its films; PR #4 ready for review.
+- 2026-11-01 12:10 UTC: story.js moved out of index.html for the CSP (82ac436). The story-page thread's PR #10 makes /daphne/story/ a scroll page and conflicts with PR #4's prototype/story/ files; the film folds into it once #10 merges.
