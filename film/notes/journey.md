@@ -22,3 +22,7 @@
 ## 2026-10-31: the ending
 
 - **The same laurel all the way.** The film's last laurel settles into the intro/outro's first frame, so the outro takes over without a seam: the leaves turn green and fall, and two stay as the brackets of (Daphne).
+
+## 2026-11-01: the film joins her page
+
+- **Two ways to meet her, one page.** pitch.dog/daphne/story/ became Daphne's story told as you scroll. The film comes right after it, on the same night, as "Watch her story as a film", with its words written out below for anyone who can't watch.

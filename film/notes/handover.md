@@ -7,13 +7,13 @@
 - pitch.dog's own piece: a ~1:50 film that tells the myth of Daphne, the first laurel, and lands on Daphne, the free laurel maker at pitch.dog/daphne. Asked for October 31, 2026: "Incredibly well told. Polished." With music, working with or without Manali's narration, based on the brand book.
 - The sentence: every festival laurel is a girl who ran so she could belong to no one, and now she's free for every filmmaker who earned one.
 - Repo: bomkino/Daphne, folder `film/`, branch `claude/project-thread-9k7rum`, draft PR #4 (base main). PR only: no merge, publish or post. Kay posts.
-- The page it will live on: https://pitch.dog/daphne/story/, served from `prototype/story/` by `tools/build-pitchdog.mjs`; each file under 25 MiB; the /daphne/* CSP allows media from the site itself only and scripts from files only (no inline). From PR #10 (another thread, merging November 1) that page is Daphne's story told as you scroll; the film joins it as a section, it doesn't replace it.
+- The page it will live on: https://pitch.dog/daphne/story/, served from `prototype/story/` by `tools/build-pitchdog.mjs`; each file under 25 MiB; the /daphne/* CSP allows media from the site itself only and scripts from files only (no inline). Since PR #10 (another thread, merged November 1) that page is Daphne's story told as you scroll; the film is a section of it. Its `story.js` and `marks.js` belong to that page: leave them; the film's player is `film.js`.
 - Learnings read with this: bomkino/remotion-starter-kit (AGENTS.md, guides/check.md, learnings/typecast for timing words before a voice).
 
 ## Where things stand
 
 - Picture, score and both voices run end to end at 1920×1080 and 1080×1920, ending on the intro/outro's outro (PR #5's `brand/motion/daphne-outro-*.mp4`; `npm run outro` copies it into `public/outro/`, which git ignores).
-- PR #4's own story page (`prototype/story/`, to be folded into #10's page) carries the lead cut as 21 MiB H.264 encodes (`npm run render -- --web`), a 16:9 film for landscape screens and a 9:16 one for phones held upright, with posters from the heart frame (0:54).
+- On the story page (`prototype/story/index.html`), the section "Watch her story as a film" sits between the scroll story and the laurels chapter: the lead cut as 21 MiB H.264 encodes (`npm run render -- --web`), 16:9 for landscape screens and 9:16 for phones held upright (`film.js` picks, and loads nothing until the section is a screen away), posters from the heart frame (0:54), the film's words in a details below. The score credit is in the footer.
 - Review copies: /mnt/project-files/daphne-film/ (half size, with REVIEW.md).
 - Now, next and blocked: `tasks.md`.
 
@@ -31,7 +31,7 @@
 - 2026-10-31: score.flac -16.2 LUFS, true peak -1.4 dBTP; score-bed.flac -23.0 LUFS (ffmpeg ebur128). No clicks found by a 9 kHz transient scan.
 - 2026-10-31: heartbeat sound lands 35 ms after its picture beat in the rendered preview (20 ms by design plus detection).
 - 2026-10-31: the cut into the outro: the laurel's gold bounding box matches the outro's first frame within 2 px at both sizes.
-- 2026-11-01: story page loads at 1440×900 and 390×844 with no errors or sideways scroll, picks the upright film on the phone; web encodes SSIM 0.926 against the master.
+- 2026-11-01: web encodes SSIM 0.926 against the master. The film section on the scroll story page, under a script-src 'self' CSP at 1440×900, 1280×720, 768×1024, 390×844, 360×640 and 844×390: no CSP or script errors, no sideways scroll, the screen fits the viewport, each size fetches only its own cut and plays it.
 - 2026-10-31: every line has room: NARRATION.md flags none as tight; on screen each line is fully visible at least 0.5 s before it fades.
 
 ## Only a person can check

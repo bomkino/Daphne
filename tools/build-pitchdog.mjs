@@ -7,7 +7,7 @@
 // and BUILD.json, which names the commit it came from.
 //
 // pitch.dog/daphne/story/ is Daphne's story, told as you scroll (prototype/story/), and
-// this build ships it from there. The story film joins that page once it's approved.
+// this build ships it from there, with the story film as a section of it (film.js, daphne-story-*.mp4).
 //
 //   node tools/build-pitchdog.mjs
 //
