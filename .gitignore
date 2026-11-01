@@ -9,3 +9,7 @@ spike/out/
 
 # The pitch.dog build (node tools/build-pitchdog.mjs)
 dist-pitchdog/
+
+# Launch carousels: the 2x renders and the finished slides rebuild from source (launch/README.md)
+launch/out/
+launch/carousels/0*/

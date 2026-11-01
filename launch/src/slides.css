@@ -1,0 +1,53 @@
+/* Daphne launch carousels. Every slide is 1080 × 1350 (4:5), the size Instagram's feed and LinkedIn's document
+   posts both show tallest. Colors, faces and easing come from brand/tokens; the faces are the brand's own (CC0). */
+@font-face { font-family: "PD Head"; src: url("../../brand/fonts/pd-head.woff2") format("woff2"); font-weight: 265 900; }
+@font-face { font-family: "PD Body"; src: url("../../brand/fonts/pd-body-roman.woff2") format("woff2"); font-weight: 100 900; }
+@font-face { font-family: "PD Body Alt"; src: url("../../brand/fonts/pd-body-alt-roman.woff2") format("woff2"); font-weight: 100 900; }
+@font-face { font-family: "PD Eyebrow"; src: url("../../brand/fonts/pd-eyebrow-site.woff2") format("woff2"); font-weight: 100 900; }
+
+:root {
+  --grove: #12291E; --deep: #0B1B13; --night: #09160F; --paper: #F3F6EF; --leaf: #B8E59A; --bay: #1F5C3B; --bloom: #F59CC0;
+  --head: "PD Head", Georgia, serif; --lead: "PD Body Alt", system-ui, sans-serif; --text: "PD Body", system-ui, sans-serif; --data: "PD Eyebrow", ui-monospace, monospace;
+  --dim: rgba(243, 246, 239, .74); --faint: rgba(243, 246, 239, .5); --rule: rgba(184, 229, 154, .22);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { background: #000; }
+body { width: max-content; -webkit-font-smoothing: antialiased; text-rendering: geometricPrecision; font-kerning: normal; }
+
+.strip { position: relative; height: 1350px; overflow: hidden; background: var(--grove); color: var(--paper); }
+.slide { position: absolute; top: 0; width: 1080px; height: 1350px; }
+.strip > canvas.paint { position: absolute; left: 0; top: 0; height: 1350px; }
+/* the grain sits under the words and the laurels, never over them */
+.grain { position: absolute; inset: 0; pointer-events: none; opacity: .07; mix-blend-mode: screen; background-size: 256px 256px; }
+.ground { position: absolute; inset: 0; }
+
+/* type */
+.h1 { font: 400 96px/1.02 var(--head); letter-spacing: -.012em; text-wrap: balance; }
+.h2 { font: 400 80px/1.04 var(--head); letter-spacing: -.01em; text-wrap: balance; }
+.h3 { font: 400 60px/1.08 var(--head); letter-spacing: -.006em; text-wrap: balance; }
+.story { font: 300 66px/1.13 var(--head); letter-spacing: -.008em; text-wrap: pretty; }
+.lead { font: 400 40px/1.3 var(--lead); color: var(--dim); text-wrap: pretty; }
+.body { font: 400 36px/1.34 var(--text); color: var(--dim); text-wrap: pretty; }
+.data { font: 500 28px/1.2 var(--data); letter-spacing: .02em; color: var(--faint); }
+.num { font: 400 30px/1 var(--data); letter-spacing: .04em; color: var(--leaf); }
+.paper { color: var(--paper); }
+.leafc { color: var(--leaf); }
+.bloom { color: var(--bloom); }
+.em { color: var(--paper); }
+[data-c], .c { text-align: center; }
+
+/* the leaf brackets: the logo's own leaves, one em and a quarter tall, set like parentheses around one thing */
+.bk { white-space: nowrap; }
+.bk::before, .bk::after { content: ""; display: inline-block; width: .3976em; height: 1.24em; vertical-align: -.3em; background: var(--leaf);
+  -webkit-mask: url("../../brand/bracket/leaf-left.svg") center / contain no-repeat; mask: url("../../brand/bracket/leaf-left.svg") center / contain no-repeat; margin-right: .06em; }
+.bk::after { -webkit-mask-image: url("../../brand/bracket/leaf-right.svg"); mask-image: url("../../brand/bracket/leaf-right.svg"); margin: 0 0 0 .06em; }
+
+/* blocks: everything a slide shows sits in a block, and the render checks every block against the slide's safe box */
+.blk { position: absolute; }
+.laurel { display: block; }
+.laurel img, img.laurel { display: block; width: 100%; height: auto; }
+.cap { display: block; border-radius: 22px; box-shadow: 0 30px 80px rgba(0, 0, 0, .45), 0 0 0 1px rgba(184, 229, 154, .16); }
+.panel { background: rgba(11, 27, 19, .62); border-radius: 26px; box-shadow: 0 0 0 1px rgba(184, 229, 154, .16), 0 30px 80px rgba(0, 0, 0, .35); }
+.count { font: 500 26px/1 var(--data); letter-spacing: .08em; color: rgba(243, 246, 239, .42); }
+.url { font: 500 34px/1 var(--data); letter-spacing: .02em; color: var(--leaf); }
+.rule { height: 1px; background: var(--rule); }
