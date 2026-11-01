@@ -28,7 +28,9 @@
 - [x] Retimed: rests added so every line can be said and read; film 1:50 (2026-10-31)
 - [x] Ending cuts into the intro/outro's outro on its first frame (2026-10-31)
 - [x] NARRATION.md for Manali, README with credits (2026-10-31)
+- [x] Story page in prototype/story/ with 21 MiB encodes of the lead cut at both sizes (2026-11-01)
 
 ## Log
 
 - 2026-10-31 23:20 UTC: previews of Daphne and DaphneUs at both sizes rendering; masters and the story page next.
+- 2026-11-01 00:05 UTC: previews in /mnt/project-files/daphne-film/ with REVIEW.md; story page pushed with its films; PR #4 ready for review.

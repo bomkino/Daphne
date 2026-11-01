@@ -13,6 +13,8 @@
 ## Where things stand
 
 - Picture, score and both voices run end to end at 1920×1080 and 1080×1920, ending on the intro/outro's outro (PR #5's `brand/motion/daphne-outro-*.mp4`; `npm run outro` copies it into `public/outro/`, which git ignores).
+- The story page (`prototype/story/`) carries the lead cut as 21 MiB H.264 encodes (`npm run render -- --web`), a 16:9 film for landscape screens and a 9:16 one for phones held upright, with posters from the heart frame (0:54).
+- Review copies: /mnt/project-files/daphne-film/ (half size, with REVIEW.md).
 - Now, next and blocked: `tasks.md`.
 
 ## Rules that must survive
@@ -29,6 +31,7 @@
 - 2026-10-31: score.flac -16.2 LUFS, true peak -1.4 dBTP; score-bed.flac -23.0 LUFS (ffmpeg ebur128). No clicks found by a 9 kHz transient scan.
 - 2026-10-31: heartbeat sound lands 35 ms after its picture beat in the rendered preview (20 ms by design plus detection).
 - 2026-10-31: the cut into the outro: the laurel's gold bounding box matches the outro's first frame within 2 px at both sizes.
+- 2026-11-01: story page loads at 1440×900 and 390×844 with no errors or sideways scroll, picks the upright film on the phone; web encodes SSIM 0.926 against the master.
 - 2026-10-31: every line has room: NARRATION.md flags none as tight; on screen each line is fully visible at least 0.5 s before it fades.
 
 ## Only a person can check

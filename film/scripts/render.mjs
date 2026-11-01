@@ -45,7 +45,7 @@ for (const cut of cuts.length ? cuts : ["Daphne"])
       if (!flag("--dry-run") && !existsSync(master)) throw new Error(`${master} is missing: npm run render -- ${cut} ${size}`);
       mkdirSync("out/web", { recursive: true });
       const out = `out/web/${id}.mp4`;
-      const v = ["-c:v", "libx264", "-preset", "slow", "-b:v", "1650k", "-maxrate", "3000k", "-bufsize", "6000k", "-tune", "grain", "-pix_fmt", "yuv420p"];
+      const v = ["-c:v", "libx264", "-preset", "slow", "-b:v", "1450k", "-maxrate", "2800k", "-bufsize", "5600k", "-tune", "grain", "-pix_fmt", "yuv420p"];
       run("ffmpeg", ["-y", "-v", "error", "-i", master, ...v, "-pass", "1", "-passlogfile", `out/web/${id}`, "-an", "-f", "mp4", "/dev/null"]);
       run("ffmpeg", ["-y", "-v", "error", "-i", master, ...v, "-pass", "2", "-passlogfile", `out/web/${id}`, "-c:a", "aac", "-b:a", "160k", "-movflags", "+faststart", out]);
       if (!flag("--dry-run")) console.log(`${out}: ${(statSync(out).size / 2 ** 20).toFixed(1)} MiB`);
