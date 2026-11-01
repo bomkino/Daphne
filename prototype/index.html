@@ -448,6 +448,19 @@
   .checks { display: grid; gap: 7px; }
   .checks label { display: flex; gap: 9px; align-items: center; font-size: 12.5px; color: #d3dccf; cursor: pointer; }
   .checks label small { color: var(--faint); margin-left: auto; font-size: 11px; text-align: right; }
+  .studio .opts .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .studio .opts .pair .btn { padding: 8px 12px; font-size: 13px; }
+  /* the pitch.dog note in Export › Pitch deck: a sibling of the first-visit intro card, quieter than the downloads above it */
+  .pd-tie { margin-top: 4px; padding: 16px 16px 14px; border-radius: 14px; border: 1px solid var(--line2); background: radial-gradient(120% 140% at 100% 0%, #1c3d2c, #12291e 62%); display: grid; gap: 10px; min-width: 0; }
+  .pd-tie p { margin: 0; text-wrap: pretty; }
+  .pd-tie .pd-eyebrow { font: 600 11.5px/1.3 var(--sans); letter-spacing: .01em; color: var(--faint); }
+  .pd-tie h4 { margin: 0; font: 400 21px/1.18 var(--display); color: var(--text); text-wrap: balance; }
+  .pd-tie h4 span { color: var(--leaf); }
+  .pd-tie > p:not([class]) { color: #d3dccf; font-size: 12.5px; line-height: 1.55; }
+  .pd-tie .pd-links { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 2px; }
+  .pd-tie .pd-links .btn { text-decoration: none; font-size: 12.5px; padding: 8px 10px; white-space: normal; text-align: center; }
+  .pd-tie .pd-links .btn:first-child { grid-column: 1 / -1; }
+  .pd-tie .pd-note { font-size: 11.5px; color: var(--faint); }
 
   /* ── toast ── */
   .toasts { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); display: grid; gap: 8px; z-index: 90; justify-items: center; pointer-events: none; }

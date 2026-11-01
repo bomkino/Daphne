@@ -555,7 +555,7 @@ function aboutTab() {
     h('p', { class: 'hint' }, 'Daphne isn’t affiliated with or endorsed by any festival. A laurel is the filmmaker’s own claim: use the wording the festival gave you.'),
     h('div', { class: 'group' }, h('div', { class: 'label' }, 'Keyboard', h('span', { class: 'grow' })), h('div', { class: 'hint' }, h('span', { class: 'kbd' }, '⌘Z'), ' undo  ', h('span', { class: 'kbd' }, '⇧⌘Z'), ' redo  ', h('span', { class: 'kbd' }, '⌘E'), ' export  ', h('span', { class: 'kbd' }, 'S'), ' surprise me')),
     h('p', { class: 'why' }, h('b', {}, 'Why Daphne? '), 'In Greek myth, Daphne turned into the first laurel tree. Every laurel since comes from her.'),
-    h('div', { class: 'hint' }, 'Made by ', h('a', { href: 'https://pitch.dog/', target: '_blank', rel: 'noopener' }, 'pitch.dog'), ' · ', h('a', { href: 'https://github.com/bomkino/Daphne', target: '_blank', rel: 'noopener' }, 'Source on GitHub')))];
+    h('div', { class: 'hint' }, 'Made by ', h('a', { href: 'https://pitch.dog/', target: '_blank', rel: 'noopener' }, 'pitch.dog'), '. We write and design pitch decks for film and TV. ', h('a', { href: 'https://pitch.dog/work/', target: '_blank', rel: 'noopener' }, 'See our work'), ' · ', h('a', { href: 'https://github.com/bomkino/Daphne', target: '_blank', rel: 'noopener' }, 'Source on GitHub')))];
 }
 
 // preset and layout thumbnails, rendered live with the user's own words, lazily as they scroll into view
