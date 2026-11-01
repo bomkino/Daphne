@@ -116,6 +116,7 @@ const ICONS = {
   social: I('<rect x="4" y="3" width="16" height="18" rx="3"/><circle cx="12" cy="10" r="3.2"/><path d="M8 17h8"/>'),
   video: I('<rect x="2.5" y="5" width="15" height="14" rx="2"/><path d="m17.5 10 4-2.5v9l-4-2.5"/>'),
   web: I('<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.6 3.8 5.6 3.8 9S14.5 18.4 12 21c-2.5-2.6-3.8-5.6-3.8-9S9.5 5.6 12 3z"/>'),
+  deck: I('<rect x="3" y="3.5" width="18" height="12.5" rx="1.5"/><path d="M12 16v4.5M8.5 20.5h7M8 12.5v-3M12 12.5V7.5M16 12.5v-2"/>'),
   email: I('<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3.5 6 8.5 7 8.5-7"/>'),
   words: I('<path d="M5 6h14M5 10h14M5 14h9M5 18h6"/>'),
   row: I('<circle cx="6" cy="12" r="3"/><circle cx="12" cy="12" r="3"/><circle cx="18" cy="12" r="3"/>'),
@@ -132,6 +133,7 @@ const DESTS = [
   { id: 'social', t: 'Social post', s: 'An announcement card' },
   { id: 'video', t: 'Trailer and video', s: 'End-card frame, HD or 4K' },
   { id: 'web', t: 'Website', s: 'SVG, HTML and alt text' },
+  { id: 'deck', t: 'Pitch deck', s: 'Sales decks, press kits, slides' },
   { id: 'email', t: 'Email signature', s: 'Small, sharp, dark-mode safe' },
   { g: 'Words' },
   { id: 'words', t: 'Accolades text', s: 'For press, IMDb, FilmFreeway' },
@@ -209,6 +211,16 @@ export function openStudio(ctx) {
   }
   const bgToggle = () => (P.way === 'color' && d0().canvas.bg ? toggle('Keep the background color', P.bg !== false, (v) => set('bg', v)) : null);
   const altBlock = () => { const a = ctx.altText(d0()); return h('div', { class: 'oblock' }, label('Alt text', h('button', { class: 'btn small ghost', onclick: () => copy(a, 'Alt text copied') }, 'Copy')), h('div', { class: 'alt' }, a), h('div', { class: 'hint' }, 'Paste it wherever the image goes: it’s what screen readers say.')); };
+  // the studio that made Daphne, said once, where a deck is already on the filmmaker's mind
+  const pitchdog = () => h('aside', { class: 'pd-tie', 'aria-labelledby': 'pd-tie-title' },
+    h('p', { class: 'pd-eyebrow' }, 'Made by pitch.dog'),
+    h('h4', { id: 'pd-tie-title' }, 'The laurel’s ready. ', h('span', {}, 'Is the deck?')),
+    h('p', {}, 'Decks are our day job. We write and design pitch decks, director’s treatments and show bibles for film and TV, and have for twelve years. If yours could use a sharper story or a better look, show us.'),
+    h('div', { class: 'pd-links' },
+      h('a', { class: 'btn', href: 'https://pitch.dog/work/', target: '_blank', rel: 'noopener' }, 'See our work ', h('span', { 'aria-hidden': 'true' }, '→')),
+      h('a', { class: 'btn ghost', href: 'https://pitch.dog/#book', target: '_blank', rel: 'noopener' }, 'Book a call'),
+      h('a', { class: 'btn ghost', href: 'mailto:hello@pitch.dog?subject=A%20deck%20for%20my%20film' }, 'Email us')),
+    h('p', { class: 'pd-note' }, 'No pressure, no strings. Daphne stays free either way.'));
   function rulesBlock() {
     const notes = checkLaurel(d0()).filter((n) => n.level === 'rule');
     if (!notes.length) return null;
@@ -265,6 +277,15 @@ export function openStudio(ctx) {
     const n = nest(sc.svg, x, y, lw, lh);
     return { svg: root(W, H, (V.bg === 'black' ? `<rect width="${W}" height="${H}" fill="#000"/>` : '') + n.el), W, H };
   }
+  // a festival slide, to see the laurel where a deck will put it
+  function deckSvg() {
+    const W = 1600, H = 900, d = d0(), r = rendered(P.way), tp = hex(d.text.paint);
+    const bg = P.way === 'black' ? '#f4f1ea' : P.way === 'white' ? '#141418' : (bgOn() && hex(d.canvas.bg)) || (tp && lum(tp) < 0.3 ? '#f4f1ea' : '#141418');
+    const ink = lum(bg) < 0.4 ? '#f4f3ee' : '#17171a', title = (P.social.title || '').trim() || 'Your Film';
+    let tS = 88; while (tS > 40 && ctx.measure(title, 'PD Head', 400, false, tS) > W * 0.8) tS *= 0.94;
+    const n = nest(P.way === 'color' ? r.svg : stripBg(r.svg), W * 0.2, 400, W * 0.6, 330);
+    return { svg: root(W, H, `<rect width="${W}" height="${H}" fill="${bg}"/><text x="${W / 2}" y="190" text-anchor="middle" font-family="PD Body, system-ui, sans-serif" font-weight="600" font-size="22" letter-spacing="5" fill="${ink}" opacity="0.6">FESTIVALS</text><text x="${W / 2}" y="${r2(190 + 30 + tS * 0.9)}" text-anchor="middle" font-family="PD Head, Georgia, serif" font-size="${r2(tS)}" fill="${ink}">${esc(title)}</text>${n.el}`), W, H };
+  }
   const composedPng = async (c, dpi) => { const b = await ctx.toPng(c.svg, [0, 0, c.W, c.H], c.W, true, d0(), c.H); return dpi ? withDpi(b, dpi) : b; };
 
   // ── the preview ──
@@ -289,6 +310,8 @@ export function openStudio(ctx) {
       const c = socialSvg(); pv.append(frameOf(c.svg, 'card'), cap(`${c.W} × ${c.H} px · ${SOCIAL[P.social.fmt][2]}`));
     } else if (D === 'video') {
       const c = videoSvg(); pv.append(frameOf(c.svg, P.video.bg === 'black' ? 'card' : 'footage'), cap(`${c.W} × ${c.H} px PNG${P.video.bg === 'black' ? '' : ', transparent'} · place it at 100% on a ${P.video.res === 2160 ? '4K' : '1080p'} timeline and it lines up`));
+    } else if (D === 'deck') {
+      const c = deckSvg(); pv.append(frameOf(c.svg, 'card'), cap('How it sits on a 16:9 slide.'));
     } else if (D === 'email') {
       const r = rendered(P.way), hh = P.email.h, bgc = emailBg(), svg = bgc ? root(r.viewBox[2], r.viewBox[3], `<rect width="${r.viewBox[2]}" height="${r.viewBox[3]}" fill="${bgc}"/>` + nest(r.svg, 0, 0, r.viewBox[2], r.viewBox[3]).el) : stripBg(r.svg);
       const sig = (dark) => h('div', { class: 'sig' + (dark ? ' dark' : '') }, h('div', { class: 'who' }, h('b', {}, 'Your Name'), h('span', {}, 'Director, Your Film'), h('span', { class: 'lnk' }, 'yourfilm.com')), frameOf(svg, 'bare', 9999, hh));
@@ -329,6 +352,7 @@ export function openStudio(ctx) {
       social: 'A ready-to-post card: your laurel with the film’s title and a line of detail. No watermark, nothing added.',
       video: 'A full frame, transparent, with the laurel placed where it should sit. Drop it on the track above your end card.',
       web: 'For your film’s site: a vector file that stays sharp on every screen, the HTML to place it, and its alt text.',
+      deck: 'For the festival slide in your sales deck or press kit, or the pitch for your next film. Pick the colorway that suits your slides.',
       email: 'A small, sharp image for your signature, made at twice the size so it’s crisp on high-resolution screens.',
       words: 'Your laurels written out, for press releases, IMDb trivia, FilmFreeway and your site.',
       row: 'All the laurels in your row, at one scale.',
@@ -401,6 +425,13 @@ export function openStudio(ctx) {
           run('Copy SVG code', async () => copy(await svgOf(P.way, { text: 'outlined' }), 'SVG code copied: paste it into an HTML or code block'), 'btn')),
         h('div', { class: 'oblock' }, label('HTML', h('button', { class: 'btn small ghost', onclick: () => copy(html, 'HTML copied') }, 'Copy')), h('pre', {}, html), h('div', { class: 'hint' }, 'Upload the SVG next to your site’s images and change the path to match. Squarespace, Wix or Webflow: paste the SVG code into a code block instead.')),
         altBlock());
+    } else if (D.id === 'deck') {
+      const svgFile = async () => ctx.download(new Blob([await svgOf(P.way, { text: 'outlined' })], { type: 'image/svg+xml' }), base() + suffix(P.way) + '.svg');
+      put(label('Colorway'), ways(), bgToggle(),
+        go(run('Download PNG for slides', async () => ctx.download(await pngOf(P.way, 2000), base() + suffix(P.way) + '.png')),
+          h('div', { class: 'pair' }, run('SVG', svgFile, 'btn'), run('PDF', async () => ctx.download(await pdfOf(P.way, P.pdfMm), base() + suffix(P.way) + '.pdf'), 'btn'))),
+        h('div', { class: 'hint' }, 'Google Slides takes the PNG. PowerPoint keeps the SVG sharp at any size, and Keynote does the same with the PDF. ', hasRow() ? 'Several laurels on one slide? Your row exports them at one scale, so the type matches.' : 'Several laurels on one slide? Keep them the same height.'),
+        altBlock(), pitchdog());
     } else if (D.id === 'email') {
       const hh = P.email.h, W2 = Math.round(hh * 2 * vb[2] / vb[3]), Wd = Math.round(hh * vb[2] / vb[3]), alt = ctx.altText(d0());
       const snip = `<img src="PASTE-THE-IMAGE-LINK" alt="${esc(alt)}" width="${Wd}" height="${hh}" style="display:block;border:0;height:${hh}px;width:${Wd}px">`;
