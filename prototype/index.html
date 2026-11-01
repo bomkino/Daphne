@@ -64,7 +64,13 @@
   .brand { display: flex; align-items: center; gap: 10px; text-decoration: none; color: var(--text); flex: none; }
   .brand .logo { height: 29px; width: auto; display: block; }
   .tagline { margin: 0 0 0 -4px; font: 400 12.5px/1.25 var(--lead); color: var(--mute); white-space: nowrap; padding-left: 14px; border-left: 1px solid var(--line2); }
-  .tagline b { display: block; font-weight: 500; color: var(--bloom); } /* the one Bloom on screen */
+  .tagline b { font-weight: 500; color: var(--bloom); } /* the one Bloom on screen */
+  .tagline .tl2 { display: block; }
+  /* the way to her story: quiet beside the tagline, there on every screen */
+  .tagline .her { color: var(--mute); text-decoration: underline; text-decoration-color: var(--line2); text-underline-offset: .2em; margin-left: 4px; }
+  .tagline .her:hover { color: var(--leaf); text-decoration-color: currentColor; }
+  /* just above the phone layout, the bar is a little too wide for its row: Share link keeps its icon and drops its word */
+  @media (max-width: 960px) { .top-actions .btn.ghost .lbl { display: none; } }
   .top-actions { margin-left: auto; display: flex; gap: 8px; align-items: center; }
   .modes { display: flex; gap: 2px; background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 3px; }
   .modes button { background: none; border: 0; border-radius: 7px; padding: 6px 12px; cursor: pointer; color: var(--mute); font-weight: 600; transition: color .15s, background .15s; }
@@ -477,6 +483,7 @@
   .about-pane .guide .tip b { color: var(--text); font-weight: 650; }
   .intro a { color: var(--leaf); white-space: nowrap; }
   .about-pane .why { border-top: 1px solid var(--line); padding-top: 14px; }
+  .about-pane .why a { color: var(--leaf); text-decoration-color: #b8e59a66; text-underline-offset: .2em; white-space: nowrap; }
   .intro { margin: 2px 20px 6px; padding: 16px 16px 14px; border-radius: 14px; border: 1px solid #b8e59a40; background: radial-gradient(120% 140% at 0% 0%, #1c3d2c, #12291e 62%); position: relative; }
   .intro h3 { margin: 0 26px 6px 0; font: 400 23px/1.15 var(--display); }
   .intro p { margin: 0; color: #d3dccf; font-size: 12.5px; line-height: 1.55; }
@@ -497,7 +504,8 @@
     .brand { order: 1; }
     .top-actions { order: 2; }
     .tagline { order: 3; width: 100%; margin: -2px 0 2px; padding: 0; border: 0; font-size: 12px; }
-    .tagline b { display: inline; }
+    .tagline { white-space: normal; }
+    .tagline .tl2 { display: inline; white-space: nowrap; }
     .modes { order: 4; width: 100%; justify-content: space-between; }
     .modes button { flex: 1; padding: 6px 4px; }
     .top-actions .btn.ghost .lbl { display: none; }
@@ -541,7 +549,7 @@
 <body>
 <header class="top">
   <a class="brand" href="./"><img class="logo" src="assets/daphne-logo-on-dark.svg" alt="Daphne" width="103" height="29"></a>
-  <p class="tagline">Make festival laurels for your film. <b>It’s free.</b></p>
+  <p class="tagline">Make festival laurels for your film. <span class="tl2"><b>It’s free.</b> <a class="her" href="story/">Why Daphne?</a></span></p>
   <div class="modes" id="modes" role="tablist" aria-label="View">
     <button class="on" data-mode="laurel" role="tab">Laurel</button>
     <button data-mode="poster" role="tab" title="See it on your poster: placement, readable ink, colors from the artwork">On poster</button>
