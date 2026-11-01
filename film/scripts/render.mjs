@@ -1,8 +1,8 @@
 // Renders the film's cuts at both sizes.
 //
-//   npm run render                         the lead cut, both sizes: out/Daphne-<size>.mp4
-//   npm run render -- DaphneUs             another cut (Daphne, DaphneUs, DaphneNarrated, DaphneUsNarrated)
-//   npm run render -- Daphne 1080x1920     just the sizes you name
+//   npm run render                         the lead cut, both sizes: out/DaphneUs-<size>.mp4
+//   npm run render -- Daphne               another cut (DaphneUs, Daphne, DaphneUsNarrated, DaphneNarrated)
+//   npm run render -- DaphneUs 1080x1920   just the sizes you name
 //   npm run render -- --all                every cut, both sizes
 //   npm run preview                        half size and quick, for review: out/previews/
 //   npm run render -- --web                the story page's encode, under the site's 25 MiB a file:
@@ -35,7 +35,7 @@ const run = (cmd, argv) => {
 const m = machine();
 console.log(`Rendering with ${describe(m)}`);
 
-for (const cut of cuts.length ? cuts : ["Daphne"])
+for (const cut of cuts.length ? cuts : ["DaphneUs"])
   for (const size of sizes.length ? sizes : SIZES) {
     const id = `${cut}-${size}`;
     if (flag("--web")) {

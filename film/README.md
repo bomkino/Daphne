@@ -8,18 +8,18 @@ A film of about a minute and fifty seconds that tells the myth of Daphne, the fi
 
 | Time | Picture | Sound |
 |---|---|---|
-| 0:00 | A gold laurel in the dark, the one Daphne makes. "You've seen me on a thousand film posters. You never knew my name." | A low D, a piano, her theme falling. |
+| 0:00 | A gold laurel in the dark, the one Daphne makes. "You've seen her on a thousand film posters. You just never knew her name." | A low D, a piano, her theme falling. |
 | 0:10 | The camera dives into one leaf; it melts into a single line of light. Her name. | A harp climbs; a timpani roll. |
-| 0:14 | The line opens into nine strands: her hair, a river. "I was a river's daughter." | Harp running like water, strings, a solo violin. |
-| 0:27 | A god's light comes up from the side. The river runs. "I ran." | Cellos in sixteenths, tremolo strings, her heart at double time. |
+| 0:14 | The line opens into nine strands: her hair, a river. "She was a river's daughter." | Harp running like water, strings, a solo violin. |
+| 0:27 | A god's light comes up from the side. The river runs. "She ran." | Cellos in sixteenths, tremolo strings, her heart at double time. |
 | 0:42 | She stops, and so does everything, the room included. | Half a second of silence. |
 | 0:42 | Roots go down. A trunk, then her arms climb and open into branches; her hair becomes leaves, one a frame. | A held low D, a high violin, the harp and a glockenspiel. |
 | 0:52 | His hand on the bark: her heart beats under it, the film's only pink. | The heartbeat, a held fifth and one violin. |
 | 0:58 | He kisses the wood. Even as wood, she pulls away: the tree leans from him. | A semitone shiver in the strings. |
 | 1:03 | He wears her leaves as a crown. It echoes out through time into a field of crowns, which turn gold. "Poets. Athletes. Artists." | The theme in full in the cellos, the horn; a chord for each of the chosen. |
-| 1:18 | The laurel on a poster. "But I only ever asked to belong to no one." | The piano theme again; the music holds its breath. |
+| 1:18 | The laurel on a poster. "But she only ever asked to belong to no one." | The piano theme again; the music holds its breath. |
 | 1:28 | (free), between the two leaves of the logo. | D minor turns to D major, for the first time. |
-| 1:30 | The brackets part and a laurel grows from them, one leaf a frame: Daphne's facts, "Your film was chosen. Let it say so." | G, D, E minor, A; then a chord for each fact. |
+| 1:30 | The brackets part and a laurel grows from them, one leaf a frame: Daphne's facts. "No account. No watermark. Nothing leaves your device. For every filmmaker who's earned one." | G, D, E minor, A; then a chord for each fact. |
 | 1:45 | The laurel settles into the intro/outro's first frame and the outro plays: the leaves turn green and fall, two stay as the brackets of (Daphne), the tagline, pitch.dog/daphne. | The outro's own sound. |
 
 ## Cuts
@@ -28,8 +28,8 @@ One picture, set four ways, each at 1920×1080 and 1080×1920 (compositions are 
 
 | Cut | Voice | Words | Sound |
 |---|---|---|---|
-| `Daphne` | Daphne tells it herself | On screen, arriving at reading pace | The score |
-| `DaphneUs` | pitch.dog tells it | On screen | The score |
+| `DaphneUs` | **The lead** (picked November 1, 2026): pitch.dog tells it | On screen, arriving at reading pace | The score |
+| `Daphne` | Daphne tells it herself | On screen | The score |
 | `DaphneNarrated` | Manali as Daphne | Captions | Manali's takes over a quieter bed of the score |
 | `DaphneUsNarrated` | Manali as pitch.dog | Captions | The same |
 
@@ -48,7 +48,7 @@ npm run outro       # the intro/outro's outro, which the film ends on
 npm run score       # public/audio/score.flac and score-bed.flac
 npm run dev         # Remotion Studio
 npm run preview     # half-size review copies: out/previews/
-npm run render      # the lead cut at both sizes: out/Daphne-<size>.mp4 (--all for every cut)
+npm run render      # the lead cut at both sizes: out/DaphneUs-<size>.mp4 (--all for every cut)
 npm run render -- --web   # the story page's encodes, under 25 MiB a file: out/web/
 npm run narration   # reprints NARRATION.md from src/story.json
 npm run sheet -- Daphne-1080x1920 2 14 44 53 66 90 104   # a contact sheet

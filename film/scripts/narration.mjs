@@ -36,8 +36,8 @@ the words are on screen, timed as if spoken. With one, Manali's takes play over 
 quieter bed of the same score and the words become captions.
 
 There are two scripts, one picture. **Hers** is Daphne telling her own story
-("You've seen me on a thousand film posters"), the lead. **Ours** is pitch.dog
-telling it ("You've seen her..."), the alternate. Record either, or both.
+("You've seen me on a thousand film posters"), the alternate. **Ours** is pitch.dog
+telling it ("You've seen her..."), the lead. Record ours first; hers is optional.
 
 ## Reading it
 

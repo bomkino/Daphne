@@ -17,3 +17,13 @@ Tapped "B: Daphne tells it herself" on the card "Which voice should tell Daphne'
 ## 2026-10-31 20:21 UTC
 
 > You pick. Or try both and see. Let's do this!
+
+## 2026-11-01 11:40 UTC (project chat, about the story page)
+
+> Just do it and go live. And as you do, make sure you don't mess up the navigation bar and stuff. Thank you.
+
+## 2026-11-01 12:49 UTC (project chat, with `DaphneUs-1920x1080.mp4` attached)
+
+> Let's go with this version.
+>
+> What do you think?

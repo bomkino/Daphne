@@ -13,13 +13,13 @@
 ## Where things stand
 
 - Picture, score and both voices run end to end at 1920×1080 and 1080×1920, ending on the intro/outro's outro (PR #5's `brand/motion/daphne-outro-*.mp4`; `npm run outro` copies it into `public/outro/`, which git ignores).
-- On the story page (`prototype/story/index.html`), the section "Watch her story as a film" sits between the scroll story and the laurels chapter: the lead cut as 21 MiB H.264 encodes (`npm run render -- --web`), 16:9 for landscape screens and 9:16 for phones held upright (`film.js` picks, and loads nothing until the section is a screen away), posters from the heart frame (0:54), the film's words in a details below. The score credit is in the footer.
+- On the story page (`prototype/story/index.html`), the section "Watch her story as a film" sits between the scroll story and the laurels chapter: the lead cut (DaphneUs) as 21 MiB H.264 encodes (`npm run render -- --web`), 16:9 for landscape screens and 9:16 for phones held upright (`film.js` picks, and loads nothing until the section is a screen away), posters from the heart frame (0:54), the film's words in a details below. The score credit is in the footer.
 - Review copies: /mnt/project-files/daphne-film/ (half size, with REVIEW.md).
 - Now, next and blocked: `tasks.md`.
 
 ## Rules that must survive
 
-- Lead cut is Daphne in the first person ("You've seen me on a thousand film posters."); pitch.dog's voice is the alternate. Words are in `src/story.json`, both voices.
+- Lead cut is `DaphneUs`, pitch.dog telling it ("You've seen her on a thousand film posters."), picked by the user November 1, 2026; Daphne in the first person is the alternate. Words are in `src/story.json`, both voices.
 - The name Daphne appears with the tagline "Make festival laurels for your film. It's free." at the end (the outro carries it).
 - Gold only for laurels people make; Bloom (pink) only for her heart, once.
 - No real festival named or shown; placeholder words "Official Selection · Your Festival · 2026".

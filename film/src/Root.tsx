@@ -9,9 +9,9 @@ const SIZES = [
   { id: "1080x1920", width: 1080, height: 1920 },
 ];
 const CUTS: { id: string; props: FilmProps }[] = [
-  // the lead cut: Daphne tells it herself, in words on screen, over the score
+  // the alternate: Daphne tells it herself, in words on screen, over the score
   { id: "Daphne", props: { voice: "her", text: "story", narrated: false, sting: true } },
-  // the alternate: pitch.dog tells it
+  // the lead cut (picked November 1, 2026): pitch.dog tells it
   { id: "DaphneUs", props: { voice: "us", text: "story", narrated: false, sting: true } },
   // narrated: Manali's takes over the bed, with subtitles for sound-off viewing
   { id: "DaphneNarrated", props: { voice: "her", text: "captions", narrated: true, sting: true } },
