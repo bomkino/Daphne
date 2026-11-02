@@ -132,6 +132,8 @@ Daphne's best advertising is the laurels it makes, so show them.
 
 A starting point for a 5-second intro or outro (the piece decides): the leaves grow (0–1.1 s), Daphne rises (0.5–1.2 s), the tagline arrives under it (1.4–2.0 s), hold, then `pitch.dog/daphne` and "Made by pitch.dog" (from 3.6 s), and hold to the end, the leaves breathing once.
 
+**The sting** (`motion/sting/`, films in `motion/`: `daphne-intro-*.mp4` and `daphne-outro-*.mp4` at 1080×1920, 1080×1080 and 1920×1080): Daphne's 5-second intro and outro. A gold laurel made with Daphne comes alive on her heartbeat, its leaves fall, and two stay to hold her name: strip away the gold and the ceremony, and a laurel is two leaves around a name. The intro fades to dark for a film to cut in; the outro holds on the tagline, `pitch.dog/daphne` and "Made by pitch.dog". Source, score and how to rebuild: `motion/sting/README.md`.
+
 ## With pitch.dog
 
 Daphne is a pitch.dog project and says so: "Made by pitch.dog", set in PD Eyebrow or PD Body. The pitch.dog logomark isn't open-licensed, so it isn't in this repository; where a video or post shows it, it follows pitch.dog's own rules (official pink `#d24599`, black or white).
@@ -146,7 +148,7 @@ Daphne is a pitch.dog project and says so: "Made by pitch.dog", set in PD Eyebro
 | `bracket/` | The leaf brackets, one em tall |
 | `social/` | Open Graph card (1200×630), GitHub preview (1280×640), LinkedIn banner (1584×396); sources in `src/` |
 | `laurels/` | Sample laurels made with Daphne, transparent PNGs |
-| `motion/` | The logo reveal: page, MP4, GIF, growth paths |
+| `motion/` | The logo reveal: page, MP4, GIF, growth paths; the sting (5 s intro and outro) as MP4s, and its Remotion source in `sting/` |
 | `tokens/` | Colors, faces and easing as design tokens and CSS |
 | `fonts/` | PD Head, PD Body, PD Body Alt, PD Eyebrow (CC0, from the pitch.dog type system v3.0.0) |
 | `tools/` | The code that draws all of the above |
