@@ -111,7 +111,7 @@ const mainEl = document.getElementById('main');
 function showReport(r) {
   const el = document.getElementById('report');
   if (mode === 'row' || mode === 'motion' || mode === 'poster') { el.innerHTML = ''; return; }
-  const tight = r.lines.filter((l) => l.margin < 0.5).length;
+  const tight = r.lines.filter((l) => l.margin < -0.5).length; // margin 0 still keeps the full air gap (padOf), so only a line inside that gap is snug
   el.innerHTML = [
     r.wrapped ? `<span>Wrapped ${r.wrapped} line${r.wrapped > 1 ? 's' : ''} for size</span>` : '',
     r.widened ? `<span>Widened the wreath to fit the name</span>` : '',
