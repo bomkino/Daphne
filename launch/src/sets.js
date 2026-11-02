@@ -19,7 +19,8 @@ const tagline = `Make festival laurels for your film. <span class="bloom">It’s
 // each capture's shape, from tools/capture.mjs (css px; the files are 4×)
 const CAP = Object.fromEntries(Object.entries(await (await fetch('./captures/captures.json')).json()).map(([k, [w, h]]) => [k, h / w]));
 
-// A film poster nobody made: a night sky, a moon, a figure on a hill, the title "Your Film". Laurels go on top.
+// A film poster nobody made: a night sky, a moon, a figure on a hill, the title "Your Film". Laurels go on top
+// (a key in laurels.json, or any image as { file, viewBox }).
 let posterN = 0;
 function poster(x, y, w, laurels = [], more = '') {
   const h = Math.round(w * 1.5), n = ++posterN, t = L.named.posterTitle;
@@ -36,7 +37,7 @@ function poster(x, y, w, laurels = [], more = '') {
     <g fill="#E8ECEE" opacity=".34"><rect x="70" y="560" width="260" height="3"/><rect x="100" y="568" width="200" height="3"/><rect x="130" y="576" width="140" height="3"/></g>
   </svg>`;
   const tw = w * 0.62, title = `<img src="${t.file}" alt="" style="position:absolute;left:${(w - tw) / 2}px;top:${h * 0.80}px;width:${tw}px;height:${tw * aspect(t.viewBox)}px">`;
-  const ls = laurels.map(([key, lx, ly, lw, op = 1]) => { const l = L.named[key]; return `<img src="${l.file}" alt="" style="position:absolute;left:${lx * w}px;top:${ly * w}px;width:${lw * w}px;height:${lw * w * aspect(l.viewBox)}px;opacity:${op}">`; }).join('');
+  const ls = laurels.map(([key, lx, ly, lw, op = 1]) => { const l = L.named[key] || key; return `<img src="${l.file}" alt="" style="position:absolute;left:${lx * w}px;top:${ly * w}px;width:${lw * w}px;height:${lw * w * aspect(l.viewBox)}px;opacity:${op}">`; }).join('');
   return blk(x, y, w, `<div style="position:relative;width:${w}px;height:${h}px;border-radius:${w * 0.02}px;overflow:hidden;box-shadow:0 30px 70px rgba(0,0,0,.5)">${art}${title}${ls}</div>`, '', `data-name="poster" ${more}`);
 }
 // eight laurels fighting for a poster, and three that agree
@@ -274,3 +275,6 @@ export const SETS = {
     ],
   },
 };
+
+// the pieces the carousels after the launch share (sets-more.js)
+export { L, LOOK, PACK, aspect, blk, laurel, capture, logo, center, tagline, CAP, poster };

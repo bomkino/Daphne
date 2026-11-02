@@ -1,6 +1,6 @@
 // Renders the launch carousels: every slide at 2× (2160 × 2700) into launch/out/, after the page's own checks pass.
 //
-//   node launch/tools/render.mjs [launch myth six email festivals]
+//   node launch/tools/render.mjs [launch myth six email festivals read tonight …]
 //
 // Then `python3 launch/tools/finish.py` makes the 1080 × 1350 slides, the LinkedIn PDFs and the edge check.
 // A carousel with a problem (a block outside the safe box, words overflowing, two blocks overlapping, a leaf at a
@@ -19,7 +19,7 @@ const server = createServer(async (req, res) => {
   catch { res.writeHead(404); res.end(); }
 });
 await new Promise((ok) => server.listen(0, ok));
-const ALL = ['launch', 'myth', 'six', 'email', 'festivals'];
+const ALL = ['launch', 'myth', 'six', 'email', 'festivals', 'read', 'tonight', 'films', 'fixer', 'herbarium', 'announce', 'leafless', 'anatomy', 'endcard', 'link'];
 const sets = process.argv.slice(2).length ? process.argv.slice(2) : ALL;
 const browser = await chromium.launch();
 let failed = false;

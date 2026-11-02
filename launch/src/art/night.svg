@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 600" width="400" height="600">
+  <!-- A thriller nobody made: rain, a ring of neon, someone standing under it. Its laurel is Neon Midnight. -->
+  <defs>
+    <linearGradient id="s" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#07040F"/><stop offset=".6" stop-color="#1C0B2C"/><stop offset="1" stop-color="#0A0512"/></linearGradient>
+    <radialGradient id="g" cx="200" cy="300" r="170" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#FF2E88" stop-opacity=".35"/><stop offset=".6" stop-color="#FF2E88" stop-opacity=".08"/><stop offset="1" stop-color="#FF2E88" stop-opacity="0"/></radialGradient>
+    <linearGradient id="ring" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FF2E88"/><stop offset="1" stop-color="#FFB45E"/></linearGradient>
+    <filter id="blur" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="7"/></filter>
+    <linearGradient id="wet" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FF2E88" stop-opacity=".28"/><stop offset="1" stop-color="#FF2E88" stop-opacity="0"/></linearGradient>
+  </defs>
+  <rect width="400" height="600" fill="url(#s)"/>
+  <rect width="400" height="600" fill="url(#g)"/>
+  <circle cx="200" cy="300" r="110" fill="none" stroke="url(#ring)" stroke-width="10" filter="url(#blur)" opacity=".9"/>
+  <circle cx="200" cy="300" r="110" fill="none" stroke="#FFE3F0" stroke-width="2.4"/>
+  <circle cx="200" cy="300" r="110" fill="none" stroke="url(#ring)" stroke-width="5" opacity=".75"/>
+  <!-- rain -->
+  <g stroke="#E9D7FF" stroke-linecap="round" stroke-width=".8" opacity=".28">
+    <path d="M30 40 l-6 22 M80 110 l-6 22 M140 30 l-6 22 M250 80 l-6 22 M320 20 l-6 22 M370 120 l-6 22 M50 220 l-6 22 M110 300 l-6 22 M330 240 l-6 22 M380 330 l-6 22 M24 380 l-6 22 M300 400 l-6 22 M160 190 l-6 22 M220 150 l-6 22 M90 460 l-6 22 M350 470 l-6 22"/>
+  </g>
+  <!-- the street, wet, with the ring in it -->
+  <rect y="430" width="400" height="170" fill="#05030A"/>
+  <ellipse cx="200" cy="470" rx="120" ry="14" fill="none" stroke="#FF5FA2" stroke-width="2" opacity=".35"/>
+  <rect x="150" y="430" width="100" height="120" fill="url(#wet)"/>
+  <!-- the figure, coat and hat -->
+  <g fill="#05030A">
+    <ellipse cx="200" cy="356" rx="10" ry="11"/>
+    <path d="M186 348 h28 l-3 -6 h-22 z"/>
+    <path d="M188 366 C182 380 178 404 176 432 L224 432 C222 404 218 380 212 366 C206 362 194 362 188 366 Z"/>
+  </g>
+  <g fill="#FFF1F6" opacity=".35"><rect x="90" y="566" width="220" height="2.2"/><rect x="115" y="572" width="170" height="2.2"/><rect x="140" y="578" width="120" height="2.2"/></g>
+</svg>

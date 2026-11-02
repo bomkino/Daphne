@@ -6,8 +6,8 @@
 - LinkedIn: one PDF per carousel from the 2x renders (JPEG 92 inside), launch/carousels/<nn>-<set>/daphne-<set>-linkedin.pdf
 - A contact sheet per carousel for review, launch/carousels/sheets/<nn>-<set>.png (kept in the repo; the slides
   and PDFs are not, since they rebuild from source)
-- Alt text for every slide, launch/carousels/alt-text.md, from the alt lines in src/sets.js
-- The edge check: nothing bright in the outer 3 px of any slide. Only the myth's hairlines may cross the seams
+- Alt text for every slide, launch/carousels/alt-text.md, from the alt lines in src/sets.js and src/sets-more.js
+- The edge check: nothing bright in the outer 3 px of any slide (nothing dark, on the light herbarium set). Only the myth's hairlines may cross the seams
   between its first six slides, so those inner edges are measured and reported, not failed.
 The folders are numbered in the suggested posting order (captions.md).
 Needs Pillow."""
@@ -18,9 +18,12 @@ from PIL import Image
 here = Path(__file__).resolve().parent
 out, dest = here.parent / 'out', here.parent / 'carousels'
 meta = json.loads((out / 'meta.json').read_text())
-ORDER = ['launch', 'myth', 'email', 'six', 'festivals']  # the suggested posting order
+ORDER = ['launch', 'myth', 'email', 'six', 'festivals',  # the suggested posting order: the launch week, then
+         'read', 'tonight', 'films', 'fixer', 'herbarium', 'announce', 'leafless', 'anatomy', 'endcard', 'link']  # 06 to 15
+LIGHT = {'herbarium'}  # on Paper: the edge check looks for anything dark instead
 SEAMS = {'myth': 6}  # slides 1..6 of the myth are one panorama
 BRIGHT = 92  # luma; the darkest grounds sit near 20, type and leaves well above 150
+DARK = 190  # on the light set: the ground's edges sit near 230, Grove and Bay ink well under 120
 bad = []
 for old in dest.glob('[0-9][0-9]-*'):  # folders from an earlier order
     if old.is_dir() and old.name.split('-', 1)[1] in ORDER and old.name != f'{ORDER.index(old.name.split("-", 1)[1]) + 1:02d}-{old.name.split("-", 1)[1]}': shutil.rmtree(old)
@@ -32,10 +35,14 @@ def edge_report(im, sid, i, n):
     edges = {'top': (0, 0, w, r), 'bottom': (0, h - r, w, h), 'left': (0, 0, r, h), 'right': (w - r, 0, w, h)}
     res = {}
     for name, box in edges.items():
-        m = g.crop(box).getextrema()[1]
+        lo, hi = g.crop(box).getextrema()
         seam = sid in SEAMS and ((name == 'right' and i < SEAMS[sid]) or (name == 'left' and 1 < i <= SEAMS[sid]))
-        res[name] = m
-        if m > BRIGHT and not seam: bad.append(f'{sid} slide {i}: something bright touches the {name} edge (luma {m})')
+        if sid in LIGHT:  # Paper's edges sit near luma 230; ink and leaves are far darker
+            res[name] = lo
+            if lo < DARK: bad.append(f'{sid} slide {i}: something dark touches the {name} edge (luma {lo})')
+            continue
+        res[name] = hi
+        if hi > BRIGHT and not seam: bad.append(f'{sid} slide {i}: something bright touches the {name} edge (luma {hi})')
     return res
 
 for k, sid in enumerate(ORDER):

@@ -1,8 +1,10 @@
 // Builds one carousel as a strip of 1080 × 1350 slides, then checks it before anything is rendered:
 // every block sits inside its slide's safe box, no line of words overflows its box, no two blocks overlap,
 // and no words are set smaller than 26 px. tools/render.mjs reads window.__ready and refuses to render a carousel
-// with problems. Open index.html?set=launch (or myth, six, email, festivals) in a browser to look at one.
-import { SETS } from './sets.js';
+// with problems. Open index.html?set=launch (or any set in sets.js and sets-more.js) in a browser to look at one.
+import { SETS as LAUNCH } from './sets.js';
+import { MORE } from './sets-more.js';
+const SETS = { ...LAUNCH, ...MORE };
 
 export const W = 1080, H = 1350;
 // The safe box: 60 px in from every edge. Instagram's grid crops a 4:5 cover to 3:4, about 34 px off each side,
@@ -28,15 +30,19 @@ const grainUrl = (() => {
 
 set.slides.forEach((s, i) => {
   const el = document.createElement('section');
-  el.className = 'slide';
+  el.className = 'slide' + (set.light || s.light ? ' light' : '');
   el.dataset.i = i;
   el.style.left = i * W + 'px';
-  const ground = set.paint ? '' : `<div class="ground" style="background:${s.ground || set.ground || defaultGround()}"></div><div class="grain" style="background-image:url(${grainUrl})"></div>`;
+  const ground = set.paint ? '' : `<div class="ground" style="background:${s.ground || set.ground || (set.light || s.light ? lightGround() : defaultGround())}"></div><div class="grain" style="background-image:url(${grainUrl})"></div>`;
   const count = set.count === false || s.count === false ? '' : `<div class="blk count" data-under data-name="count" style="left:${SAFE + 30}px;top:${H - SAFE - 54}px">${i + 1} / ${set.slides.length}</div>`;
   el.innerHTML = ground + s.html + count;
   strip.append(el);
 });
 
+// Paper, for the occasional light set (the brand: Grove leads, Paper for print and the odd light card)
+function lightGround() {
+  return 'radial-gradient(ellipse 85% 70% at 50% 44%, #F7F9F3 0%, #F3F6EF 55%, #E7ECE1 100%)';
+}
 function defaultGround(x = 50, y = 46) {
   return `radial-gradient(ellipse 85% 70% at ${x}% ${y}%, #1B3A2A 0%, #12291E 52%, #0B1B13 100%)`;
 }
@@ -86,6 +92,7 @@ document.querySelectorAll('.slide').forEach((slide) => {
   // one Bloom per slide
   const blooms = [...slide.querySelectorAll('.bloom')].length + (slide.dataset.bloom ? +slide.dataset.bloom : 0);
   if (blooms > 1) problems.push(`${name}: ${blooms} Bloom accents; the brand allows one`);
+  if (slide.classList.contains('light') && slide.querySelector('.bloom')) problems.push(`${name}: Bloom as text on a light ground; the brand never sets it there`);
 });
 
 window.__ready = { id, title: set.title, n: set.slides.length, problems, slides: set.slides.map((s) => ({ alt: s.alt })) };

@@ -254,6 +254,553 @@
     "Your Film"
    ],
    "bg": null
+  },
+  "officialOnWhite": {
+   "file": "laurels/officialonwhite.svg",
+   "name": "Classic Gold, as a festival file",
+   "viewBox": [
+    -104.94416900818858,
+    -117.46497780590887,
+    209.88833801637716,
+    235.2103566747861
+   ],
+   "words": [
+    "Official Selection",
+    "Your Festival",
+    "2026"
+   ],
+   "bg": "#ffffff"
+  },
+  "gPeriod": {
+   "file": "laurels/gperiod.svg",
+   "name": "Engraved",
+   "viewBox": [
+    -106.63279942283943,
+    -119.4685945767265,
+    213.26559884567885,
+    237.8988397790803
+   ],
+   "words": [
+    "Official Selection",
+    "Your Festival",
+    "2026"
+   ],
+   "bg": null
+  },
+  "gSea": {
+   "file": "laurels/gsea.svg",
+   "name": "Ocean",
+   "viewBox": [
+    -103.80268466641583,
+    -113.48861603807515,
+    207.60536933283166,
+    229.6060568178911
+   ],
+   "words": [
+    "Official Selection",
+    "Your Festival",
+    "2026"
+   ],
+   "bg": null
+  },
+  "gNight": {
+   "file": "laurels/gnight.svg",
+   "name": "Neon Midnight",
+   "viewBox": [
+    -104.71540614118535,
+    -117.85301073979944,
+    209.4308122823707,
+    235.72205874542726
+   ],
+   "words": [
+    "Official Selection",
+    "Your Festival",
+    "2026"
+   ],
+   "bg": null
+  },
+  "gSpring": {
+   "file": "laurels/gspring.svg",
+   "name": "Cherry Blossom",
+   "viewBox": [
+    -111.13460751482911,
+    -122.99918877319135,
+    222.26921502965823,
+    250.34211796806596
+   ],
+   "words": [
+    "Official Selection",
+    "Your Festival",
+    "2026"
+   ],
+   "bg": null
+  },
+  "gSpace": {
+   "file": "laurels/gspace.svg",
+   "name": "Chrome",
+   "viewBox": [
+    -103.73871093714811,
+    -117.07957876977741,
+    207.47742187429623,
+    233.01322571041584
+   ],
+   "words": [
+    "Official Selection",
+    "Your Festival",
+    "2026"
+   ],
+   "bg": null
+  },
+  "gSummer": {
+   "file": "laurels/gsummer.svg",
+   "name": "Sorbet",
+   "viewBox": [
+    -105.64640080190614,
+    -119.08591218625168,
+    211.29280160381228,
+    238.11738929453423
+   ],
+   "words": [
+    "Official Selection",
+    "Your Festival",
+    "2026"
+   ],
+   "bg": null
+  },
+  "tPeriod": {
+   "file": "laurels/tperiod.svg",
+   "name": "Poster title",
+   "viewBox": [
+    -92,
+    -42,
+    184,
+    84
+   ],
+   "words": [
+    "Your Film"
+   ],
+   "bg": null
+  },
+  "tSea": {
+   "file": "laurels/tsea.svg",
+   "name": "Poster title",
+   "viewBox": [
+    -92,
+    -42,
+    184,
+    84
+   ],
+   "words": [
+    "Your Film"
+   ],
+   "bg": null
+  },
+  "tNight": {
+   "file": "laurels/tnight.svg",
+   "name": "Poster title",
+   "viewBox": [
+    -92,
+    -42,
+    184,
+    84
+   ],
+   "words": [
+    "Your Film"
+   ],
+   "bg": null
+  },
+  "tSpring": {
+   "file": "laurels/tspring.svg",
+   "name": "Poster title",
+   "viewBox": [
+    -92,
+    -42,
+    184,
+    84
+   ],
+   "words": [
+    "Your Film"
+   ],
+   "bg": null
+  },
+  "tSpace": {
+   "file": "laurels/tspace.svg",
+   "name": "Poster title",
+   "viewBox": [
+    -92,
+    -42,
+    184,
+    84
+   ],
+   "words": [
+    "Your Film"
+   ],
+   "bg": null
+  },
+  "tSummer": {
+   "file": "laurels/tsummer.svg",
+   "name": "Poster title",
+   "viewBox": [
+    -92,
+    -42,
+    184,
+    84
+   ],
+   "words": [
+    "Your Film"
+   ],
+   "bg": null
+  },
+  "tGold": {
+   "file": "laurels/tgold.svg",
+   "name": "Poster title",
+   "viewBox": [
+    -92,
+    -42,
+    184,
+    84
+   ],
+   "words": [
+    "Your Film"
+   ],
+   "bg": null
+  },
+  "seal": {
+   "file": "laurels/seal.svg",
+   "name": "Gala Seal",
+   "viewBox": [
+    -119.9,
+    -119.9,
+    239.8,
+    239.8
+   ],
+   "words": [
+    "Official Selection",
+    "Your Festival",
+    "2026"
+   ],
+   "bg": null
+  },
+  "specclassicgold": {
+   "file": "laurels/specclassicgold.svg",
+   "name": "Classic Gold",
+   "viewBox": [
+    -96.68,
+    -107.44,
+    89.11,
+    160.9
+   ],
+   "words": [],
+   "bg": null
+  },
+  "specblacktie": {
+   "file": "laurels/specblacktie.svg",
+   "name": "Black Tie",
+   "viewBox": [
+    -92.08,
+    -104.91,
+    82.49,
+    158.14
+   ],
+   "words": [],
+   "bg": null
+  },
+  "specolivegrove": {
+   "file": "laurels/specolivegrove.svg",
+   "name": "Olive Grove",
+   "viewBox": [
+    -97.06,
+    -108.84,
+    91.64,
+    162.13
+   ],
+   "words": [],
+   "bg": null
+  },
+  "specherbarium": {
+   "file": "laurels/specherbarium.svg",
+   "name": "Herbarium",
+   "viewBox": [
+    -99.42,
+    -109.96,
+    104.33,
+    163.21
+   ],
+   "words": [],
+   "bg": null
+  },
+  "specoldworld": {
+   "file": "laurels/specoldworld.svg",
+   "name": "Old World",
+   "viewBox": [
+    -99.23,
+    -110.36,
+    95.71,
+    163.73
+   ],
+   "words": [],
+   "bg": null
+  },
+  "specivy": {
+   "file": "laurels/specivy.svg",
+   "name": "Ivy",
+   "viewBox": [
+    -103.94,
+    -113.25,
+    106.83,
+    166.54
+   ],
+   "words": [],
+   "bg": null
+  },
+  "speceucalyptus": {
+   "file": "laurels/speceucalyptus.svg",
+   "name": "Eucalyptus",
+   "viewBox": [
+    -99.36,
+    -108.8,
+    89.77,
+    162.2
+   ],
+   "words": [],
+   "bg": null
+  },
+  "specginkgo": {
+   "file": "laurels/specginkgo.svg",
+   "name": "Ginkgo",
+   "viewBox": [
+    -109.09,
+    -116.57,
+    103.35,
+    169.84
+   ],
+   "words": [],
+   "bg": null
+  },
+  "specfernsilver": {
+   "file": "laurels/specfernsilver.svg",
+   "name": "Fern Silver",
+   "viewBox": [
+    -118.84,
+    -124.98,
+    131.86,
+    179.91
+   ],
+   "words": [],
+   "bg": null
+  },
+  "specrivierapalm": {
+   "file": "laurels/specrivierapalm.svg",
+   "name": "Riviera Palm",
+   "viewBox": [
+    -132.16,
+    -138.7,
+    154.24,
+    192.16
+   ],
+   "words": [],
+   "bg": null
+  },
+  "specharvest": {
+   "file": "laurels/specharvest.svg",
+   "name": "Harvest",
+   "viewBox": [
+    -134.66,
+    -145.04,
+    160.11,
+    198.37
+   ],
+   "words": [],
+   "bg": null
+  },
+  "speclavender": {
+   "file": "laurels/speclavender.svg",
+   "name": "Lavender",
+   "viewBox": [
+    -108.07,
+    -121.76,
+    120.69,
+    174.97
+   ],
+   "words": [],
+   "bg": null
+  },
+  "specrosemary": {
+   "file": "laurels/specrosemary.svg",
+   "name": "Rosemary",
+   "viewBox": [
+    -111.03,
+    -123.29,
+    115.94,
+    176.58
+   ],
+   "words": [],
+   "bg": null
+  },
+  "speccherryblossom": {
+   "file": "laurels/speccherryblossom.svg",
+   "name": "Cherry Blossom",
+   "viewBox": [
+    -101.84,
+    -113.29,
+    91.22,
+    167.13
+   ],
+   "words": [],
+   "bg": null
+  },
+  "specpearl": {
+   "file": "laurels/specpearl.svg",
+   "name": "Pearl",
+   "viewBox": [
+    -92.13,
+    -102.84,
+    76.18,
+    156.03
+   ],
+   "words": [],
+   "bg": null
+  },
+  "specgatsby": {
+   "file": "laurels/specgatsby.svg",
+   "name": "Gatsby",
+   "viewBox": [
+    -111.95,
+    -122.77,
+    126.85,
+    176.06
+   ],
+   "words": [],
+   "bg": null
+  },
+  "specdeco": {
+   "file": "laurels/specdeco.svg",
+   "name": "Deco",
+   "viewBox": [
+    -98.42,
+    -110.94,
+    94.9,
+    164.56
+   ],
+   "words": [],
+   "bg": null
+  },
+  "specember": {
+   "file": "laurels/specember.svg",
+   "name": "Ember",
+   "viewBox": [
+    -97.79,
+    -107.47,
+    90.22,
+    160.93
+   ],
+   "words": [],
+   "bg": null
+  },
+  "specdocumentary": {
+   "file": "laurels/specdocumentary.svg",
+   "name": "Documentary",
+   "viewBox": [
+    -98.95,
+    -110.29,
+    95.72,
+    163.75
+   ],
+   "words": [],
+   "bg": null
+  },
+  "specchrome": {
+   "file": "laurels/specchrome.svg",
+   "name": "Chrome",
+   "viewBox": [
+    -94.54,
+    -107.04,
+    86.97,
+    160.37
+   ],
+   "words": [],
+   "bg": null
+  },
+  "specsteppedoak": {
+   "file": "laurels/specsteppedoak.svg",
+   "name": "Stepped Oak",
+   "viewBox": [
+    -99.83,
+    -111.52,
+    96.67,
+    165.02
+   ],
+   "words": [],
+   "bg": null
+  },
+  "specbotanical": {
+   "file": "laurels/specbotanical.svg",
+   "name": "Botanical",
+   "viewBox": [
+    -110.35,
+    -122.37,
+    118.66,
+    175.6
+   ],
+   "words": [],
+   "bg": null
+  },
+  "specwildflower": {
+   "file": "laurels/specwildflower.svg",
+   "name": "Wildflower",
+   "viewBox": [
+    -97.46,
+    -109.02,
+    91.92,
+    162.48
+   ],
+   "words": [],
+   "bg": null
+  },
+  "specmyrtle": {
+   "file": "laurels/specmyrtle.svg",
+   "name": "Myrtle",
+   "viewBox": [
+    -91.71,
+    -103.87,
+    79.09,
+    157.12
+   ],
+   "words": [],
+   "bg": null
+  },
+  "bayHero": {
+   "file": "laurels/bayhero.svg",
+   "name": "Classic Gold, in Bay",
+   "viewBox": [
+    -104.94416900818858,
+    -117.46497780590887,
+    209.88833801637716,
+    235.2103566747861
+   ],
+   "words": [
+    "Official Selection",
+    "Your Festival",
+    "2026"
+   ],
+   "bg": null
+  },
+  "award": {
+   "file": "laurels/award.svg",
+   "name": "Classic Gold",
+   "viewBox": [
+    -104.94416900818858,
+    -117.46497780590887,
+    209.88833801637716,
+    235.2103566747861
+   ],
+   "words": [
+    "Winner",
+    "Best Short Film",
+    "Your Festival",
+    "2026"
+   ],
+   "bg": null
   }
  },
  "looks": [
@@ -459,6 +1006,159 @@
     "2026"
    ],
    "bg": "#0f1116",
+   "group": "Badges"
+  },
+  {
+   "file": "laurels/looks/65-gold-medal.svg",
+   "name": "Gold Medal",
+   "viewBox": [
+    -120.1,
+    -120.1,
+    240.2,
+    240.2
+   ],
+   "words": [
+    "Official Selection",
+    "Your Festival",
+    "2026"
+   ],
+   "bg": "#121212",
+   "group": "Badges"
+  },
+  {
+   "file": "laurels/looks/66-notary.svg",
+   "name": "Notary",
+   "viewBox": [
+    -119.6,
+    -119.6,
+    239.2,
+    239.2
+   ],
+   "words": [
+    "Official Selection",
+    "Your Festival",
+    "2026"
+   ],
+   "bg": "#f1ebdf",
+   "group": "Badges"
+  },
+  {
+   "file": "laurels/looks/67-wax-seal.svg",
+   "name": "Wax Seal",
+   "viewBox": [
+    -120.1,
+    -120.1,
+    240.2,
+    240.2
+   ],
+   "words": [
+    "Official Selection",
+    "Your Festival",
+    "2026"
+   ],
+   "bg": "#efe6d6",
+   "group": "Badges"
+  },
+  {
+   "file": "laurels/looks/68-cartouche.svg",
+   "name": "Cartouche",
+   "viewBox": [
+    -141.7,
+    -103.7,
+    283.4,
+    207.4
+   ],
+   "words": [
+    "Official Selection",
+    "Your Festival",
+    "2026"
+   ],
+   "bg": "#17121a",
+   "group": "Badges"
+  },
+  {
+   "file": "laurels/looks/69-premi-re.svg",
+   "name": "Première",
+   "viewBox": [
+    -117.90443648018083,
+    -79.8756841477853,
+    235.80887296036167,
+    163.7513682955706
+   ],
+   "words": [
+    "Official Selection",
+    "Your Festival",
+    "2026"
+   ],
+   "bg": "#ffffff",
+   "group": "Badges"
+  },
+  {
+   "file": "laurels/looks/70-marquee.svg",
+   "name": "Marquee",
+   "viewBox": [
+    -115.33990211582184,
+    -57.348009375,
+    230.6798042316437,
+    118.69601875000001
+   ],
+   "words": [
+    "Official Selection",
+    "Your Festival",
+    "2026"
+   ],
+   "bg": "#141414",
+   "group": "Badges"
+  },
+  {
+   "file": "laurels/looks/71-admit-one.svg",
+   "name": "Admit One",
+   "viewBox": [
+    -128.01520791625978,
+    -57.348009375,
+    256.03041583251957,
+    118.69601875000001
+   ],
+   "words": [
+    "Official Selection",
+    "Your Festival",
+    "2026"
+   ],
+   "bg": "#1d1a2b",
+   "group": "Badges"
+  },
+  {
+   "file": "laurels/looks/72-film-strip.svg",
+   "name": "Film Strip",
+   "viewBox": [
+    -122.11918444270316,
+    -94.89014351623618,
+    244.23836888540632,
+    193.78028703247236
+   ],
+   "words": [
+    "Official Selection",
+    "Your Festival",
+    "2026"
+   ],
+   "bg": "#f4f1ea",
+   "group": "Badges"
+  },
+  {
+   "file": "laurels/looks/73-viewfinder.svg",
+   "name": "Viewfinder",
+   "viewBox": [
+    -115.88717840188136,
+    -74.60612677837021,
+    231.7743568037627,
+    153.21225355674042
+   ],
+   "words": [
+    "Official Selection",
+    "Your Festival",
+    "2026"
+   ],
+   "bg": "#0b0b0c",
    "group": "Badges"
   }
  ],

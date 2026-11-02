@@ -13,4 +13,4 @@ dist-pitchdog/
 
 # Launch carousels: the 2x renders and the finished slides rebuild from source (launch/README.md)
 launch/out/
-launch/carousels/0*/
+launch/carousels/[0-9][0-9]-*/

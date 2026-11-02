@@ -1,0 +1,125 @@
+{
+ "sizes": {
+  "read-gold": [
+   449,
+   673
+  ],
+  "read-auto": [
+   449,
+   673
+  ],
+  "read-suggest-0": [
+   90,
+   101
+  ],
+  "read-suggest-1": [
+   90,
+   101
+  ],
+  "read-suggest-2": [
+   90,
+   101
+  ],
+  "read-suggest-3": [
+   90,
+   101
+  ],
+  "box-ui": [
+   848,
+   738
+  ],
+  "box-clean": [
+   854,
+   967
+  ],
+  "box-white": [
+   854,
+   967
+  ],
+  "box-black": [
+   854,
+   967
+  ],
+  "box-asis": [
+   900,
+   1009
+  ],
+  "announce-square": [
+   504,
+   504
+  ],
+  "announce-portrait": [
+   504,
+   630
+  ],
+  "announce-story": [
+   361,
+   642
+  ],
+  "announce-landscape": [
+   504,
+   284
+  ],
+  "announce-photo": [
+   504,
+   630
+  ],
+  "end-0": [
+   936,
+   527
+  ],
+  "end-1": [
+   936,
+   527
+  ],
+  "end-2": [
+   936,
+   527
+  ],
+  "end-3": [
+   936,
+   527
+  ],
+  "end-4": [
+   936,
+   527
+  ],
+  "end-5": [
+   936,
+   527
+  ]
+ },
+ "facts": {
+  "readGold": "Contrast 1.1:1 · hard to read here",
+  "readAuto": "Contrast 8.6:1 · reads well",
+  "autoInk": {
+   "text": "#432e04",
+   "branch": "#432e04"
+  },
+  "suggest": [
+   "Poster light: contrast 9.9:1 at its weakest",
+   "Poster accent: contrast 9.9:1 at its weakest",
+   "Poster foil: contrast 7.9:1 at its weakest",
+   "Bronze: contrast 1.3:1 at its weakest"
+  ],
+  "palette": [
+   "#f1cc82",
+   "#e6ad59",
+   "#ac722c",
+   "#693f18",
+   "#3e2009"
+  ],
+  "boxNote": "The background is white.",
+  "caption": "Your Film is an Official Selection at Your Festival 2026.",
+  "frames": [
+   0.35,
+   0.8,
+   1.3,
+   1.9,
+   2.95,
+   4
+  ],
+  "motionNote": "Play From the start The leaves grow in from the stem, the words follow, then a shimmer crosses the metal.",
+  "link": "#l=vVZNb-M2EP0rwdsrG1hy7Lg8tsAuim67RdJisSh6GEkjmRuKFEgqjhv4vy-GkuIkhwAtip40_Jo3H29m9IjI3EBfK7Q-9NDwAzsoVIFcvYd-RG9C8AE6hZEVWkvuDrolG1kh-EOELhTiYBzL7fAAvbrcKYRjPqAVdLFaKVABXW5KhXoMFnqV3wSaxDr4GLPU0QANGpPHSSEm7kXrAbq8LBUSDRwEYHtSsEytHLbUG3uERjT9YBkKQ_CtsQwNS2NgCwUHXawVPq6gy-8VPhbQxZXCIWtbXytU7BqRxeZPY4Jelwr0k4MudwrG3dYkGleXu40ChSBW2sTBURLIjvqessdfTUrZSIV7Ni4LB19V-bUCxWOfcTYKAyfj5_1qtN0kBb7nEPkpyDEdsy_RmgSFYFyXFWwVBkp7aEAh1mO4n963NIGSTdPa2-zZehJvTcPQxUnBByfxS0ZCnqMpYQjB8JQLkY-35m_Ofk2rPQ1iS-PFlNb6A4fpcjKy77xjnE5imXFJtJ-JlI75ac-JJCPTV6MT88QBn49nO8h14nS5O0nwnQTUjdZmo6ln0T2tGx4kBqvLcqMQ9yTOTSe9FxmtsQIXU_B3PJOpEDLNJsrlkwK3LdcpygXR4g-Lms6e5d7EwN2yar2xizwEFgbPTwJJ4qdF4oc0VY_EJXjLGYSPXAXR_IjWix14b7oUWMh0YNPtE_S1FI5JZE39xIaahBoYB6kEhRSovsvuKwRKxudMb197t-fg34Ta_QOoVfGEVbwGimP1P7lUme7fekTRxDPQdy89uty8RqJQ_3c-7Z47dfUS6rSw5XHZxrv2ite0wxxZvGt21W67lebYGrZNhP7zEaYRohdQuDPSxhATpTH7mPXhU9ua2pC9uGXLdTJeenzIveeJiQrRerlsXJQeIeUkBM3UVQtIeQZpOSZzn4t5hvnix3Dx_rw9I2T2vaVenGmWeC9I6zPSkSmcUcpVuT0rl7i8afpfCpaOfsxxpVD_4RoON5Lp1dVUGb_QA7QkozfutidroTdCg9643x6gtzJ4QsdJFus8zMbkP5uG3WL-QA30On9_zs35SqE5LpNM5sx5rsnkozp38ULBGscf5HDixldv3C3L3YsLZOr97odsbLHLyx98Sr6_yUNwK9Ogqry7yaom-fMz-Ytck-FGTcfTJT8mDhlQWut07RnhnvesWSZj48ICtIH63EXnzOSGr6aeulVo_JgH3VwFeZrL3DHWym_GvJ0Hj3BUkhqXAROoMWNcWnlF0zwur9VL24z8f8yVWZO7p9xOKQ5cT_Mu50ISUHVSMKu2KIpcMNKjOf2aHcCPlmI09cUHGT-nbw"
+ }
+}
