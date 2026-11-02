@@ -22,10 +22,10 @@ export function layoutOf(size: Size): Layout {
   // per size: the laurel's height, the logo's width, the logo's center, and the type
   const spec =
     W < H
-      ? { laurelH: 900, laurelY: 880, logoW: 860, logoY: 850, gap: 96, size: 46, urlSize: 36, madeBySize: 32 }
+      ? { laurelH: 400, laurelY: 860, logoW: 860, logoY: 850, gap: 96, size: 46, urlSize: 36, madeBySize: 32 }
       : W === H
-        ? { laurelH: 720, laurelY: 535, logoW: 780, logoY: 455, gap: 88, size: 42, urlSize: 33, madeBySize: 30 }
-        : { laurelH: 800, laurelY: 540, logoW: 1120, logoY: 440, gap: 112, size: 54, urlSize: 38, madeBySize: 34 };
+        ? { laurelH: 400, laurelY: 470, logoW: 780, logoY: 455, gap: 88, size: 42, urlSize: 33, madeBySize: 30 }
+        : { laurelH: 540, laurelY: 450, logoW: 1120, logoY: 440, gap: 112, size: 54, urlSize: 38, madeBySize: 34 };
   const s = spec.logoW / LOGO_W;
   const h = LOGO_H * s;
   const tagline = spec.logoY + h / 2 + spec.gap;
@@ -35,10 +35,11 @@ export function layoutOf(size: Size): Layout {
   const sa = size.safe;
   if (left < sa.left || right > W - sa.right || top < sa.top || bottom > H - sa.bottom)
     throw new Error(`The logo leaves the safe area at ${size.id}: ${left.toFixed(0)}–${right.toFixed(0)} × ${top.toFixed(0)}–${bottom.toFixed(0)}`);
-  // and the laurel, pushed in by the camera, keeps clear of every edge
+  // and the laurel, pushed in by the camera, keeps clear of every edge: 40 px above and
+  // below, and 90 px at the sides, so its outer leaves can fall and fade before the edge
   const lh = spec.laurelH * 1.06, lw = (laurel.viewBox[2] / LAUREL_H) * lh;
-  if (spec.laurelY - lh / 2 < 40 || spec.laurelY + lh / 2 > H - 40 || lw > W - 80)
-    throw new Error(`The laurel comes within 40 px of the frame at ${size.id}`);
+  if (spec.laurelY - lh / 2 < 40 || spec.laurelY + lh / 2 > H - 40 || lw > W - 180)
+    throw new Error(`The laurel comes within 40 px of the frame's top or bottom, or 90 px of a side, at ${size.id}`);
   return {
     W,
     H,

@@ -340,7 +340,7 @@ export function paint(back: CanvasRenderingContext2D, front: CanvasRenderingCont
       ctx.rect(vb[0] - 20, vb[1] - 20, vb[2] + 40, yL - vb[1] + 20);
       ctx.clip();
       ctx.globalAlpha = a;
-      ctx.fillStyle = "#c99a42";
+      ctx.fillStyle = laurel.ink;
       ctx.fill(S.stem);
       ctx.restore();
       ctx.save();
@@ -586,7 +586,7 @@ function fallState(Lo: Layout, f: Faller, t: number): FallState {
   // Nothing is cut by the frame: a leaf fades into the dark before any of it,
   // or its blur, reaches the top or the sides. Only the bottom lets it go.
   const reach = f.r * k + blur * 2 + 12;
-  const edge = sm(0, Math.min(W, H) * 0.07, Math.min(X - reach, W - reach - X, Y - reach));
+  const edge = sm(0, Math.min(W, H) * 0.05, Math.min(X - reach, W - reach - X, Y - reach));
   // they sink into the dark as they fall, and the last of them are gone by the hold
   const floor = 1 - sm(Lo.laurel.cy + Lo.laurel.s * 70, H * 0.98, Y) * 0.92;
   const hold = 1 - sm(EV.fallen[0], EV.fallen[1], t);

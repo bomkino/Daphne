@@ -1,8 +1,8 @@
 // Pulls the two shapes the sting is made of out of Daphne's own code, so the film
 // can't drift from the product or the brand:
 //
-//   the laurel  a Classic Gold laurel drawn by Daphne's engine (prototype/engine.mjs),
-//               leaf by leaf, with placeholder words nobody could take for a real selection
+//   the laurel  a Classic Gold laurel drawn by Daphne's engine (prototype/engine.mjs), in
+//               its festival-grade default shape and flat ink, leaf by leaf, with placeholder words nobody could take for a real selection
 //   the logo    the hero lockup from brand/tools/mark.mjs: PD Head 400 outlines and the
 //               leaf-bracket parameters, which src/leaf.ts redraws frame by frame
 //
@@ -53,11 +53,14 @@ const leaves = r.leaves.map((l) => {
 });
 const texts = [...r.svg.matchAll(/<text x="([-\d.]+)" y="([-\d.]+)" text-anchor="middle" font-family="([^"]+)" font-weight="(\d+)" font-size="([\d.]+)" letter-spacing="([\d.]+)" fill="([^"]+)"[^>]*>([^<]+)<\/text>/g)]
   .map((m) => ({ x: +m[1], y: +m[2], family: m[3], weight: +m[4], size: +m[5], spacing: +m[6], fill: m[7], text: m[8] }));
-if (texts.length !== 4) throw new Error(`expected four lines of words, found ${texts.length}`);
+if (texts.length < 3 || texts.length !== (r.svg.match(/<text /g) || []).length) throw new Error(`expected every line of words to parse, found ${texts.length}`);
 const innerOpacity = /<g opacity="([\d.]+)">/.exec(r.svg);
+// the default laurel is one flat ink now; a metal preset still brings its gradient
+const ink = typeof doc.paint.branch === 'string' ? doc.paint.branch : null;
 out('laurel', {
   viewBox: r.viewBox,
-  gold: METALS.gold,
+  ink: ink ?? METALS.gold[3][1],
+  gold: ink ? [[0, ink], [1, ink]] : METALS.gold,
   // each leaf carries its own gradient across its box, at the engine's 20 degrees
   goldAxis: [0.27, 0.94, 0.73, 0.06],
   innerOpacity: innerOpacity ? +innerOpacity[1] : 1,

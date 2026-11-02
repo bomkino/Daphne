@@ -25,7 +25,7 @@ It follows the brand's motion rules (`../../README.md`, Motion): things grow fro
 
 Everything is drawn from Daphne's own code, so the film can't drift from the product or the brand:
 
-- **The laurel** is drawn by Daphne's engine (`prototype/engine.mjs`) with the Classic Gold preset, leaf by leaf. Its words are placeholders nobody could take for a real selection.
+- **The laurel** is drawn by Daphne's engine (`prototype/engine.mjs`) with the Classic Gold preset in its festival-grade default (wide, flat gold), leaf by leaf. Its words are placeholders nobody could take for a real selection.
 - **The logo** is the hero lockup from `brand/tools/mark.mjs`. `src/leaf.ts` is a line-for-line port of its leaf bracket, so the two leaves that stay can be redrawn every frame as they unbend from a laurel leaf into a bracket. `npm run check` proves the port draws exactly the logo's leaves.
 - **The picture** is painted on two canvases a frame at a time (`src/paint.ts`), as a pure function of time, so frames can render in any order.
 - **The sound** is synthesized in `scripts/score.py` from `src/timeline.json`, the same file the picture reads. There are no samples to license. The mix is -14 LUFS with true peaks under -1.5 dBTP, and starts 20 ms behind the picture.
@@ -34,7 +34,7 @@ Gates that refuse to render, so nothing is ever cut off:
 
 - At every frame, each point of the two logo leaves stays inside the frame, on its way and at rest (`src/paint.ts`).
 - A falling leaf fades into the dark before any of it, or its blur, reaches the top or a side of the frame, and in the last second's hold nothing is still falling (`src/paint.ts`).
-- The finished logo sits inside each size's safe area, and the gold laurel stays at least 40 px clear of every edge with the camera pushed in (`src/layout.ts`).
+- The finished logo sits inside each size's safe area, and the gold laurel stays at least 40 px clear of the top and bottom and 90 px clear of the sides with the camera pushed in (`src/layout.ts`).
 - Each line of words fits inside the safe area (`src/Sting.tsx`).
 
 ## Build it
