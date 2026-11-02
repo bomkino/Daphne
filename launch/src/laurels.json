@@ -1,0 +1,833 @@
+{
+ "named": {
+  "hero": {
+   "file": "laurels/hero.svg",
+   "name": "Classic Gold",
+   "viewBox": [
+    -104.94416900818858,
+    -117.46497780590887,
+    209.88833801637716,
+    235.2103566747861
+   ],
+   "words": [
+    "Official Selection",
+    "Your Festival",
+    "2026"
+   ],
+   "bg": null
+  },
+  "heroWhite": {
+   "file": "laurels/herowhite.svg",
+   "name": "Classic Gold, white",
+   "viewBox": [
+    -104.94416900818858,
+    -117.46497780590887,
+    209.88833801637716,
+    235.2103566747861
+   ],
+   "words": [
+    "Official Selection",
+    "Your Festival",
+    "2026"
+   ],
+   "bg": null
+  },
+  "semi": {
+   "file": "laurels/semi.svg",
+   "name": "Classic Gold",
+   "viewBox": [
+    -104.94416900818858,
+    -117.46497780590887,
+    209.88833801637716,
+    235.2103566747861
+   ],
+   "words": [
+    "Semi-Finalist",
+    "Your Festival",
+    "2026"
+   ],
+   "bg": null
+  },
+  "premiere": {
+   "file": "laurels/premiere.svg",
+   "name": "Black Tie",
+   "viewBox": [
+    -101.32331697831371,
+    -114.9235487331298,
+    202.64663395662743,
+    229.94479287507818
+   ],
+   "words": [
+    "World Premiere",
+    "Your Festival",
+    "2026"
+   ],
+   "bg": null
+  },
+  "clutter0": {
+   "file": "laurels/clutter0.svg",
+   "name": "Rose Gold",
+   "viewBox": [
+    -103.81954979908507,
+    -115.81427037601473,
+    207.63909959817013,
+    233.37901239555316
+   ],
+   "words": [
+    "Honorable Mention",
+    "Another Festival",
+    "2025"
+   ],
+   "bg": null
+  },
+  "clutter1": {
+   "file": "laurels/clutter1.svg",
+   "name": "Neon Midnight",
+   "viewBox": [
+    -104.71540614118535,
+    -117.85301073979944,
+    209.4308122823707,
+    235.72205874542726
+   ],
+   "words": [
+    "Semi-Finalist",
+    "Some Monthly Awards",
+    "2026"
+   ],
+   "bg": null
+  },
+  "clutter2": {
+   "file": "laurels/clutter2.svg",
+   "name": "Platinum",
+   "viewBox": [
+    -100.90916194323196,
+    -114.98858289144223,
+    201.81832388646393,
+    228.96145850814514
+   ],
+   "words": [
+    "Finalist",
+    "Another Festival",
+    "2026"
+   ],
+   "bg": null
+  },
+  "clutter3": {
+   "file": "laurels/clutter3.svg",
+   "name": "Hot Foil",
+   "viewBox": [
+    -104.94416900818877,
+    -117.46497780590896,
+    209.88833801637753,
+    235.46855947446664
+   ],
+   "words": [
+    "Official Selection",
+    "Some Online Awards",
+    "2026"
+   ],
+   "bg": null
+  },
+  "clutter4": {
+   "file": "laurels/clutter4.svg",
+   "name": "Victory",
+   "viewBox": [
+    -104.33591152434732,
+    -118.49078958091354,
+    208.67182304869465,
+    234.4419734976969
+   ],
+   "words": [
+    "Nominee",
+    "Yet Another Festival",
+    "2025"
+   ],
+   "bg": null
+  },
+  "clutter5": {
+   "file": "laurels/clutter5.svg",
+   "name": "Holo",
+   "viewBox": [
+    -104.4382477561792,
+    -116.63962409096116,
+    208.8764955123584,
+    234.10157831502303
+   ],
+   "words": [
+    "Quarter-Finalist",
+    "Some Monthly Awards",
+    "2026"
+   ],
+   "bg": null
+  },
+  "clutter6": {
+   "file": "laurels/clutter6.svg",
+   "name": "Bronze Jury",
+   "viewBox": [
+    -106.23682608695142,
+    -119.08591218625338,
+    212.47365217390285,
+    237.8923599922782
+   ],
+   "words": [
+    "Special Mention",
+    "Some Online Awards",
+    "2025"
+   ],
+   "bg": null
+  },
+  "clutter7": {
+   "file": "laurels/clutter7.svg",
+   "name": "Chrome",
+   "viewBox": [
+    -103.73871093714811,
+    -117.07957876977741,
+    207.47742187429623,
+    233.01322571041584
+   ],
+   "words": [
+    "Semi-Finalist",
+    "A Festival Somewhere",
+    "2026"
+   ],
+   "bg": null
+  },
+  "rowWin": {
+   "file": "laurels/rowwin.svg",
+   "name": "Laureate",
+   "viewBox": [
+    -104.2995272054892,
+    -119.26919583617754,
+    208.5990544109784,
+    236.96991263867721
+   ],
+   "words": [
+    "Winner",
+    "Best Short Film",
+    "Your Festival",
+    "2026"
+   ],
+   "bg": null
+  },
+  "rowPremiere": {
+   "file": "laurels/rowpremiere.svg",
+   "name": "Black Tie",
+   "viewBox": [
+    -101.32331697831371,
+    -114.9235487331298,
+    202.64663395662743,
+    229.94479287507818
+   ],
+   "words": [
+    "World Premiere",
+    "Another Festival",
+    "2026"
+   ],
+   "bg": null
+  },
+  "rowSelection": {
+   "file": "laurels/rowselection.svg",
+   "name": "Classic Gold",
+   "viewBox": [
+    -104.94416900818858,
+    -117.46497780590887,
+    209.88833801637716,
+    235.2103566747861
+   ],
+   "words": [
+    "Official Selection",
+    "A Third Festival",
+    "2026"
+   ],
+   "bg": null
+  },
+  "posterTitle": {
+   "file": "laurels/postertitle.svg",
+   "name": "Poster title",
+   "viewBox": [
+    -92,
+    -42,
+    184,
+    84
+   ],
+   "words": [
+    "Your Film"
+   ],
+   "bg": null
+  }
+ },
+ "looks": [
+  {
+   "file": "laurels/looks/00-classic-gold.svg",
+   "name": "Classic Gold",
+   "viewBox": [
+    -104.94416900818858,
+    -117.46497780590887,
+    209.88833801637716,
+    235.2103566747861
+   ],
+   "words": [
+    "Official Selection",
+    "Your Festival",
+    "2026"
+   ],
+   "bg": "#0f1116",
+   "group": "Festival gold"
+  },
+  {
+   "file": "laurels/looks/01-black-tie.svg",
+   "name": "Black Tie",
+   "viewBox": [
+    -101.32331697831371,
+    -114.9235487331298,
+    202.64663395662743,
+    229.94479287507818
+   ],
+   "words": [
+    "Official Selection",
+    "Your Festival",
+    "2026"
+   ],
+   "bg": "#0b0b0c",
+   "group": "Festival gold"
+  },
+  {
+   "file": "laurels/looks/07-rose-gold.svg",
+   "name": "Rose Gold",
+   "viewBox": [
+    -103.81954979908507,
+    -115.81427037601473,
+    207.63909959817013,
+    233.37901239555316
+   ],
+   "words": [
+    "Official Selection",
+    "Your Festival",
+    "2026"
+   ],
+   "bg": "#1d1416",
+   "group": "Festival gold"
+  },
+  {
+   "file": "laurels/looks/15-engraved.svg",
+   "name": "Engraved",
+   "viewBox": [
+    -106.63279942283943,
+    -119.4685945767265,
+    213.26559884567885,
+    237.8988397790803
+   ],
+   "words": [
+    "Official Selection",
+    "Your Festival",
+    "2026"
+   ],
+   "bg": "#f1ebdf",
+   "group": "Vintage & engraved"
+  },
+  {
+   "file": "laurels/looks/23-herbarium.svg",
+   "name": "Herbarium",
+   "viewBox": [
+    -108.08129441639355,
+    -114.59775248340259,
+    216.1625888327871,
+    232.17294403415957
+   ],
+   "words": [
+    "Official Selection",
+    "Your Festival",
+    "2026"
+   ],
+   "bg": "#f5efe1",
+   "group": "Vintage & engraved"
+  },
+  {
+   "file": "laurels/looks/25-letterpress.svg",
+   "name": "Letterpress",
+   "viewBox": [
+    -106.0181298176198,
+    -119.11568523580047,
+    212.0362596352396,
+    237.4477155784106
+   ],
+   "words": [
+    "Official Selection",
+    "Your Festival",
+    "2026"
+   ],
+   "bg": "#f1eadb",
+   "group": "Vintage & engraved"
+  },
+  {
+   "file": "laurels/looks/30-eucalyptus.svg",
+   "name": "Eucalyptus",
+   "viewBox": [
+    -108.00775349935557,
+    -118.66864055399034,
+    216.01550699871115,
+    243.65350479496044
+   ],
+   "words": [
+    "Official Selection",
+    "Your Festival",
+    "2026"
+   ],
+   "bg": "#f3f1ec",
+   "group": "Botanical"
+  },
+  {
+   "file": "laurels/looks/32-cherry-blossom.svg",
+   "name": "Cherry Blossom",
+   "viewBox": [
+    -111.13460751482911,
+    -122.99918877319135,
+    222.26921502965823,
+    250.34211796806596
+   ],
+   "words": [
+    "Official Selection",
+    "Your Festival",
+    "2026"
+   ],
+   "bg": "#1d1218",
+   "group": "Botanical"
+  },
+  {
+   "file": "laurels/looks/49-deco.svg",
+   "name": "Deco",
+   "viewBox": [
+    -106.74267092075851,
+    -119.6717178142106,
+    213.48534184151703,
+    239.26451317283056
+   ],
+   "words": [
+    "Official Selection",
+    "Your Festival",
+    "2026"
+   ],
+   "bg": "#0d1117",
+   "group": "Deco & geometric"
+  },
+  {
+   "file": "laurels/looks/56-neon-midnight.svg",
+   "name": "Neon Midnight",
+   "viewBox": [
+    -104.71540614118535,
+    -117.85301073979944,
+    209.4308122823707,
+    235.72205874542726
+   ],
+   "words": [
+    "Official Selection",
+    "Your Festival",
+    "2026"
+   ],
+   "bg": "#0b0716",
+   "group": "Color & pop"
+  },
+  {
+   "file": "laurels/looks/61-riso.svg",
+   "name": "Riso",
+   "viewBox": [
+    -106.3756596692002,
+    -119.24794439400797,
+    212.7513193384004,
+    237.17013035727328
+   ],
+   "words": [
+    "Official Selection",
+    "Your Festival",
+    "2026"
+   ],
+   "bg": "#f7f1e3",
+   "group": "Color & pop"
+  },
+  {
+   "file": "laurels/looks/64-gala-seal.svg",
+   "name": "Gala Seal",
+   "viewBox": [
+    -119.9,
+    -119.9,
+    239.8,
+    239.8
+   ],
+   "words": [
+    "Official Selection",
+    "Your Festival",
+    "2026"
+   ],
+   "bg": "#0f1116",
+   "group": "Badges"
+  }
+ ],
+ "pack": [
+  {
+   "file": "laurels/pack/official-selection-color.svg",
+   "viewBox": [
+    -104.94416900818858,
+    -117.46497780590887,
+    209.88833801637716,
+    235.2103566747861
+   ],
+   "words": [
+    "Official Selection",
+    "Your Festival",
+    "2026"
+   ],
+   "bg": null,
+   "label": "Official Selection",
+   "way": "color"
+  },
+  {
+   "file": "laurels/pack/official-selection-black.svg",
+   "viewBox": [
+    -104.94416900818858,
+    -117.46497780590887,
+    209.88833801637716,
+    235.2103566747861
+   ],
+   "words": [
+    "Official Selection",
+    "Your Festival",
+    "2026"
+   ],
+   "bg": null,
+   "label": "Official Selection",
+   "way": "black"
+  },
+  {
+   "file": "laurels/pack/official-selection-white.svg",
+   "viewBox": [
+    -104.94416900818858,
+    -117.46497780590887,
+    209.88833801637716,
+    235.2103566747861
+   ],
+   "words": [
+    "Official Selection",
+    "Your Festival",
+    "2026"
+   ],
+   "bg": null,
+   "label": "Official Selection",
+   "way": "white"
+  },
+  {
+   "file": "laurels/pack/finalist-color.svg",
+   "viewBox": [
+    -104.94416900818858,
+    -117.46497780590887,
+    209.88833801637716,
+    235.2103566747861
+   ],
+   "words": [
+    "Finalist",
+    "Your Festival",
+    "2026"
+   ],
+   "bg": null,
+   "label": "Finalist",
+   "way": "color"
+  },
+  {
+   "file": "laurels/pack/finalist-black.svg",
+   "viewBox": [
+    -104.94416900818858,
+    -117.46497780590887,
+    209.88833801637716,
+    235.2103566747861
+   ],
+   "words": [
+    "Finalist",
+    "Your Festival",
+    "2026"
+   ],
+   "bg": null,
+   "label": "Finalist",
+   "way": "black"
+  },
+  {
+   "file": "laurels/pack/finalist-white.svg",
+   "viewBox": [
+    -104.94416900818858,
+    -117.46497780590887,
+    209.88833801637716,
+    235.2103566747861
+   ],
+   "words": [
+    "Finalist",
+    "Your Festival",
+    "2026"
+   ],
+   "bg": null,
+   "label": "Finalist",
+   "way": "white"
+  },
+  {
+   "file": "laurels/pack/semi-finalist-color.svg",
+   "viewBox": [
+    -104.94416900818858,
+    -117.46497780590887,
+    209.88833801637716,
+    235.2103566747861
+   ],
+   "words": [
+    "Semi-Finalist",
+    "Your Festival",
+    "2026"
+   ],
+   "bg": null,
+   "label": "Semi-Finalist",
+   "way": "color"
+  },
+  {
+   "file": "laurels/pack/semi-finalist-black.svg",
+   "viewBox": [
+    -104.94416900818858,
+    -117.46497780590887,
+    209.88833801637716,
+    235.2103566747861
+   ],
+   "words": [
+    "Semi-Finalist",
+    "Your Festival",
+    "2026"
+   ],
+   "bg": null,
+   "label": "Semi-Finalist",
+   "way": "black"
+  },
+  {
+   "file": "laurels/pack/semi-finalist-white.svg",
+   "viewBox": [
+    -104.94416900818858,
+    -117.46497780590887,
+    209.88833801637716,
+    235.2103566747861
+   ],
+   "words": [
+    "Semi-Finalist",
+    "Your Festival",
+    "2026"
+   ],
+   "bg": null,
+   "label": "Semi-Finalist",
+   "way": "white"
+  },
+  {
+   "file": "laurels/pack/honorable-mention-color.svg",
+   "viewBox": [
+    -104.94416900818858,
+    -117.46497780590887,
+    209.88833801637716,
+    235.2103566747861
+   ],
+   "words": [
+    "Honorable Mention",
+    "Your Festival",
+    "2026"
+   ],
+   "bg": null,
+   "label": "Honorable Mention",
+   "way": "color"
+  },
+  {
+   "file": "laurels/pack/honorable-mention-black.svg",
+   "viewBox": [
+    -104.94416900818858,
+    -117.46497780590887,
+    209.88833801637716,
+    235.2103566747861
+   ],
+   "words": [
+    "Honorable Mention",
+    "Your Festival",
+    "2026"
+   ],
+   "bg": null,
+   "label": "Honorable Mention",
+   "way": "black"
+  },
+  {
+   "file": "laurels/pack/honorable-mention-white.svg",
+   "viewBox": [
+    -104.94416900818858,
+    -117.46497780590887,
+    209.88833801637716,
+    235.2103566747861
+   ],
+   "words": [
+    "Honorable Mention",
+    "Your Festival",
+    "2026"
+   ],
+   "bg": null,
+   "label": "Honorable Mention",
+   "way": "white"
+  },
+  {
+   "file": "laurels/pack/best-feature-film-color.svg",
+   "viewBox": [
+    -104.94416900818858,
+    -117.46497780590887,
+    209.88833801637716,
+    235.2103566747861
+   ],
+   "words": [
+    "Winner",
+    "Best Feature Film",
+    "Your Festival",
+    "2026"
+   ],
+   "bg": null,
+   "label": "Best Feature Film",
+   "way": "color"
+  },
+  {
+   "file": "laurels/pack/best-feature-film-black.svg",
+   "viewBox": [
+    -104.94416900818858,
+    -117.46497780590887,
+    209.88833801637716,
+    235.2103566747861
+   ],
+   "words": [
+    "Winner",
+    "Best Feature Film",
+    "Your Festival",
+    "2026"
+   ],
+   "bg": null,
+   "label": "Best Feature Film",
+   "way": "black"
+  },
+  {
+   "file": "laurels/pack/best-feature-film-white.svg",
+   "viewBox": [
+    -104.94416900818858,
+    -117.46497780590887,
+    209.88833801637716,
+    235.2103566747861
+   ],
+   "words": [
+    "Winner",
+    "Best Feature Film",
+    "Your Festival",
+    "2026"
+   ],
+   "bg": null,
+   "label": "Best Feature Film",
+   "way": "white"
+  },
+  {
+   "file": "laurels/pack/best-short-film-color.svg",
+   "viewBox": [
+    -104.94416900818858,
+    -117.46497780590887,
+    209.88833801637716,
+    235.2103566747861
+   ],
+   "words": [
+    "Winner",
+    "Best Short Film",
+    "Your Festival",
+    "2026"
+   ],
+   "bg": null,
+   "label": "Best Short Film",
+   "way": "color"
+  },
+  {
+   "file": "laurels/pack/best-short-film-black.svg",
+   "viewBox": [
+    -104.94416900818858,
+    -117.46497780590887,
+    209.88833801637716,
+    235.2103566747861
+   ],
+   "words": [
+    "Winner",
+    "Best Short Film",
+    "Your Festival",
+    "2026"
+   ],
+   "bg": null,
+   "label": "Best Short Film",
+   "way": "black"
+  },
+  {
+   "file": "laurels/pack/best-short-film-white.svg",
+   "viewBox": [
+    -104.94416900818858,
+    -117.46497780590887,
+    209.88833801637716,
+    235.2103566747861
+   ],
+   "words": [
+    "Winner",
+    "Best Short Film",
+    "Your Festival",
+    "2026"
+   ],
+   "bg": null,
+   "label": "Best Short Film",
+   "way": "white"
+  },
+  {
+   "file": "laurels/pack/audience-award-color.svg",
+   "viewBox": [
+    -104.94416900818858,
+    -117.46497780590887,
+    209.88833801637716,
+    235.2103566747861
+   ],
+   "words": [
+    "Winner",
+    "Audience Award",
+    "Your Festival",
+    "2026"
+   ],
+   "bg": null,
+   "label": "Audience Award",
+   "way": "color"
+  },
+  {
+   "file": "laurels/pack/audience-award-black.svg",
+   "viewBox": [
+    -104.94416900818858,
+    -117.46497780590887,
+    209.88833801637716,
+    235.2103566747861
+   ],
+   "words": [
+    "Winner",
+    "Audience Award",
+    "Your Festival",
+    "2026"
+   ],
+   "bg": null,
+   "label": "Audience Award",
+   "way": "black"
+  },
+  {
+   "file": "laurels/pack/audience-award-white.svg",
+   "viewBox": [
+    -104.94416900818858,
+    -117.46497780590887,
+    209.88833801637716,
+    235.2103566747861
+   ],
+   "words": [
+    "Winner",
+    "Audience Award",
+    "Your Festival",
+    "2026"
+   ],
+   "bg": null,
+   "label": "Audience Award",
+   "way": "white"
+  }
+ ]
+}
