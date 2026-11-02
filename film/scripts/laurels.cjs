@@ -7,10 +7,9 @@
 //   node scripts/laurels.cjs --no-render rewrites src/film/laurels.gen.ts from public/laurels/
 //
 // The film ends by cutting into the intro/outro sting, whose first frame is a Classic Gold
-// laurel. The sting set its words with the engine's own estimate of type widths (it renders
-// in Node, without a browser to measure the font), so they sit smaller than a browser sets
-// them. Our Classic Gold takes the sting's settings for its words, so it is the same laurel
-// all through the film and the cut into the sting doesn't move a letter.
+// laurel. The sting draws it from brand/motion/sting/src/data/laurel.json (made by Daphne's
+// engine in Node), and our Classic Gold is built from that same file, leaf for leaf and word
+// for word, so the cut into the sting doesn't move a leaf or a letter.
 const http = require("node:http");
 const fs = require("node:fs");
 const path = require("node:path");
@@ -27,21 +26,16 @@ const SAMPLES = [
   { id: "laureate", preset: "Laureate", words: ["Winner", "Best Short Film", "Your Festival 2026"] },
 ];
 
-// brand/motion/sting/src/data/laurel.json, "texts": x, y, font-size, letter-spacing, in order
-const STING_WORDS = [
-  [0.77, -23.3, 7.69, 1.54],
-  [0.11, -0.99, 21.36, 0.21],
-  [0.04, 20.37, 21.36, 0.08],
-  [0.77, 32.83, 7.69, 1.54],
-];
-const matchSting = (svg) => {
-  let i = 0;
-  const out = svg.replace(/<text x="[-\d.]+" y="[-\d.]+"( text-anchor="middle" font-family="Figtree" font-weight="\d+") font-size="[\d.]+" letter-spacing="[\d.]+"/g, (_, mid) => {
-    const [x, y, size, ls] = STING_WORDS[i++];
-    return `<text x="${x}" y="${y}"${mid} font-size="${size}" letter-spacing="${ls}"`;
-  });
-  if (i !== STING_WORDS.length) throw new Error(`classic-gold: expected ${STING_WORDS.length} lines of words, found ${i}`);
-  return out;
+const esc = (t) => t.replace(/&/g, "&amp;").replace(/</g, "&lt;");
+const fromSting = () => {
+  const L = require(path.join(repo, "brand/motion/sting/src/data/laurel.json"));
+  const vb = L.viewBox.map((n) => +n.toFixed(2));
+  // the left branch as authored; the right is its mirror, as the sting paints it
+  const branch = [`<path d="${L.stem}"/>`, ...L.leaves.map((l) => `<path d="${l.d}" fill-rule="evenodd"${l.row === "inner" && L.innerOpacity < 1 ? ` opacity="${L.innerOpacity}"` : ""}/>`)].join("");
+  const words = L.texts
+    .map((w) => `<text x="${w.x}" y="${w.y}" text-anchor="middle" font-family="${w.family}" font-weight="${w.weight}" font-size="${w.size}" letter-spacing="${w.spacing}" fill="${w.fill}">${esc(w.text)}</text>`)
+    .join("");
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${vb.join(" ")}" width="${vb[2]}" height="${vb[3]}"><g fill="${L.ink}"><g id="b">${branch}</g><use href="#b" transform="scale(-1 1)"/></g>${words}</svg>`;
 };
 
 const page = `<!doctype html><meta charset="utf-8"><body><script type="module">
@@ -79,8 +73,8 @@ const server = http.createServer((req, res) => {
 const writeGen = () => {
   const gen = ["// Written by scripts/laurels.cjs from Daphne's engine: don't edit by hand.", ""];
   for (const { id } of SAMPLES) {
-    let svg = fs.readFileSync(path.join(outDir, `${id}.svg`), "utf8");
-    if (id === "classic-gold") svg = matchSting(svg);
+    const svg = id === "classic-gold" ? fromSting() : fs.readFileSync(path.join(outDir, `${id}.svg`), "utf8");
+    if (id === "classic-gold") fs.writeFileSync(path.join(outDir, `${id}.svg`), svg);
     const viewBox = /viewBox="([^"]+)"/.exec(svg)[1].split(" ").map(Number);
     gen.push(`export const ${id.replace(/-(\w)/g, (_, c) => c.toUpperCase())} = { viewBox: ${JSON.stringify(viewBox)}, svg: ${JSON.stringify(svg)} };`);
   }

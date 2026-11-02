@@ -27,3 +27,9 @@ Tapped "B: Daphne tells it herself" on the card "Which voice should tell Daphne'
 > Let's go with this version.
 >
 > What do you think?
+
+## 2026-11-02 17:58 UTC (project chat)
+
+> Just fix across all the things we did and go live. I find ours bad looks, and the actual festivals so much better looking. Pass it on to all chats. And minmax my token usage for this chat. See what sonnet 5.5 can handle and such too.
+>
+> And make the defaults better. This should reflect in the carousels too.
