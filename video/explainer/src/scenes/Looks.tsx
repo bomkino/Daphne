@@ -57,8 +57,13 @@ export const Looks: React.FC = () => {
   const s = L.s;
   const place = laurelPlace(L);
   // the card on stage
-  const ch = L.stage.size * (L.tall ? 0.86 : 0.9);
-  const cw = ch * 0.9;
+  // landscape cards, as the festival-grade laurels are wide; the grid's cells share the shape so the pull-back is one move
+  const AR = 1.3;
+  const cw = Math.min(
+    L.W - 160 * L.s,
+    L.stage.size * (L.tall ? 0.86 : 0.9) * AR,
+  );
+  const ch = cw / AR;
   const cr = 26 * s;
   // which look is on stage now
   let cur = -1;
@@ -71,16 +76,16 @@ export const Looks: React.FC = () => {
   });
 
   // the grid of all 78
-  const cols = L.tall ? 8 : L.wide ? 13 : 10;
+  const cols = L.tall ? 7 : L.wide ? 12 : 9;
   const rows = Math.ceil(LOOKS.length / cols);
   const gap = 10 * s;
   const areaW = L.W - 160 * s; // 80 px clear on each side at rest
   const areaH = L.H - (L.tall ? 480 : 220) * s;
   const cellW = Math.min(
     (areaW - gap * (cols - 1)) / cols,
-    (areaH - gap * (rows - 1)) / rows / 1.11,
+    ((areaH - gap * (rows - 1)) / rows) * AR,
   );
-  const cellH = cellW * 1.11;
+  const cellH = cellW / AR;
   const gridW = cols * cellW + (cols - 1) * gap,
     gridH = rows * cellH + (rows - 1) * gap;
   const gx = L.cx - gridW / 2,
