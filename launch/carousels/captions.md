@@ -224,7 +224,7 @@ Document title: *Can you read this laurel?*
 
 > A gold laurel on a gold poster looks fine until someone tries to read it.
 >
-> Daphne's On poster view puts your laurel on your own poster and measures the contrast where it sits. On this poster: 1.1:1. Auto ink takes it to 8.6:1 with a brown taken from the poster itself.
+> Daphne's On poster view puts your laurel on your own poster and measures the contrast where it sits. On this poster: 1.1:1. Auto ink takes it to 8.7:1 with a brown taken from the poster itself.
 >
 > Free, in your browser, with no account. Your poster never leaves your device.
 >
@@ -487,7 +487,7 @@ Pythian Games at Delphi, held in Apollo's honor and first built around music and
 *laureātus*, crowned with laurel; Greek *daphne*, laurel. No real festival is named or shown anywhere.
 
 For 06 to 15, checked against the app and research/01 on November 2, 2026: the contrast On poster reports (1.1:1 for gold
-on the wheat-field poster, 8.6:1 with Auto ink) and the four colorways it suggests, captured from the app; autosave in
+on the wheat-field poster, 8.7:1 with Auto ink) and the four colorways it suggests, captured from the app; autosave in
 the browser and the share link that holds the whole laurel (Share link, top right); the clean-up for festival files
 (white or black taken out, one ink, trimmed) and its note on recoloring; the social card's four shapes, its photo
 background and the first line it writes; the ten badges in the Badges group; the motion end card (30 fps, 120 frames,

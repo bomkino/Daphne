@@ -44,8 +44,8 @@ const read = {
         + cap('read-gold', 230, 350, 620, 'border-radius:12px;box-shadow:0 40px 90px rgba(0,0,0,.55)'),
       alt: 'A film poster of a wheat field at sunset, a lone figure walking toward the sun, titled Your Film. At the top, a gold laurel almost disappears into the golden sky: its words can’t be read. Text: Can you read this laurel?' },
     { html: blk(90, 108, 900, `<div class="h2">Neither can anyone else.</div>`)
-        + crop('read-gold', 190, 280, 700, [0.25, 0.05, 0.75, 0.35], 'border-radius:18px;box-shadow:0 30px 80px rgba(0,0,0,.45)')
-        + blk(90, 950, 900, `<div class="h1 leafc" style="font-size:120px;line-height:1">${num(F.readGold)}</div><div class="lead" style="margin-top:20px">Gold on a gold sky. Daphne measures it on your poster: <span class="paper">hard to read here.</span></div>`, '', 'data-name="contrast"'),
+        + crop('read-gold', 190, 290, 700, [0.28, 0.1, 0.72, 0.32], 'border-radius:18px;box-shadow:0 30px 80px rgba(0,0,0,.45)')
+        + blk(90, 880, 900, `<div class="h1 leafc" style="font-size:120px;line-height:1">${num(F.readGold)}</div><div class="lead" style="margin-top:20px">Gold on a gold sky. Daphne measures it on your poster: <span class="paper">hard to read here.</span></div>`, '', 'data-name="contrast"'),
       alt: `A close-up of the gold laurel on the golden sky: Official Selection, Your Festival, 2026, barely visible. Text: Neither can anyone else. ${num(F.readGold)}. Gold on a gold sky. Daphne measures it on your poster: hard to read here.` },
     { html: blk(90, 108, 900, `<div class="h2">Auto ink finds one that reads.</div>`)
         + cap('read-gold', 120, 300, 400, 'border-radius:10px;box-shadow:0 30px 70px rgba(0,0,0,.5)')
@@ -55,8 +55,8 @@ const read = {
         + blk(90, 1076, 900, `<div class="lead">It tries the poster’s own colors first, and checks each one against what’s behind the laurel.</div>`),
       alt: `The wheat-field poster twice. Left, labeled Gold, ${num(F.readGold)}: the gold laurel lost in the sky. Right, labeled Auto ink, ${num(F.readAuto)}: the same laurel in a deep brown taken from the poster, easy to read. Text: Auto ink finds one that reads. It tries the poster’s own colors first, and checks each one against what’s behind the laurel.` },
     { html: blk(90, 108, 900, `<div class="h2">Or pick a look made from your poster.</div>`)
-        + sg.map((s, i) => cap('read-suggest-' + i, [195, 575][i % 2], [300, 762][i >> 1], 310, 'border-radius:14px;box-shadow:0 24px 60px rgba(0,0,0,.45)')
-          + blk([195, 575][i % 2], [300, 762][i >> 1] + 362, 310, `<div class="data">${s.name}</div><div class="h3${parseFloat(s.k) >= 4.5 ? ' leafc' : ''}" style="font-size:44px;line-height:1;margin-top:6px">${s.k}</div>`, '', `data-name="suggest ${i}"`)).join(''),
+        + sg.map((s, i) => cap('read-suggest-' + i, [110, 570][i % 2], [330, 720][i >> 1], 400, 'border-radius:14px;box-shadow:0 24px 60px rgba(0,0,0,.45)')
+          + blk([110, 570][i % 2], [330, 720][i >> 1] + Math.round(400 * ar('read-suggest-' + i)) + 16, 400, `<div class="data">${s.name}</div><div class="h3${parseFloat(s.k) >= 4.5 ? ' leafc' : ''}" style="font-size:44px;line-height:1;margin-top:6px">${s.k}</div>`, '', `data-name="suggest ${i}"`)).join(''),
       alt: `Four versions of the laurel on the poster’s sky, each in colors taken from the poster, with the contrast Daphne measured: ${sg.map((s) => `${s.name}, ${s.k}`).join('; ')}. Text: Or pick a look made from your poster.` },
     { html: end('Try it on your poster.', 'Upload it in On poster. It stays on your device: nothing is uploaded anywhere.'),
       alt: endAlt('Try it on your poster. Upload it in On poster. It stays on your device: nothing is uploaded anywhere.') },
@@ -89,21 +89,21 @@ const tonight = {
         + blk(350, 470, 380, lockScreen, '', 'data-name="phone"'),
       alt: 'A phone glowing in the dark at 11:48. A notification from Your Festival: Your Film: Official Selection. Dear filmmaker, congratulations! We’re delighted… Text: You’re in. You can’t tell anyone yet.' },
     { html: blk(90, 108, 900, `<div class="h2">Make the laurel tonight anyway.</div>`)
-        + laurel('hero', 280, 370, 520)
-        + blk(90, 1050, 900, `<div class="lead" ${center}>So it’s ready the moment you can post it.</div>`),
+        + laurel('hero', 160, 400, 760)
+        + blk(90, 1000, 900, `<div class="lead" ${center}>So it’s ready the moment you can post it.</div>`),
       alt: 'A gold laurel on dark green: Official Selection, Your Festival, 2026. Text: Make the laurel tonight anyway. So it’s ready the moment you can post it.' },
     { html: blk(90, 108, 900, `<div class="h2">It stays between you and your laptop.</div>`)
         + blk(150, 330, 780, `<div style="position:relative;width:780px;height:470px;border-radius:34px;border:2px dashed rgba(184,229,154,.45)">
             <div class="data leafc" style="position:absolute;left:30px;top:24px">Your device</div>
             <svg viewBox="0 0 520 330" width="520" height="330" style="position:absolute;left:130px;top:96px" aria-hidden="true"><rect x="60" y="10" width="400" height="250" rx="16" fill="#0B1B13" stroke="#B8E59A" stroke-opacity=".55" stroke-width="2.5"/><path d="M14 276 h492 l-26 32 h-440 z" fill="#0B1B13" stroke="#B8E59A" stroke-opacity=".55" stroke-width="2.5" stroke-linejoin="round"/></svg>
-            <img src="${L.named.hero.file}" alt="" style="position:absolute;left:${390 - 92}px;top:${96 + 135 - 103}px;width:184px;height:206px"></div>`, '', 'data-name="device"')
+            <img src="${L.named.hero.file}" alt="" style="position:absolute;left:${390 - 140}px;top:${Math.round(96 + 135 - 140 * aspect(L.named.hero.viewBox))}px;width:280px;height:${Math.round(280 * aspect(L.named.hero.viewBox))}px"></div>`, '', 'data-name="device"')
         + blk(90, 850, 900, list(['No account.', 'No upload: the email you paste is read in your browser.', 'Nothing you make leaves your device unless you share it.'], 34), '', 'data-name="pledge"'),
       alt: 'A laptop with the gold laurel on its screen, inside a dashed line labeled Your device. Then: No account. No upload: the email you paste is read in your browser. Nothing you make leaves your device unless you share it. Text: It stays between you and your laptop.' },
     { html: blk(90, 108, 900, `<div class="h2">It keeps until the lineup.</div><div class="lead" style="margin-top:26px">Daphne saves it in this browser as you go. Close the tab, and it’s there when you come back.</div>`, '', 'data-name="keeps"')
-        + blk(110, 430, 860, browser(heroImg(330), 'pitch.dog/daphne', 860, 680), '', 'data-name="browser"'),
+        + blk(110, 430, 860, browser(heroImg(560), 'pitch.dog/daphne', 860, 680), '', 'data-name="browser"'),
       alt: 'A browser window at pitch.dog/daphne with the gold laurel in it. Text: It keeps until the lineup. Daphne saves it in this browser as you go. Close the tab, and it’s there when you come back.' },
     { html: blk(90, 108, 900, `<div class="h2">Then the lineup is out.</div>`)
-        + poster(310, 300, 460, [['heroWhite', 0.3, 0.05, 0.4]])
+        + poster(310, 300, 460, [['heroWhite', 0.21, 0.05, 0.58]])
         + blk(90, 1036, 900, `<div class="lead paper" ${center}>Post it the minute it’s public.</div>`),
       alt: 'A night-sky film poster titled Your Film, with a white laurel at the top: Official Selection, Your Festival, 2026. Text: Then the lineup is out. Post it the minute it’s public.' },
     { html: end('Make it tonight.', 'Free, with no account. It stays on your device until you share it.'),
@@ -113,12 +113,12 @@ const tonight = {
 
 // ── 08 films: six films nobody made, each with the look that belongs to it ──
 const FILMS = [
-  { art: 'period', laurel: 'gPeriod', title: 'tPeriod', lw: 0.31, tw: 0.62, genre: 'A period drama', look: 'Engraved', why: 'Ink on cream, like the letters in it.', sees: 'a woman in profile in a cameo, on cream paper, with an engraved black ink laurel' },
-  { art: 'sea', laurel: 'gSea', title: 'tSea', lw: 0.34, tw: 0.66, genre: 'A documentary about the sea', look: 'Ocean', why: 'Deep water, with the light coming up.', sees: 'dawn on open water and a small sailboat, with a teal laurel' },
-  { art: 'night', laurel: 'gNight', title: 'tNight', lw: 0.34, tw: 0.5, genre: 'A thriller', look: 'Neon Midnight', why: 'Pink neon, and a glow in the rain.', sees: 'a figure in a hat under a ring of pink neon in the rain, with a glowing pink laurel' },
-  { art: 'spring', laurel: 'gSpring', title: 'tSpring', lw: 0.34, tw: 0.6, genre: 'A love story', look: 'Cherry Blossom', why: 'Blossom, for the spring it’s set in.', sees: 'two people under a cherry tree at dusk, with a laurel of pink blossoms' },
-  { art: 'space', laurel: 'gSpace', title: 'tSpace', lw: 0.34, tw: 0.62, genre: 'Science fiction', look: 'Chrome', why: 'Cold metal, a long way from home.', sees: 'a figure on a small moon before a ringed planet, with a chrome laurel' },
-  { art: 'summer', laurel: 'gSummer', title: 'tSummer', lw: 0.34, tw: 0.56, genre: 'A summer comedy', look: 'Sorbet', why: 'Pink and peach, like the sun on the pool.', sees: 'a big sun in rings over a pool with a pink float, with a pink and peach laurel' },
+  { art: 'period', laurel: 'gPeriod', title: 'tPeriod', lw: 0.48, tw: 0.62, genre: 'A period drama', look: 'Engraved', why: 'Ink on cream, like the letters in it.', sees: 'a woman in profile in a cameo, on cream paper, with an engraved black ink laurel' },
+  { art: 'sea', laurel: 'gSea', title: 'tSea', lw: 0.48, tw: 0.66, genre: 'A documentary about the sea', look: 'Ocean', why: 'Deep water, with the light coming up.', sees: 'dawn on open water and a small sailboat, with a teal laurel' },
+  { art: 'night', laurel: 'gNight', title: 'tNight', lw: 0.48, tw: 0.5, genre: 'A thriller', look: 'Neon Midnight', why: 'Pink neon, and a glow in the rain.', sees: 'a figure in a hat under a ring of pink neon in the rain, with a glowing pink laurel' },
+  { art: 'spring', laurel: 'gSpring', title: 'tSpring', lw: 0.48, tw: 0.6, genre: 'A love story', look: 'Cherry Blossom', why: 'Blossom, for the spring it’s set in.', sees: 'two people under a cherry tree at dusk, with a laurel of pink blossoms' },
+  { art: 'space', laurel: 'gSpace', title: 'tSpace', lw: 0.48, tw: 0.62, genre: 'Science fiction', look: 'Chrome', why: 'Cold metal, a long way from home.', sees: 'a figure on a small moon before a ringed planet, with a chrome laurel' },
+  { art: 'summer', laurel: 'gSummer', title: 'tSummer', lw: 0.48, tw: 0.56, genre: 'A summer comedy', look: 'Sorbet', why: 'Pink and peach, like the sun on the pool.', sees: 'a big sun in rings over a pool with a pink float, with a pink and peach laurel' },
 ];
 function film(f, x, y, w) {
   const h = Math.round(w * 1.5), l = L.named[f.laurel], t = L.named[f.title], lw = f.lw * w, tw = f.tw * w, th = tw * aspect(t.viewBox);
@@ -150,14 +150,14 @@ const ASIS = { file: 'captures/box-asis.png', viewBox: [0, 0, SZ['box-asis'][0],
 const CLEAN = { file: 'captures/box-clean.png', viewBox: [0, 0, SZ['box-clean'][0], SZ['box-clean'][1]] };
 // the same leaves in both files: the clean one is trimmed, so its box is the JPEG's moved by the trim (measured)
 const box = (name, x0, y0, x1, y1, dx = 0, dy = 0) => { const [w, h] = SZ[name]; return [(x0 - dx) / w, (y0 - dy) / h, (x1 - dx) / w, (y1 - dy) / h]; };
-const BOXA = box('box-asis', 50, 380, 290, 700), BOXC = box('box-clean', 50, 380, 290, 700, 24, 25);
+const BOXA = box('box-asis', 36, 300, 196, 484), BOXC = box('box-clean', 36, 300, 196, 484, 9, 8);
 const tile = (inner, w, h, bg) => `<div style="width:${w}px;height:${h}px;border-radius:20px;background:${bg};display:grid;place-items:center;box-shadow:0 24px 60px rgba(0,0,0,.4)">${inner}</div>`;
 const fixer = {
   title: 'Your festival sent a JPEG',
   slides: [
     { count: false,
       html: blk(90, 100, 900, `<div class="h1">Your festival sent a JPEG.</div>`)
-        + poster(260, 360, 560, [[ASIS, 0.29, 0.05, 0.42]]),
+        + poster(260, 360, 560, [[ASIS, 0.2, 0.05, 0.6]]),
       alt: 'A night-sky film poster titled Your Film. At the top sits a gold laurel, Official Selection, Your Festival, 2026, stuck inside a hard white rectangle. Text: Your festival sent a JPEG.' },
     { html: blk(90, 108, 900, `<div class="h2">Drop it into Daphne.</div>`)
         + cap('box-ui', 160, 270, 760, 'border-radius:22px;box-shadow:0 30px 80px rgba(0,0,0,.45),0 0 0 1px rgba(184,229,154,.16)')
@@ -166,9 +166,9 @@ const fixer = {
     { html: blk(90, 108, 900, `<div class="h2">The white goes. The edges stay soft.</div>`)
         + crop('box-asis', 90, 320, 420, BOXA, 'border-radius:18px;box-shadow:0 24px 60px rgba(0,0,0,.4)')
         + crop('box-clean', 570, 320, 420, BOXC, 'border-radius:18px;box-shadow:0 24px 60px rgba(0,0,0,.4);background-color:#1D3550')
-        + blk(90, 900, 420, `<div class="data">As it came</div>`)
-        + blk(570, 900, 420, `<div class="data leafc">After, on a dark poster</div>`)
-        + blk(90, 990, 900, `<div class="lead">No white fringe round the leaves. Then it’s trimmed to the laurel, with even margins.</div>`),
+        + blk(90, 826, 420, `<div class="data">As it came</div>`)
+        + blk(570, 826, 420, `<div class="data leafc">After, on a dark poster</div>`)
+        + blk(90, 912, 900, `<div class="lead">No white fringe round the leaves. Then it’s trimmed to the laurel, with even margins.</div>`),
       alt: 'Two close-ups of the same gold leaves. As it came: on white, with the blur of a compressed JPEG. After, on a dark poster: the white gone and the edges smooth. Text: The white goes. The edges stay soft. No white fringe round the leaves. Then it’s trimmed to the laurel, with even margins.' },
     { html: blk(90, 108, 900, `<div class="h2">One ink, when the poster needs it.</div>`)
         + blk(110, 320, 400, tile(`<img src="captures/box-white.png" alt="" style="width:330px;height:${Math.round(330 * ar('box-white'))}px">`, 400, 520, 'linear-gradient(#0B1524,#1D3550 70%,#3B5670)'), '', 'data-name="white"')
@@ -178,7 +178,7 @@ const fixer = {
         + blk(90, 960, 900, `<div class="panel" style="padding:34px 40px"><div class="body">Recoloring official artwork may need the festival’s OK. If they sent a one-color version, use theirs.</div></div>`, '', 'data-name="note"'),
       alt: 'The cleaned laurel twice: in white on a dark night sky, and in black on pale paper. Labels: White, for dark posters. Black, for light ones. A note: Recoloring official artwork may need the festival’s OK. If they sent a one-color version, use theirs. Text: One ink, when the poster needs it.' },
     { html: blk(90, 108, 900, `<div class="h2">Their laurel. No box.</div>`)
-        + poster(280, 270, 520, [[CLEAN, 0.29, 0.05, 0.42]])
+        + poster(280, 270, 520, [[CLEAN, 0.21, 0.05, 0.58]])
         + blk(90, 1086, 900, `<div class="lead" ${center}>Daphne doesn’t redraw anything. <span class="paper">The festival’s art stays the festival’s.</span></div>`),
       alt: 'The night-sky poster again, the festival’s gold laurel now sitting cleanly on the sky with no white box. Text: Their laurel. No box. Daphne doesn’t redraw anything. The festival’s art stays the festival’s.' },
     { html: end('Clean up a festival file.', 'Free, in your browser, with no account.'),
@@ -229,7 +229,7 @@ const herbarium = {
     { html: blk(90, 108, 900, `<div class="h2">And a few no garden grows.</div>`) + plate(P4, 13),
       alt: `Four more branches, made-up plants: ${plateAlt(P4)}. Text: And a few no garden grows.` },
     { html: blk(90, 108, 900, `<div class="h2">Then it wraps them around your words.</div>`)
-        + named('bayHero', 270, 380, 540)
+        + named('bayHero', 130, 420, 820)
         + blk(90, 1050, 900, `<div class="lead" ${center}>Any leaf, any ink, around what the festival gave you.</div>`),
       alt: 'A full laurel in deep green ink on pale paper, reading Official Selection, Your Festival, 2026. Text: Then it wraps them around your words. Any leaf, any ink, around what the festival gave you.' },
     { html: end('Grow yours.', '78 looks, every one drawn by code. Free, with no account.', { light: true }),
@@ -304,17 +304,20 @@ const leafless = {
 
 // ── 13 anatomy: what 68 laurels taught us ──
 const DEEP = 'radial-gradient(ellipse 80% 65% at 40% 52%, #173524 0%, #0E2318 50%, #08140E 100%)';
-const A = { x: 90, y: 372, w: 560 };
+// the cover: the wide hero laurel, with its parts labeled above and below it, the leader lines running through the
+// open gaps at the top and bottom of the wreath so they never cross a leaf or a letter
+const A = { x: 110, y: 470, w: 860 };
 A.h = Math.round(A.w * aspect(L.named.hero.viewBox));
-// where each line of words sits in the hero laurel, as fractions of its box, measured on a render: [top, bottom, end]
-const PARTS = [['Status', 'What you got', 0.339, 0.369, 0.74], ['Festival', 'The biggest line', 0.409, 0.609, 0.76], ['Year', 'On its own line', 0.647, 0.676, 0.6]];
-const BX = A.w + 22; // the brackets, just right of the laurel (x inside the overlay, which starts at the laurel's left)
-const mid = (p) => A.h * (p[2] + p[3]) / 2;
-const BRANCH = [0.78, 0.2]; // a point on the right branch
-const callouts = `<svg viewBox="0 0 900 ${A.h}" width="900" height="${A.h}" style="display:block" aria-hidden="true" fill="none" stroke="#B8E59A" stroke-width="2">
-  ${PARTS.map((p) => { const y0 = A.h * p[2] - 5, y1 = A.h * p[3] + 5; return `<path d="M${p[4] * A.w + 10} ${mid(p)} H${BX - 10}" stroke-opacity=".38" stroke-dasharray="2 7" stroke-linecap="round"/><path d="M${BX} ${y0} h12 V${y1} h-12" stroke-linejoin="round"/>`; }).join('')}
-  <path d="M${BRANCH[0] * A.w} ${BRANCH[1] * A.h} H${BX + 12}" stroke-opacity=".7"/><circle cx="${BRANCH[0] * A.w}" cy="${BRANCH[1] * A.h}" r="6" fill="#B8E59A" stroke="none"/></svg>`;
-const label = (t, sub, y) => blk(A.x + BX + 34, Math.round(A.y + y - 34), 990 - (A.x + BX + 34), `<div class="data leafc">${t}</div><div class="body" style="font-size:30px;line-height:1.1;margin-top:6px">${sub}</div>`, '', `data-name="part ${t}"`);
+// fractions of the hero's box, measured on a render: each line of words [top, bottom], and a branch tip
+const ROW = { status: [0.325, 0.381], name: [0.454, 0.567], year: [0.639, 0.701] }, TIP = [0.72, 0.1];
+const O = { x: 90, y: 320 }, px = (fx) => A.x - O.x + fx * A.w, py = (fy) => A.y - O.y + fy * A.h;
+const LBL = { top: 330, bottom: 1010 };
+const callouts = `<svg viewBox="0 0 900 700" width="900" height="700" style="display:block" aria-hidden="true" fill="none" stroke="#B8E59A" stroke-width="2" stroke-opacity=".75">
+  <path d="M440 ${LBL.top - O.y + 36} H${px(0.5)} V${py(ROW.status[0]) - 10}"/><circle cx="${px(0.5)}" cy="${py(ROW.status[0]) - 10}" r="5" fill="#B8E59A" stroke="none"/>
+  <path d="M${px(TIP[0]) + 22} ${LBL.top - O.y + 92} L${px(TIP[0])} ${py(TIP[1]) - 4}"/><circle cx="${px(TIP[0])}" cy="${py(TIP[1])}" r="5" fill="#B8E59A" stroke="none"/>
+  <path d="M${px(0.62)} ${py(ROW.name[1]) + 10} V${LBL.bottom - O.y - 6}"/><circle cx="${px(0.62)}" cy="${py(ROW.name[1]) + 10}" r="5" fill="#B8E59A" stroke="none"/>
+  <path d="M${px(0.5)} ${py(ROW.year[1]) + 10} V${LBL.bottom - O.y + 36} H440"/><circle cx="${px(0.5)}" cy="${py(ROW.year[1]) + 10}" r="5" fill="#B8E59A" stroke="none"/></svg>`;
+const part = (t, sub, x, y, w, right = false) => blk(x, y, w, `<div style="text-align:${right ? 'right' : 'left'}"><div class="data leafc">${t}</div><div class="body" style="font-size:30px;line-height:1.1;margin-top:6px">${sub}</div></div>`, '', `data-name="part ${t}"`);
 const YEAR = [['Its own line, at the bottom', 28], ['After the festival’s name', 14], ['Inside the name, big', 9], ['Left off', 7], ['On the status line', 6], ['Somewhere else', 4]];
 const STATUSES = ['Official Selection', 'Winner', 'Nominee', 'Finalist', 'Semi-Finalist', 'Special Mention', 'Honorable Mention', 'World Premiere'];
 const anatomy = {
@@ -323,26 +326,28 @@ const anatomy = {
   slides: [
     { count: false,
       html: blk(90, 100, 900, `<div class="h1">Anatomy of a festival laurel.</div>`)
-        + blk(A.x, A.y, 900, callouts, '', 'data-under data-name="callouts"')
+        + blk(O.x, O.y, 900, callouts, '', 'data-under data-name="callouts"')
         + named('hero', A.x, A.y, A.w)
-        + label('Branches', 'Two, open at the top', BRANCH[1] * A.h)
-        + PARTS.map((p) => label(p[0], p[1], mid(p))).join('')
-        + blk(90, 1080, 900, `<div class="lead">What 68 festival laurels taught us.</div>`),
+        + part('Status', 'What you got', 110, LBL.top, 320, true)
+        + part('Branches', 'Two, open at the top', 700, LBL.top, 290)
+        + part('Year', 'On its own line', 110, LBL.bottom, 320, true)
+        + part('Festival', 'The biggest line', Math.round(A.x + 0.62 * A.w) + 20, LBL.bottom, 300)
+        + blk(90, 1160, 900, `<div class="lead">What 68 festival laurels taught us.</div>`),
       alt: 'A gold laurel, Official Selection, Your Festival, 2026, with its parts marked and labeled. Branches: two, open at the top. Status: what you got. Festival: the biggest line. Year: on its own line. Text: Anatomy of a festival laurel. What 68 festival laurels taught us.' },
     { html: blk(90, 108, 900, `<div class="h2">The status sits on top: small, in capitals, spaced wide.</div>`)
         + blk(90, 400, 900, `<div>${STATUSES.map((s, i) => `<div style="font:500 34px/1 var(--data);letter-spacing:.24em;text-transform:uppercase;padding:22px 0;${i ? 'border-top:1px solid var(--rule)' : ''}${i ? ';color:var(--dim)' : ';color:var(--leaf)'}">${s}</div>`).join('')}</div>`, '', 'data-name="statuses"')
         + blk(90, 1150, 900, `<div class="lead paper">Use the festival’s exact words.</div>`),
       alt: `Eight statuses in spaced capitals, one per line: ${STATUSES.join(', ')}. Text: The status sits on top: small, in capitals, spaced wide. Use the festival’s exact words.` },
     { html: blk(90, 108, 900, `<div class="h2">The biggest line is the festival.</div><div class="lead" style="margin-top:22px">Unless it’s a win: then the award can take the middle.</div>`, '', 'data-name="words"')
-        + laurel('hero', 110, 470, 380) + laurel('award', 590, 470, 380)
-        + blk(110, 920, 380, `<div class="data" ${center}>A selection: the festival leads</div>`)
-        + blk(590, 920, 380, `<div class="data leafc" ${center}>A win: the award leads</div>`),
+        + laurel('hero', 90, 540, 420) + laurel('award', 570, 540, 420)
+        + blk(90, 830, 420, `<div class="data" ${center}>A selection: the festival leads</div>`)
+        + blk(570, 830, 420, `<div class="data leafc" ${center}>A win: the award leads</div>`),
       alt: 'Two gold laurels. A selection: Official Selection, Your Festival, 2026, with the festival’s name biggest. A win: Winner, Best Short Film, Your Festival, 2026, with the award biggest. Text: The biggest line is the festival. Unless it’s a win: then the award can take the middle.' },
     { html: blk(90, 108, 900, `<div class="h2">The year gets its own line, at the bottom.</div><div class="lead" style="margin-top:22px">On 28 of the 68 laurels we studied.</div>`, '', 'data-name="words"')
         + blk(90, 470, 900, `<div>${YEAR.map(([t, n], i) => `<div style="display:grid;grid-template-columns:330px 1fr 60px;align-items:center;gap:20px;padding:20px 0;${i ? 'border-top:1px solid var(--rule)' : ''}"><div class="data" style="${i ? '' : 'color:var(--leaf)'}">${t}</div><div style="height:30px;width:${n * 16}px;border-radius:4px;background:${i ? 'rgba(243,246,239,.28)' : 'var(--leaf)'}"></div><div class="data" style="text-align:right;${i ? '' : 'color:var(--leaf)'}">${n}</div></div>`).join('')}</div>`, '', 'data-name="chart"'),
       alt: `A bar chart of where the year goes on 68 festival laurels: ${YEAR.map(([t, n]) => `${t.toLowerCase()}, ${n}`).join('; ')}. Text: The year gets its own line, at the bottom. On 28 of the 68 laurels we studied.` },
     { html: blk(90, 108, 900, `<div class="h2">One award, one laurel.</div><div class="lead" style="margin-top:22px">We never saw two awards in one wreath. A film that wins twice shows two laurels.</div>`, '', 'data-name="words"')
-        + [['Best Short Film', 110], ['Audience Award', 590]].map(([a, x]) => { const p = PACK(a, 'color'); return blk(x, 500, 380, `<img src="${p.file}" alt="" style="display:block;width:380px;height:${Math.round(380 * aspect(p.viewBox))}px">`, '', `data-name="award ${a}"`); }).join(''),
+        + [['Best Short Film', 90], ['Audience Award', 570]].map(([a, x]) => { const p = PACK(a, 'color'); return blk(x, 600, 420, `<img src="${p.file}" alt="" style="display:block;width:420px;height:${Math.round(420 * aspect(p.viewBox))}px">`, '', `data-name="award ${a}"`); }).join(''),
       alt: 'Two gold award laurels side by side: Winner, Best Short Film, Your Festival, 2026, and Winner, Audience Award, Your Festival, 2026. Text: One award, one laurel. We never saw two awards in one wreath. A film that wins twice shows two laurels.' },
     { html: end('Daphne lays it out for you.', '18 layouts that fit your words, and keep the small lines readable.'),
       alt: endAlt('Daphne lays it out for you. 18 layouts that fit your words, and keep the small lines readable.') },
@@ -361,8 +366,8 @@ const endcard = {
     { count: false,
       html: blk(90, 100, 900, `<div class="h1">The last four seconds of your trailer.</div>`)
         + frame(5, 90, 360, 900)
-        + [0, 1, 2, 3, 4].map((i) => frame(i, 90 + i * 184, 920, 164) + blk(90 + i * 184, 1022, 164, `<div class="data" style="font-size:26px">${(F.frames[i]).toFixed(1)} s</div>`, '', `data-name="tc ${i}"`)).join(''),
-      alt: 'A black trailer frame with a gold laurel in the middle: Official Selection, Your Festival, 2026. Below, five small frames from the first seconds: two leaves appearing, the branches growing, the words rising, a shimmer. Text: The last four seconds of your trailer.' },
+        + [1, 2, 3, 4].map((i, k) => frame(i, 90 + k * 230, 920, 210) + blk(90 + k * 230, 1044, 210, `<div class="data" style="font-size:26px">${(F.frames[i]).toFixed(1)} s</div>`, '', `data-name="tc ${i}"`)).join(''),
+      alt: 'A black trailer frame with a gold laurel in the middle: Official Selection, Your Festival, 2026. Below, four small frames from the first seconds: the branches growing in, then the words rising, then a shimmer. Text: The last four seconds of your trailer.' },
     ...MOMENTS.map(([i, h, s]) => ({
       html: blk(90, 100, 900, `<div class="data leafc">${tc(F.frames[i])}</div><div class="h2" style="margin-top:14px">${h}</div>`, '', 'data-name="moment"')
         + frame(i, 90, 420, 900)
@@ -401,13 +406,13 @@ const link = {
   slides: [
     { count: false,
       html: blk(90, 100, 900, `<div class="h1">Send your designer a link, not a file.</div>`)
-        + blk(170, 400, 740, `<div style="position:relative;width:740px;height:740px">${linkWreath(740)}<img src="${L.named.hero.file}" alt="" style="position:absolute;left:${370 - 120}px;top:${370 - 134}px;width:240px;height:${Math.round(240 * aspect(L.named.hero.viewBox))}px"></div>`, '', 'data-name="wreath"'),
+        + blk(170, 400, 740, `<div style="position:relative;width:740px;height:740px">${linkWreath(740)}<img src="${L.named.hero.file}" alt="" style="position:absolute;left:${370 - 180}px;top:${Math.round(370 - 180 * aspect(L.named.hero.viewBox))}px;width:360px;height:${Math.round(360 * aspect(L.named.hero.viewBox))}px"></div>`, '', 'data-name="wreath"'),
       alt: 'The characters of a long web link, pitch.dog/daphne/#l= and a run of letters and numbers, set in green rings like the two branches of a wreath, around a small gold laurel: Official Selection, Your Festival, 2026. Text: Send your designer a link, not a file.' },
     { html: blk(90, 108, 900, `<div class="h2">Everything is in it.</div><div class="lead" style="margin-top:18px">The words, the look, the layout, the colors.</div>`, '', 'data-name="words"')
         + blk(90, 300, 900, `<div class="panel" style="padding:24px 26px"><div style="font:500 26px/1.3 var(--data);letter-spacing:-.02em;word-break:break-all;color:rgba(184,229,154,.72)"><span class="paper">pitch.dog/daphne/</span>${esc(F.link)}</div></div>`, '', 'data-name="the link"'),
       alt: `The whole share link for the laurel, ${LINK.length} characters long: pitch.dog/daphne/#l= followed by letters, numbers and dashes. Text: Everything is in it. The words, the look, the layout, the colors.` },
     { html: blk(90, 108, 900, `<div class="h2">They open it, and it’s your laurel.</div><div class="lead" style="margin-top:22px">Ready to change. Nothing to download, no account to make.</div>`, '', 'data-name="words"')
-        + blk(110, 480, 860, browser(heroImg(320), esc(LINK.slice(0, 34)) + '…', 860, 600), '', 'data-name="browser"'),
+        + blk(110, 480, 860, browser(heroImg(520), esc(LINK.slice(0, 34)) + '…', 860, 600), '', 'data-name="browser"'),
       alt: 'A browser window opened at the link, pitch.dog/daphne/#l=…, showing the gold laurel: Official Selection, Your Festival, 2026. Text: They open it, and it’s your laurel. Ready to change. Nothing to download, no account to make.' },
     { html: blk(90, 330, 900, `<div class="h1" style="font-size:150px;line-height:1.02" ${center}>The <span class="bk">link</span><br>is the laurel.</div>`, '', 'data-name="line"')
         + blk(140, 760, 800, `<div class="lead" ${center}>There’s no copy on our server to point to. Logos and posters you add stay on your device, so a link never carries them.</div>`),

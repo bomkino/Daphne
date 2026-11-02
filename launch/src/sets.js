@@ -55,7 +55,7 @@ export const SETS = {
     slides: [
       { count: false, ground: 'radial-gradient(ellipse 70% 52% at 50% 50%, #21452F 0%, #142E21 50%, #0B1B13 100%)',
         html: blk(90, 108, 900, `<div class="h1"><span class="bk">Your film</span> did the hard part.</div>`)
-          + laurel('hero', 240, 338, 600)
+          + laurel('hero', 130, 420, 820)
           + blk(90, 1050, 900, `<div class="h2">Now make the laurel. <span class="bloom">It’s free.</span></div>`),
         alt: 'A gold festival laurel on dark green, reading Official Selection, Your Festival, 2026. Above it: (Your film) did the hard part. Below it: Now make the laurel. It’s free.' },
       { html: blk(90, 108, 900, `<div class="h2">In the festival’s own words.</div>`)
@@ -84,7 +84,7 @@ export const SETS = {
           + blk(570, 340, 420, `<div class="data leafc">On screen</div><div class="lead paper" style="margin-top:16px">Your laurel at 160, 100 and 64 px, on dark and light: the sizes people really see it at.</div>`, '', 'data-name="on screen"')
           + blk(90, 912, 900, `<div class="data leafc">In print</div>`)
           + capture('print-note', 90, 966, 900, CAP['print-note']),
-        alt: 'Two parts of Daphne. On screen: the laurel shown at 160, 100 and 64 pixels, on dark and light. In print: a warning that reads The smallest words print at 3.7 pt. Below about 6 pt they blur on most presses: print it at least 1.77 in wide, or drop a line. Text: See it at real size before you export.' },
+        alt: 'Two parts of Daphne. On screen: the laurel shown at 160, 100 and 64 pixels, on dark and light. In print: a warning that reads The smallest words print at 3.6 pt. Below about 6 pt they blur on most presses: print it at least 1.82 in wide, or drop a line. Text: See it at real size before you export.' },
       { html: blk(90, 120, 900, `<div class="h1" style="font-size:190px;line-height:1"><span class="bk">free</span></div>`, '', 'data-name="free"')
           + blk(90, 440, 900, `<div style="font:400 40px/1.3 var(--lead)">${[
             'No account, no paid tier, no limits.',
@@ -121,7 +121,7 @@ export const SETS = {
           + blk(90, 560, 900, `<div class="h1 leafc" style="font-size:112px;line-height:1">laureate</div><div class="data" style="margin-top:22px;font-size:32px;color:var(--dim)">from Latin laureātus, crowned with laurel</div><div class="lead" style="margin-top:38px">That’s why we still call the people we honor laureates.</div>`, '', 'data-name="laureate"'),
         alt: 'A line of light trails low across the dark. Text: At his games in Delphi, singers and poets competed, and the winners were crowned with laurel. Then, in green: laureate, from Latin laureātus, crowned with laurel. That’s why we still call the people we honor laureates.' },
       { html: blk(90, 150, 900, `<div class="story">Today, a laurel on a film poster still says the same thing: someone chose this.</div>`)
-          + laurel('hero', 270, 450, 540, 'data-end'),
+          + laurel('hero', 200, 430, 680, 'data-end'),
         alt: 'The line of light rises into the base of a gold festival laurel reading Official Selection, Your Festival, 2026. Text: Today, a laurel on a film poster still says the same thing: someone chose this.' },
       { html: blk(90, 150, 900, `<div class="story">We named our laurel maker after her, and we’re giving it away.</div>`)
           + logo(140, 470, 800)
@@ -153,10 +153,10 @@ export const SETS = {
                 <div class="data paper" style="font-size:28px">official-selection.png</div></div></div>`, '', 'data-name="email card"'),
         alt: 'An email from Your Festival with the subject Your official laurel: Congratulations again. Your laurel is attached, with a note on how we’d like it used. The attachment, official-selection.png, is a gold laurel. Text: 1. Ask the festival first. Most festivals send official laurels to selected films, and some require you to use theirs. Make your own when they don’t send one, or to match the rest of your row.' },
       { html: tip(2, 'Say exactly what you got.', 'Use the festival’s current name and its own wording. Turning a semi-finalist place into a selection reads as overstating it.')
-          + blk(130, 640, 360, `<div style="position:relative"><img src="${L.named.hero.file}" alt="" style="display:block;width:360px;height:${Math.round(360 * aspect(L.named.hero.viewBox))}px;opacity:.32"><svg viewBox="0 0 360 403" width="360" height="403" style="position:absolute;inset:0"><path d="M40 360 L320 44" stroke="#F3F6EF" stroke-width="5" stroke-linecap="round" opacity=".8"/></svg></div>`, '', 'data-name="wrong laurel"')
-          + blk(590, 640, 360, `<img src="${L.named.semi.file}" alt="" style="display:block;width:360px;height:${Math.round(360 * aspect(L.named.semi.viewBox))}px">`, '', 'data-name="right laurel"')
-          + blk(130, 1072, 360, `<div class="data" ${center}>What you’d like it to say</div>`)
-          + blk(590, 1072, 360, `<div class="data leafc" ${center}>What the festival said</div>`),
+          + blk(130, 580, 360, `<div style="position:relative"><img src="${L.named.hero.file}" alt="" style="display:block;width:360px;height:${Math.round(360 * aspect(L.named.hero.viewBox))}px;opacity:.32"><svg viewBox="0 0 360 ${Math.round(360 * aspect(L.named.hero.viewBox))}" width="360" height="${Math.round(360 * aspect(L.named.hero.viewBox))}" style="position:absolute;inset:0"><path d="M40 ${Math.round(360 * aspect(L.named.hero.viewBox)) - 24} L320 24" stroke="#F3F6EF" stroke-width="5" stroke-linecap="round" opacity=".8"/></svg></div>`, '', 'data-name="wrong laurel"')
+          + blk(590, 580, 360, `<img src="${L.named.semi.file}" alt="" style="display:block;width:360px;height:${Math.round(360 * aspect(L.named.semi.viewBox))}px">`, '', 'data-name="right laurel"')
+          + blk(130, 830, 360, `<div class="data" ${center}>What you’d like it to say</div>`)
+          + blk(590, 830, 360, `<div class="data leafc" ${center}>What the festival said</div>`),
         alt: 'Two gold laurels. The left one, faded and struck through, says Official Selection, labeled What you’d like it to say. The right one says Semi-Finalist, Your Festival, 2026, labeled What the festival said. Text: 2. Say exactly what you got. Use the festival’s current name and its own wording. Turning a semi-finalist place into a selection reads as overstating it.' },
       { html: tip(3, 'Wait for the announcement.', 'Many festivals ask selected films to keep it private until the lineup is out. Check before you post.')
           + poster(130, 620, 380, [['heroWhite', 0.3, 0.05, 0.4]])
@@ -239,8 +239,8 @@ export const SETS = {
       { count: false,
         html: blk(90, 108, 900, `<div class="data leafc">For festivals</div>`)
           + blk(90, 160, 900, `<div class="h1">Every laurel your festival gives, made in one go.</div>`)
-          + [['Official Selection', 95, 520], ['Finalist', 325, 520], ['Semi-Finalist', 555, 520], ['Honorable Mention', 785, 520], ['Best Feature Film', 210, 784], ['Best Short Film', 440, 784], ['Audience Award', 670, 784]].map(([label, x, y]) => {
-            const p = PACK(label, 'color'); return blk(x, y, 200, `<img src="${p.file}" alt="" style="display:block;width:200px;height:${Math.round(200 * aspect(p.viewBox))}px">`, '', `data-name="pack ${label}"`);
+          + [['Official Selection', 90, 540, 215], ['Finalist', 318, 540, 215], ['Semi-Finalist', 546, 540, 215], ['Honorable Mention', 775, 540, 215], ['Best Feature Film', 90, 740, 280], ['Best Short Film', 400, 740, 280], ['Audience Award', 710, 740, 280]].map(([label, x, y, w]) => {
+            const p = PACK(label, 'color'); return blk(x, y, w, `<img src="${p.file}" alt="" style="display:block;width:${w}px;height:${Math.round(w * aspect(p.viewBox))}px">`, '', `data-name="pack ${label}"`);
           }).join('')
           + blk(90, 1086, 900, `<div class="lead" ${center}>One per status and award, in your festival’s look.</div>`),
         alt: 'Seven gold laurels for Your Festival 2026: Official Selection, Finalist, Semi-Finalist, Honorable Mention, and Winner laurels for Best Feature Film, Best Short Film and Audience Award. Text: For festivals. Every laurel your festival gives, made in one go. One per status and award, in your festival’s look.' },

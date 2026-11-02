@@ -100,7 +100,7 @@ try {
   const SPECIMENS = ['Classic Gold', 'Black Tie', 'Olive Grove', 'Herbarium', 'Old World', 'Ivy', 'Eucalyptus', 'Ginkgo', 'Fern Silver', 'Riviera Palm', 'Harvest', 'Lavender', 'Rosemary', 'Cherry Blossom', 'Pearl', 'Gatsby', 'Deco', 'Ember', 'Documentary', 'Chrome', 'Stepped Oak', 'Botanical', 'Wildflower', 'Myrtle'];
   for (const look of SPECIMENS) {
     let d = applyForm(fromPreset(P(look)), 'single');
-    d.branch = { ...d.branch, rows: 1, right: null, spine: { ...d.branch.spine, a0: 150, a1: 252, curl: 0, spiral: 0 }, orn: { ...d.branch.orn, tie: 'none' } };
+    d.branch = { ...d.branch, rows: 1, right: null, spine: { ...d.branch.spine, rx: 0.8, ry: 1.2, a0: 150, a1: 252, curl: 0, spiral: 0 }, orn: { ...d.branch.orn, tie: 'none' } };
     noWords(inked(d, '#1F5C3B'));
     await add('spec' + ctx.slug(look).replace(/-/g, ''), look, d, false, true);
   }
