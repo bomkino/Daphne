@@ -26,3 +26,7 @@
 ## 2026-11-01: the film joins her page
 
 - **Two ways to meet her, one page.** pitch.dog/daphne/story/ became Daphne's story told as you scroll. The film comes right after it, on the same night, as "Watch her story as a film", with its words written out below for anyone who can't watch.
+
+## 2026-11-02: the festival-grade laurel
+
+- **One laurel, the new look.** Daphne's laurels became wide and festival-grade, one flat gold, words filling the branch. The film's laurel is now the outro's own, leaf for leaf, so it opens the film, sits on the poster, grows from the two leaves and hands over to the outro without a seam.

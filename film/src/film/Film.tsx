@@ -16,16 +16,20 @@ const has = (name: string) => getStaticFiles().some((f) => f.name === name);
 // The laurels on screen: one Classic Gold laurel made with Daphne, the same one
 // the intro/outro sting opens on. It opens the film, comes back as the poster
 // she sits on now, and is made again, from two leaves, at the end.
-// Where the sting's laurel stands on its first frame (brand/motion/sting/src/layout.ts):
-// the film's last laurel moves there, so the cut into the sting is the same laurel.
-const STING_LAUREL = { tall: { h: 900, y: 880 }, wide: { h: 800, y: 540 } };
+// Where the sting's laurel stands on its first frame (brand/motion/sting/src/layout.ts): its height,
+// and where the laurel's own origin sits. The film's last laurel moves there, so the cut into the
+// sting is the same laurel.
+const STING_LAUREL = { tall: { h: 400, y: 860 }, wide: { h: 540, y: 450 } };
+// our Laurel centers its box; the sting centers the laurel's origin, which sits this far below the box's middle
+const ORIGIN_DY = -(classicGold.viewBox[1] + classicGold.viewBox[3] / 2) / classicGold.viewBox[3];
 const DISSOLVE = 6; // frames: the sting's dark comes up over ours
 
 const Laurels: React.FC<{ stingOn: boolean }> = ({ stingOn }) => {
   const t = useT();
   const { W, H, tall } = useSize();
-  const h = tall ? (W * 0.66 * classicGold.viewBox[3]) / classicGold.viewBox[2] : H * 0.62;
-  const x = W / 2, y = tall ? H * 0.47 : H * 0.46;
+  // the wide festival laurel (about 2:1): upright it fills 80% of the width, wide it's 54% of the height
+  const h = tall ? (W * 0.8 * classicGold.viewBox[3]) / classicGold.viewBox[2] : H * 0.54;
+  const x = W / 2, y = tall ? H * 0.47 : H * 0.44;
   // the slow push from our framing to the sting's, ending at rest on its first frame
   const cutT = OUTRO_FRAME / FPS;
   const push = stingOn ? sm(cutT - 1.8, cutT, t) : 0;
@@ -65,7 +69,7 @@ const Laurels: React.FC<{ stingOn: boolean }> = ({ stingOn }) => {
         <Laurel
           art={classicGold}
           x={x}
-          y={mix(y, (end.y * H) / (tall ? 1920 : 1080), push)}
+          y={mix(y, ((end.y - ORIGIN_DY * end.h) * H) / (tall ? 1920 : 1080), push)}
           height={mix(h, (end.h * H) / (tall ? 1920 : 1080), push)}
           grow={span(at("make") + 0.15, at("make") + 1.55, t, (q) => q)}
           words={span(at("make") + 1.1, at("make") + 2.3, t, (q) => q)}
