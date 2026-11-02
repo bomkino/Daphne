@@ -1,4 +1,4 @@
-// fonts.js — the curated font list (all SIL Open Font License via Google Fonts) and the loaders.
+// fonts.js — the curated font list (open-licensed Google Fonts, almost all under the SIL Open Font License) and the loaders.
 // w: available weights; v: true = variable (any weight in range); it: has italics.
 export const FONTS = [
   // sans
@@ -98,4 +98,24 @@ export async function embedFontCss(families) {
     } catch (e) { console.warn('font embed failed', fam, e); }
   }
   return out.join('\n');
+}
+
+// For the font picker: each family's own name drawn in that family, at a few kilobytes. Google Fonts can subset to just
+// the letters asked for (text=), so every name loads in a handful of small requests. The faces get a "pv " prefix so
+// they never stand in for the real, full fonts the laurel itself uses.
+let previewDone = null;
+export function loadPreviewFonts(families) {
+  if (previewDone) return previewDone;
+  const chars = [...new Set(families.join('') + 'AaBbCc0123456789')].join('');
+  const chunks = [];
+  for (let i = 0; i < families.length; i += 12) chunks.push(families.slice(i, i + 12));
+  previewDone = Promise.all(chunks.map(async (fs) => {
+    const url = `https://fonts.googleapis.com/css2?${fs.map((f) => 'family=' + encodeURIComponent(f).replace(/%20/g, '+')).join('&')}&text=${encodeURIComponent(chars)}&display=swap`;
+    try {
+      const r = await fetch(url); if (!r.ok) return;
+      const css = (await r.text()).replace(/font-family:\s*'([^']+)'/g, (m, f) => `font-family: 'pv ${f}'`);
+      const st = document.createElement('style'); st.dataset.preview = '1'; st.textContent = css; document.head.appendChild(st);
+    } catch (e) { /* the names fall back to the interface font */ }
+  }));
+  return previewDone;
 }

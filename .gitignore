@@ -5,4 +5,8 @@ node_modules/
 _state — generator.md
 Daphne — *summary.md
 *.jpg
+!prototype/story/og-story.jpg
 spike/out/
+
+# The pitch.dog build (node tools/build-pitchdog.mjs)
+dist-pitchdog/

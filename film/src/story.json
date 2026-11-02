@@ -1,0 +1,186 @@
+{
+  "fps": 24,
+  "bpm": 52,
+  "firstBeat": 0.5,
+  "dub": 0.24,
+  "soundDelayMs": 20,
+  "end": 110.04,
+  "outro": {
+    "lubBeat": 91.0,
+    "firstLubFrame": 11,
+    "frames": 120
+  },
+  "acts": {
+    "prologue": 0,
+    "dive": 8,
+    "river": 12,
+    "god": 23,
+    "chase": 24,
+    "ran": 28,
+    "still": 36,
+    "roots": 36.5,
+    "branches": 38.5,
+    "leaves": 40.5,
+    "hand": 44.5,
+    "kiss": 50.0,
+    "crown": 54.5,
+    "since": 59.5,
+    "chosen": 63.0,
+    "today": 67.0,
+    "ask": 72.0,
+    "free": 76.0,
+    "make": 78.0,
+    "facts": 82.0,
+    "earned": 86.0,
+    "outro": 91.0
+  },
+  "heart": [
+    45.5,
+    46.5,
+    47.5,
+    48.5
+  ],
+  "lines": [
+    {
+      "id": "L01",
+      "beat": 2,
+      "her": "You’ve seen me on a thousand film posters.",
+      "us": "You’ve seen her on a thousand film posters."
+    },
+    {
+      "id": "L02",
+      "beat": 6,
+      "her": "You never knew my name.",
+      "us": "You just never knew her name."
+    },
+    {
+      "id": "L03",
+      "beat": 12,
+      "kind": "title",
+      "her": "Daphne.",
+      "us": "Daphne."
+    },
+    {
+      "id": "L04",
+      "beat": 16,
+      "her": "I was a river’s daughter, and I wanted to belong to no one.",
+      "us": "She was a river’s daughter, and she wanted to belong to no one."
+    },
+    {
+      "id": "L05",
+      "beat": 24,
+      "her": "Then a god saw me, and wanted me.",
+      "us": "Then a god saw her, and wanted her."
+    },
+    {
+      "id": "L06",
+      "beat": 28,
+      "her": "I ran.",
+      "us": "She ran."
+    },
+    {
+      "id": "L07",
+      "beat": 30,
+      "her": "And when I could run no farther, I begged my father, the river, to change me.",
+      "us": "And when she could run no farther, she begged her father, the river, to change her."
+    },
+    {
+      "id": "L08",
+      "beat": 36.5,
+      "her": "My feet took root.",
+      "us": "Her feet took root."
+    },
+    {
+      "id": "L09",
+      "beat": 38.5,
+      "her": "My arms became branches.",
+      "us": "Her arms became branches."
+    },
+    {
+      "id": "L10",
+      "beat": 40.5,
+      "her": "My hair became leaves.",
+      "us": "Her hair became leaves."
+    },
+    {
+      "id": "L11",
+      "beat": 44.5,
+      "her": "When he laid his hand on the bark, he could still feel my heart, trembling underneath.",
+      "us": "When he laid his hand on the bark, he could still feel her heart, trembling underneath."
+    },
+    {
+      "id": "L12",
+      "beat": 50.0,
+      "her": "He kissed the wood. Even as wood, I pulled away.",
+      "us": "He kissed the wood. Even as wood, she pulled away."
+    },
+    {
+      "id": "L13",
+      "beat": 54.5,
+      "her": "He couldn’t have me. So he took my leaves, and wore them as a crown.",
+      "us": "He couldn’t have her. So he took her leaves, and wore them as a crown."
+    },
+    {
+      "id": "L14",
+      "beat": 59.5,
+      "her": "Ever since, my leaves have crowned the chosen.",
+      "us": "Ever since, her leaves have crowned the chosen."
+    },
+    {
+      "id": "L15",
+      "beat": 63.0,
+      "words": [
+        63.0,
+        64.0,
+        65.0
+      ],
+      "her": "Poets. Athletes. Artists.",
+      "us": "Poets. Athletes. Artists."
+    },
+    {
+      "id": "L16",
+      "beat": 67.0,
+      "her": "Now I sit on film posters, and quietly say: this film was chosen.",
+      "us": "Now she sits on film posters, and quietly says: this film was chosen."
+    },
+    {
+      "id": "L17",
+      "beat": 72.0,
+      "her": "But I only ever asked to belong to no one.",
+      "us": "But she only ever asked to belong to no one."
+    },
+    {
+      "id": "L18",
+      "beat": 76.0,
+      "her": "So now, I’m free.",
+      "us": "So we made her free."
+    },
+    {
+      "id": "L19",
+      "beat": 78.0,
+      "her": "Free, for every filmmaker who’s earned a laurel.",
+      "us": "Daphne makes festival laurels for your film."
+    },
+    {
+      "id": "L20",
+      "beat": 82.0,
+      "words": [
+        82.0,
+        83.0,
+        84.0
+      ],
+      "her": "No account. No watermark. I keep nothing of yours.",
+      "us": "No account. No watermark. Nothing leaves your device."
+    },
+    {
+      "id": "L21",
+      "beat": 86.0,
+      "her": "Your film was chosen. Let it say so.",
+      "us": "For every filmmaker who’s earned one."
+    }
+  ],
+  "voices": {
+    "her": "Daphne tells it herself (the alternate)",
+    "us": "pitch.dog tells it (the lead cut)"
+  }
+}

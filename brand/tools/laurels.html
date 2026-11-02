@@ -1,0 +1,33 @@
+<!doctype html><meta charset="utf-8"><title>Daphne sample laurels</title>
+<!-- Renders the sample laurels the brand shows, with Daphne's own engine and presets.
+     brand/tools/render.mjs opens this page through a local server and saves each one as a PNG. -->
+<style>body{margin:0;background:transparent} .l{display:inline-block;padding:8px} .l svg{display:block;width:520px;height:auto}</style>
+<div id="out"></div>
+<script type="module">
+import { render, DEFAULT_DOC, clone, merge, applyForm } from '../../prototype/engine.mjs';
+import { PRESETS } from '../../prototype/presets.js';
+import { loadFont } from '../../prototype/fonts.js';
+async function ensureFonts(d) { const need = new Map(); for (const r of Object.values(d.roles)) { if (!r || !r.font) continue; if (!need.has(r.font)) need.set(r.font, new Set()); need.get(r.font).add(r.weight || 400); } await Promise.all([...need].map(([f, ws]) => loadFont(f, [...ws]))); }
+const mctx = document.createElement('canvas').getContext('2d');
+const measure = (s, font, weight, italic, size) => { mctx.font = `${italic ? 'italic ' : ''}${weight} ${size}px "${font}", sans-serif`; return mctx.measureText(s).width; };
+// Placeholder words that can't be mistaken for a real festival: the brand never shows a real festival's name or artwork.
+export const SAMPLES = [
+  { id: 'classic-gold', preset: 'Classic Gold', words: ['Official Selection', 'Your Festival', '2026'] },
+  { id: 'black-tie', preset: 'Black Tie', words: ['World Premiere', 'Your Festival', '2026'] },
+  { id: 'laureate', preset: 'Laureate', words: ['Winner', 'Best Short Film', 'Your Festival 2026'] },
+  { id: 'gala-seal', preset: 'Gala Seal', words: ['Official Selection', 'Your Festival', '2026'] },
+  { id: 'hot-foil', preset: 'Hot Foil', words: ['Audience Award', 'Your Festival', '2026'] },
+];
+const KINDS = ['status', 'festival', 'year'];
+function docFor(s) {
+  const p = PRESETS.find((q) => q.name === s.preset); if (!p) throw new Error('no preset ' + s.preset);
+  let d = clone(DEFAULT_DOC); if (p.doc.form) d = applyForm(d, p.doc.form); d = merge(d, p.doc);
+  d.fields = d.fields.map((f, i) => ({ ...f, text: s.words[i] ?? f.text, show: i < s.words.length }));
+  d.canvas = { ...d.canvas, bg: null };
+  return d;
+}
+const out = document.getElementById('out');
+for (const s of SAMPLES) { const d = docFor(s); await ensureFonts(d); const div = document.createElement('div'); div.className = 'l'; div.id = s.id; div.innerHTML = render(d, { measure, scale: 2 }).svg; out.append(div); }
+await document.fonts.ready;
+window.__done = SAMPLES.map((s) => s.id);
+</script>

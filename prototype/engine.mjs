@@ -2,7 +2,7 @@
 //
 // A laurel is a document: { seed, branch, paint, fields, roles, layout, canvas }.
 //   branch  – the procedural wreath: spine × stem × leaf family/profile × arrangement × ornaments
-//   paint   – every colour is a Paint: solid, linear, radial or metal, applied to the whole wreath or per leaf
+//   paint   – every color is a Paint: solid, linear, radial or metal, applied to the whole wreath or per leaf
 //   fields  – any number of text lines (status, festival, award, year, …), each with a role and a slot
 //   roles   – type styles (font, weight, case, tracking, size ratio, paint) shared by fields
 //   layout  – how the slots are arranged; the inside stack is auto-fitted to the free space between branches
@@ -92,6 +92,7 @@ function drawHugFrame(FR, blk, m) {
   const w = FR.w ?? 1.6, gap = FR.gap ?? 3, filled = !!FR.filled, k = FR.kind, paint = [], ink = [];
   let X0 = blk[0] - m * 1.5, X1 = blk[2] + m * 1.5, Y0 = blk[1] - m, Y1 = blk[3] + m;
   const minW = (Y1 - Y0) * 1.15; if (X1 - X0 < minW) { const d = (minW - (X1 - X0)) / 2; X0 -= d; X1 += d; }
+  if (k === 'ticket') { const rb = Math.min(X1 - X0, Y1 - Y0) * 0.16; X0 -= rb * 0.9; X1 += rb * 0.9; } // the corner bites must clear the words
   let W = X1 - X0, Hh = Y1 - Y0, pts = [], box;
   if (k === 'box' || k === 'ticket') {
     const shape = k === 'box' ? (x, y, ww, hh, r) => rrD(x, y, ww, hh, r) : ticketD;
@@ -101,7 +102,7 @@ function drawHugFrame(FR, blk, m) {
     else { paint.push(line(0)); if (FR.double) paint.push(line(-(gap + w * 0.8), w * 0.55)); }
     pts = rectPts(X0, Y0, W, Hh); box = [X0 - w, Y0 - w, W + 2 * w, Hh + 2 * w];
   } else if (k === 'rules') {
-    // a heavy rule outside a fine one, above and below; an ornament can break each rule at its centre
+    // a heavy rule outside a fine one, above and below; an ornament can break each rule at its center
     const o = FR.orn && FR.orn !== 'none' ? FR.orn : null, os = Math.max(4, m * 0.9), og = o ? os * 1.1 : 0;
     const seg = (y, h) => o ? [rrD(X0, y - h / 2, W / 2 - og, h, 0), rrD(X1 - (W / 2 - og), y - h / 2, W / 2 - og, h, 0)].join('') : rrD(X0, y - h / 2, W, h, 0);
     const heavy = FR.double ? w * 1.7 : w, fine = w * 0.55;
@@ -147,7 +148,7 @@ export const PROFILES = {
   diamond: (u) => (u < 0.42 ? u / 0.42 : (1 - u) / 0.58),
   blade: (u) => (u < 0.85 ? 1 - 0.25 * u : (1 - u) / 0.15 * 0.79),
   rachis: (u) => 1 - 0.85 * u,
-  laurel: (u) => Math.pow(S(Math.pow(u, 0.8)), 0.75),
+  laurel: (u) => Math.pow(S(Math.pow(u, 0.85)), 1.05),
   flame: (u) => Math.pow(S(Math.pow(u, 1.35)), 0.8),
   fan: (u) => (u < 0.62 ? Math.pow(u / 0.62, 0.9) : Math.sqrt(Math.max(0, 1 - Math.pow((u - 0.62) / 0.38, 2)))),
   stepped: (u) => Math.ceil(PROFILES.diamond(u) * 3 - 1e-6) / 3,
@@ -189,7 +190,7 @@ function profileD(prof, L, W, bend, xf, o = {}) {
   if (style === 'engraved' || style === 'hatch') d += midrib(0.09); // the midrib comes back as a solid line inside the hollow
   if (style === 'engraved') for (let j = 1; j <= 4; j++) for (const s of [-1, 1]) { const u = 0.12 + j * 0.15; d += veinD(u, s, hwAt(u, s) * 0.55, Math.max(0.4, W * 0.045), 52); }
   if (style === 'hatch') { // engraver's hatching: tapered strokes across the shaded half, thick at the midrib
-    const m = Math.max(5, Math.round(L / Math.max(1.6, W * 0.16)));
+    const m = Math.max(5, Math.round(L / Math.max(1.6, W * 0.18)));
     for (let j = 0; j < m; j++) { const u = 0.13 + 0.74 * (j / (m - 1)), len = hwAt(u, ss) * ik * 0.82; if (len < 0.8) continue; d += profileD('rachis', len, Math.max(0.35, W * 0.05), 0, comp(xf, X(u * L, mid(u) + ss * W * 0.05, ss * rad(64)))); }
   }
   if (style === 'slit' || style === 'carved') d += slit();
@@ -325,6 +326,8 @@ const maxX = (pts, keep) => { let m = -Infinity; for (const q of pts) if (keep(q
 // The gap between the two tips scales with the leaves: heavy leaves need more air than hairline ones.
 export const autoGap = (p) => Math.max(6, p.leaf.L1 * 0.7 * (0.6 + p.leaf.wr) + p.stem.w * 1.5);
 
+// families made of single leaves keep one size along the branch (sizeCurve); fronds, sprays and beads keep the even taper
+const LEAFY = { simple: 1, twig: 1, trefoil: 1, custom: 1 };
 // left branch; the right is its mirror. Shortens the arc until the two halves keep `gap` apart.
 export function buildBranch(branch, seed = 1) {
   // a tie needs the stems to meet: give tied wreaths a small crossing
@@ -376,7 +379,7 @@ function buildOnce(p, seed) {
   SHADE = [];
   const inner = [], outer = [], orns = [], shadeIn = [], shadeOut = [];
   let lastSb = 1, curlBox = null, curlPts = null;
-  const hw = (t) => (p.stem.w / 2) * (1 - p.stem.taper * clamp(t, 0, 1));
+  const hw = (t) => (p.stem.w / 2) * (1 - p.stem.taper * clamp(t, 0, 1)) * (sp.cross ? 1 : 0.2 + 0.8 * Math.sqrt(clamp(t / 0.08, 0, 1)));
   const left = S0.pts.map((q) => sink([q.p[0] + q.N[0] * hw(q.t), q.p[1] + q.N[1] * hw(q.t)]));
   const right = S0.pts.map((q) => sink([q.p[0] - q.N[0] * hw(q.t), q.p[1] - q.N[1] * hw(q.t)])).reverse();
   if (sp.cross) pts.length = 0; // a crossed stem is meant to cross
@@ -388,7 +391,7 @@ function buildOnce(p, seed) {
   const place = (t, side, scale) => {
     const q = atT(S0, t), u = clamp(t, 0, 1), T = lf.reverse ? [-q.T[0], -q.T[1]] : q.T;
     // size along the branch: base → tip taper, plus an optional swell in the middle
-    const L = lerp(lf.L0, lf.L1, Math.pow(u, 0.9)) * (1 + (lf.bulge || 0) * Math.sin(Math.PI * u)) * scale * (1 + J(lf.jitter * 0.22));
+    const L = lerp(lf.L0, lf.L1, Math.pow(u, LEAFY[lf.family || 'simple'] ? lf.sizeCurve ?? 0.9 : 0.9)) * (1 + (lf.bulge || 0) * Math.sin(Math.PI * u)) * scale * (1 + J(lf.jitter * 0.22));
     const a = rad((side > 0 ? lf.aOut : lf.aIn) * (1 + (lf.fan || 0) * (0.5 - u)) + J(lf.jitter * 14)); // fan: wider at the base, tighter at the tip
     const dir = [T[0] * Math.cos(a) + side * q.N[0] * Math.sin(a), T[1] * Math.cos(a) + side * q.N[1] * Math.sin(a)];
     const ang = Math.atan2(dir[1], dir[0]);
@@ -420,7 +423,7 @@ function buildOnce(p, seed) {
     } else if (orn.berries && i % orn.berries === 1 && i < n - 2) {
       const q = atT(S0, t + half * 0.5), r = Math.min(lerp(lf.L0, lf.L1, t) * 0.13 + 1, 3.4) * (orn.berrySize || 1), s = orn.berryPos === 'outer' ? -1 : 1, shape = orn.berryShape || 'dot';
       const cx = q.p[0] - s * q.N[0] * r * 3, cy = q.p[1] - s * q.N[1] * r * 3;
-      if (shape === 'olive') { // an olive on a short stalk, hanging towards the tip
+      if (shape === 'olive') { // an olive on a short stalk, hanging toward the tip
         const ang = Math.atan2(-s * q.N[1] + q.T[1] * 0.7, -s * q.N[0] + q.T[0] * 0.7), dx = Math.cos(ang), dy = Math.sin(ang);
         orns.push(profileD('rachis', r * 1.5, Math.max(0.6, r * 0.32), 0, X(q.p[0], q.p[1], ang)), profileD('almond', r * 2.7, r * 1.65, 0, X(q.p[0] + dx * r * 1.3, q.p[1] + dy * r * 1.3, ang)));
       } else if (shape === 'cluster') { for (let k = 0; k < 3; k++) { const a = rnd() * 0.4 + (k * 2 * Math.PI) / 3; orns.push(dotD(cx + Math.cos(a) * r * 0.85, cy + Math.sin(a) * r * 0.85, r * 0.72)); } }
@@ -446,7 +449,7 @@ function buildOnce(p, seed) {
   if (orn.tip === 'star') orns.push(polyD(starPts(qt.p[0] + qt.T[0] * 7, qt.p[1] + qt.T[1] * 7, 7).map(sink)));
   SINK = null; SHADE = null;
   let top = Infinity, bottom = -Infinity, halfW = 0, innerX = -Infinity;
-  // where a tie would sit: the lowest point where the stems come closest to the centre line
+  // where a tie would sit: the lowest point where the stems come closest to the center line
   let tieAt = S0.pts[0].p; for (const q of S0.pts) if (q.p[1] > 0 && Math.abs(q.p[0]) < Math.abs(tieAt[0])) tieAt = q.p;
   for (const [x, y] of pts) { if (y < top) top = y; if (y > bottom) bottom = y; if (-x > halfW) halfW = -x; if (x > innerX) innerX = x; }
   if (sp.cross) for (const q of S0.pts) { bottom = Math.max(bottom, q.p[1]); top = Math.min(top, q.p[1]); halfW = Math.max(halfW, -q.p[0]); }
@@ -549,25 +552,25 @@ export const DEFAULT_DOC = {
   form: 'open',
   branch: {
     mirror: true, flank: false, rows: 1,
-    spine: { rx: 0.8, ry: 1, a0: 100, a1: 252, curl: 0, spiral: 0, cross: 0, gap: 'auto' },
-    stem: { w: 2.2, taper: 0.6 },
-    leaf: { family: 'simple', profile: 'almond', n: 12, L0: 30, L1: 15, wr: 0.36, bend: 0.1, aOut: 32, aIn: 28, inScale: 0.85, arr: 'alternate', gamma: 1, jitter: 0, vein: 0, wobble: 0, asym: 0, petiole: 0, bulge: 0, reverse: false, style: 'solid', ring: 0.16, path: '', scurve: 0, fan: 0, alt: 0, fold: 0, foldSide: 1 },
+    spine: { rx: 1.3, ry: 0.78, a0: 112, a1: 238, curl: 0, spiral: 0, cross: 0, gap: 'auto' },
+    stem: { w: 1, taper: 0.7 },
+    leaf: { family: 'simple', profile: 'lance', n: 15, L0: 24, L1: 20, sizeCurve: 2.5, wr: 0.42, bend: 0.08, aOut: 34, aIn: 30, inScale: 0.95, arr: 'alternate', gamma: 1, jitter: 0, vein: 0, wobble: 0, asym: 0, petiole: 0, bulge: 0, reverse: false, style: 'solid', ring: 0.16, path: '', scurve: 0, fan: 0, alt: 0, fold: 0, foldSide: 1 },
     orn: { tip: 'leaf', berries: 0, berrySize: 1, berryShape: 'dot', flowers: 0, tie: 'none' },
   },
   paint: {
-    branch: { type: 'metal', metal: 'gold', scope: 'whole', angle: 20 },
+    branch: '#d6b56a', // one flat ink, as festivals issue them
     inner: null,          // null = same as branch, dimmed by depth
     ornament: null,       // null = same as branch
-    depth: 0.25,
-    shade: null,          // colour of the folded (shaded) half of each leaf; null = black
+    depth: 0,             
+    shade: null,          // color of the folded (shaded) half of each leaf; null = black
     mode: 'fill',         // fill | outline | both
     stroke: { w: 1.2, paint: null },
     effects: { shadow: null, glow: null, misreg: null, foil: null, press: null, grain: null, text: true },
   },
   roles: {
-    eyebrow: { font: FONT_DEFAULT, weight: 700, italic: false, case: 'upper', track: 0.2, ratio: 0.36, paint: null },
+    eyebrow: { font: FONT_DEFAULT, weight: 700, italic: false, case: 'upper', track: 0.08, ratio: 0.5, paint: null },
     hero: { font: FONT_DEFAULT, weight: 800, italic: false, case: 'upper', track: 0.01, ratio: 1, paint: null },
-    sub: { font: FONT_DEFAULT, weight: 700, italic: false, case: 'upper', track: 0.2, ratio: 0.36, paint: null },
+    sub: { font: FONT_DEFAULT, weight: 700, italic: false, case: 'upper', track: 0.06, ratio: 0.55, paint: null },
     big: { font: FONT_DEFAULT, weight: 800, italic: false, case: 'asis', track: -0.01, ratio: 1.5, paint: null },
     arc: { font: FONT_DEFAULT, weight: 700, italic: false, case: 'upper', track: 0.28, ratio: 0.34, paint: null },
   },
@@ -577,7 +580,7 @@ export const DEFAULT_DOC = {
     { id: 'f2', kind: 'festival', text: 'Northlight', role: 'hero', slot: 'inside', show: true },
     { id: 'f3', kind: 'year', text: '2026', role: 'sub', slot: 'inside', show: true },
   ],
-  layout: { arcUnderR: 1.04, heroMax: 34, minSmall: 5.5, minPx: 6, targetPx: 300, autoWiden: true, pad: 3, padK: 0.14, dy: 'auto', wrap: 'auto', spacing: 1, lineGap: 0.28, joinSep: '  ', arcTopR: 1.18, arcBottomR: 0.66, ribbonR: 1.0, ribbonW: 1, ribbonY: 0.7, badgeR: 1, outerGap: 8 },
+  layout: { arcUnderR: 1.04, heroMax: 34, hug: true, minSmall: 5.5, minPx: 6, targetPx: 300, autoWiden: true, pad: 3, padK: 0.14, dy: 'auto', wrap: 'auto', spacing: 1, lineGap: 0.28, joinSep: '  ', arcTopR: 1.18, arcBottomR: 0.66, ribbonR: 1.0, ribbonW: 1, ribbonY: 0.7, badgeR: 1, outerGap: 8 },
   ribbon: { paint: null, text: null, tails: true }, // text null = auto: dark on light ribbons, light on dark ones
   // badge frame (Badge form only): kind from FRAMES; filled frames set the words in auto-contrast ink (or `ink`)
   frame: { kind: 'none', w: 1.6, double: false, gap: 3, filled: false, orn: 'star', size: 1, radius: 0.25, band: 0.27, paint: null, ink: null },
@@ -586,19 +589,19 @@ export const DEFAULT_DOC = {
 
 // form presets: what each wreath form changes in the document
 export const FORMS = {
-  open: { branch: { mirror: true, flank: false, spine: { a0: 100, a1: 252, cross: 0 } } },
-  wreath: { branch: { mirror: true, flank: false, spine: { a0: 100, a1: 266, cross: 26 } } },
-  single: { branch: { mirror: false, flank: false, spine: { a0: 100, a1: 262, cross: 0 } } },
-  crown: { branch: { mirror: true, flank: false, spine: { a0: 182, a1: 262, cross: 0, ry: 0.75 } } },
-  swoop: { branch: { mirror: true, flank: false, spine: { a0: 96, a1: 182, cross: 0, ry: 0.75 } } },
-  flank: { branch: { mirror: true, flank: true, spine: { a0: 128, a1: 232, cross: 0, rx: 0.55, ry: 0.55 } } },
-  text: { branch: { mirror: true, flank: false }, _noBranch: true },
+  open: { branch: { mirror: true, flank: false, spine: { a0: 112, a1: 238, cross: 0 } }, layout: { heroMax: 46 } },
+  wreath: { branch: { mirror: true, flank: false, spine: { a0: 100, a1: 266, cross: 26, rx: 1.1, ry: 1 } }, layout: { heroMax: 34 } },
+  single: { branch: { mirror: false, flank: false, spine: { a0: 100, a1: 262, cross: 0 } }, layout: { heroMax: 34 } },
+  crown: { branch: { mirror: true, flank: false, spine: { a0: 182, a1: 262, cross: 0, ry: 0.75 } }, layout: { heroMax: 34 } },
+  swoop: { branch: { mirror: true, flank: false, spine: { a0: 96, a1: 182, cross: 0, ry: 0.75 } }, layout: { heroMax: 34 } },
+  flank: { branch: { mirror: true, flank: true, spine: { a0: 128, a1: 232, cross: 0, rx: 0.55, ry: 0.55 } }, layout: { heroMax: 34 } },
+  text: { branch: { mirror: true, flank: false }, layout: { heroMax: 34 }, _noBranch: true }, // a badge's frame sets the scale; the open form lets the name grow
 };
 export function applyForm(doc, form) { const d = merge(doc, FORMS[form] || {}); delete d._noBranch; d.form = form; return d; }
 
 // ── layout + render ───────────────────────────────────────────────────────
 const MCACHE = new WeakMap(); // measured widths, kept per measure function across renders
-// built branches, keyed by their parameters: typing, recolouring and re-layout passes reuse the leaves
+// built branches, keyed by their parameters: typing, recoloring and re-layout passes reuse the leaves
 const BCACHE = new Map();
 function branchOf(br, seed) {
   const k = seed + JSON.stringify(br);
@@ -675,8 +678,8 @@ export function render(docIn, env = {}) {
   // For every way of wrapping the lines (none; any split of a multi-word line into 2, or 3 for long heroes) and
   // every vertical position of the block, find the largest hero size at which each line fits the free width at
   // its own height, with padding that grows with the type. Tight small-caps lines give up tracking (down to
-  // trackMin) before anything shrinks. The winner is the biggest type, nudged towards the optical centre and
-  // towards fewer, balanced wraps.
+  // trackMin) before anything shrinks. The winner is the biggest type, nudged toward the optical center and
+  // toward fewer, balanced wraps.
   const flank = br.flank && !noBranch;
   const insideBase = toLines(fieldsIn('inside'));
   const maxW = (FG ? 2 * FG.ta : noBranch ? 200 : 2 * B.halfW) * 0.98;
@@ -799,13 +802,23 @@ export function render(docIn, env = {}) {
   report.hero = H; report.wrapped = best ? best.v.lines.length - insideBase.length : 0;
   // smart widening: a long name in a narrow wreath gets a wider wreath before it gets tiny type
   const widen = doc._widen || 0;
-  if (L.autoWiden !== false && best && !flank && !noBranch && H < Math.min(L.heroMax, 24) * 0.62 && widen < 3 && br.spine.rx < 1.2) {
+  if (L.autoWiden !== false && best && !flank && !noBranch && H < Math.min(L.heroMax, 24) * 0.62 && widen < 3 && br.spine.rx < 1.55) {
     // jump by about what the name needs (each step is a fresh build of the leaves), 13–30% at a time
     const kw = clamp(Math.pow((Math.min(L.heroMax, 24) * 0.62) / Math.max(H, 1), 0.9), 1.13, 1.3);
-    const next = merge(docIn || {}, { branch: { spine: { rx: +Math.min(1.3, br.spine.rx * kw).toFixed(3) } } }); next._widen = widen + 1;
+    const next = merge(docIn || {}, { branch: { spine: { rx: +Math.min(1.6, br.spine.rx * kw).toFixed(3) } } }); next._widen = widen + 1;
     return render(next, env);
   }
   if (widen) report.widened = { times: widen, rx: br.spine.rx };
+  const hug = doc._hug || 0;
+  if (L.hug !== false && best && contain && !FG && !noBranch && mirror && (doc.form || 'open') === 'open' && hug < 2 && !doc.fields.some((x) => x.show !== false && x.slot && x.slot !== 'inside')) {
+    const fill = stack(best.v.lines, best.H).h / Math.max(1, B.bottom - B.top);
+    if (fill < (L.hugMin ?? 0.4) && br.spine.ry > 0.56) {
+      const next = merge(docIn || {}, { branch: { spine: { ry: +Math.max(0.55, br.spine.ry * clamp(Math.pow(fill / 0.5, 0.8), 0.7, 0.94)).toFixed(3) } } });
+      next._hug = hug + 1; next._widen = widen;
+      return render(next, env);
+    }
+  }
+  if (hug) report.hugged = { times: hug, ry: br.spine.ry };
   const orFlank = flank ? '' : ', or use the Flank form';
   // when an uploaded logo is the name, the advice is about the artwork, not the font
   const logoHero = insideBase.some((l) => l.icon === 'logo' && l.role === 'hero') && !insideBase.some((l) => !l.icon && l.role === 'hero');
@@ -916,7 +929,7 @@ export function render(docIn, env = {}) {
     const size = Math.max(MS, H * r.ratio * 1.45), hh = size * 0.92;
     const tw = measure(s, r.font, r.weight, r.italic, size) + r.track * size * [...s].length;
     const halfW = Math.max(tw / 2 + hh * 1.6, Math.min(B.halfW * 0.86, 100) * L.ribbonW);
-    const Rc = Math.max(100 * br.spine.ry * 2.4, halfW * 2.6), rise = (x) => Rc - Math.sqrt(Math.max(0, Rc * Rc - x * x)); // big circle, centre above: a soft smile
+    const Rc = Math.max(100 * br.spine.ry * 2.4, halfW * 2.6), rise = (x) => Rc - Math.sqrt(Math.max(0, Rc * Rc - x * x)); // big circle, center above: a soft smile
     // the banner's ends rise: slide it down until it clears every inside line along their whole width
     let y0 = ribbonY;
     for (const it of items) if (it.slot === 'inside') { const xe = Math.min(halfW, Math.max(Math.abs(it.bbox[0]), Math.abs(it.bbox[0] + it.bbox[2]))); y0 = Math.max(y0, it.bbox[1] + it.bbox[3] + size * 0.45 + hh + rise(xe)); }
@@ -947,7 +960,7 @@ export function render(docIn, env = {}) {
   for (const [slot, Rm, sweep] of [['arc-top', L.arcTopR, 1], ['arc-bottom', L.arcBottomR, 0], ['arc-under', L.arcUnderR ?? 1.04, 0]]) {
     const ls = toLines(fieldsIn(slot)); if (!ls.length) continue;
     const r = roleOf('arc'), s = ls.map((l) => caseOf(l.s || '', r.case)).join(L.joinSep);
-    if (FG && FG.hasBand) { // a seal: the words run round the ring's band, centred in it, over the top and under the base
+    if (FG && FG.hasBand) { // a seal: the words run round the ring's band, centered in it, over the top and under the base
       const under = slot !== 'arc-top', ma = FG.oa - FG.bt / 2, mb = FG.ob - FG.bt / 2, n = [...s].length;
       let size = FG.bt * 0.5; const len = () => measure(s, r.font, r.weight, r.italic, size) + r.track * size * n;
       const room = Math.PI * Math.sqrt((ma * ma + mb * mb) / 2) * (under ? 0.58 : 0.84);
