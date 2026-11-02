@@ -1,6 +1,7 @@
 // rules.js — the festival rules check and the prestige order for rows. Gentle notes, never blocks: Daphne can't verify
 // a selection and mustn't pretend to. The rules come from what festivals publish (research/01 §2); the sources are
 // linked so anyone can check them. This file is open data on purpose: festivals and designers can add to it.
+import { festivalFromText } from './festivals.js';
 
 // Festivals that publish rules about laurels. `aliases` match the festival line (case-insensitive, whole words).
 //   artwork: 'required' (the festival supplies official artwork and requires it), 'supplied' (it supplies artwork and
@@ -24,7 +25,7 @@ export const FESTIVALS = [
     source: ['Clermont-Ferrand regulations 2025 (the market lists every entry)', 'https://clermont-filmfest.org/wp-content/uploads/2024/06/EN-Re%CC%80glement-international-2025.pdf'] },
 ];
 
-// Prestige, for ordering a row. Not a judgement of any festival: a rough, widely shared sense of which names carry
+// Prestige, for ordering a row. Not a judgment of any festival: a rough, widely shared sense of which names carry
 // furthest on a poster. Festivals not listed sort by what they gave you. Add to it freely.
 const TIER1 = ['venice', 'biennale', 'mostra', 'toronto', 'tiff', 'telluride', 'new york film festival', 'nyff', 'locarno', 'san sebastián', 'san sebastian', 'karlovy vary', 'kviff', 'rotterdam', 'iffr', 'annecy', 'idfa', 'sxsw', 'south by southwest'];
 const TIER2 = ['bfi london', 'london film festival', 'busan', 'hot docs', 'cph:dox', 'cphdox', 'sheffield', 'docfest', 'sitges', 'fantastic fest', 'palm springs', 'afi fest', 'slamdance', 'tallinn', 'black nights', 'mar del plata', 'shanghai', 'tokyo international', 'edinburgh', 'melbourne international', 'sydney film', 'thessaloniki', 'sarajevo', 'oberhausen', 'tampere', 'doc nyc', 'true/false', 'full frame', 'visions du réel', 'visions du reel', 'hong kong international', 'göteborg', 'goteborg', 'gothenburg', 'raindance', 'encounters', 'glasgow film', 'dublin international', 'outfest', 'frameline', 'zurich film', 'zff', 'vienna', 'viennale', 'new directors', 'cinéma du réel', 'krakow', 'dok leipzig', 'ann arbor', 'aspen shortsfest', 'hollyshorts'];
@@ -37,6 +38,7 @@ export function festivalOf(name) {
 export function tierOf(name) {
   const n = norm(name), F = festivalOf(name);
   if (F) return F.tier;
+  const D = festivalFromText(name); if (D) return D.tier;
   if (TIER1.some((a) => hasWord(n, a))) return 1;
   if (TIER2.some((a) => hasWord(n, a))) return 2;
   return 3;
@@ -92,7 +94,7 @@ function checkItem({ status = '', festival = '', award = '', all = '', logo = fa
   return out;
 }
 
-// A row of laurels: each laurel's notes (labelled), plus what only shows up side by side.
+// A row of laurels: each laurel's notes (labeled), plus what only shows up side by side.
 // items: [{ status, festival, award, year, src, scale }] as placed (scale = drawn size relative to the row's base size)
 export function checkRow(items) {
   const out = [];

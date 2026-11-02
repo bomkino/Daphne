@@ -1,0 +1,34 @@
+{
+  "name": "daphne-film",
+  "version": "0.1.0",
+  "description": "Daphne's story film: the myth of the first laurel, and the free laurel maker it named. Started from pitch.dog's Remotion kit.",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@remotion/cli": "4.0.532",
+    "@remotion/media": "4.0.532",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "remotion": "4.0.532"
+  },
+  "devDependencies": {
+    "@types/react": "19.2.7",
+    "@types/web": "0.0.166",
+    "typescript": "5.9.3"
+  },
+  "scripts": {
+    "dev": "remotion studio",
+    "brand": "node scripts/brand-paths.mjs",
+    "samples": "python3 scripts/score/samples.py",
+    "score": "python3 scripts/score/score.py",
+    "render": "node scripts/render.mjs",
+    "preview": "node scripts/render.mjs --preview",
+    "sheet": "node scripts/sheet.mjs",
+    "machine": "node scripts/machine.mjs",
+    "lint": "tsc",
+    "narration": "node scripts/narration.mjs",
+    "laurels": "NODE_PATH=$(npm root -g) node scripts/laurels.cjs",
+    "outro": "node scripts/outro.mjs"
+  }
+}

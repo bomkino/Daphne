@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Daphne’s story · Make festival laurels for your film. It’s free.</title>
+<meta name="description" content="In Greek myth, Daphne became the first laurel tree. Every festival laurel since is hers, and now she’s free to every filmmaker who’s earned one. Her story, told as you scroll.">
+<meta name="theme-color" content="#09160F">
+<link rel="canonical" href="https://pitch.dog/daphne/story/">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Daphne by pitch.dog">
+<meta property="og:title" content="Daphne’s story · Make festival laurels for your film. It’s free.">
+<meta property="og:description" content="She became the first laurel tree. Every laurel since is hers.">
+<meta property="og:url" content="https://pitch.dog/daphne/story/">
+<meta property="og:image" content="https://pitch.dog/daphne/story/og-story.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="A laurel tree drawn in lines of light, with a pink glow, her heart, under the bark.">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="../assets/favicon.ico" sizes="any">
+<link rel="apple-touch-icon" href="../assets/apple-touch-icon.png">
+<link rel="preload" href="../assets/fonts/pd-head.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="modulepreload" href="marks.js">
+<style>
+  @font-face { font-family: 'PD Head'; src: url('../assets/fonts/pd-head.woff2') format('woff2'); font-weight: 300 700; font-display: swap; }
+  @font-face { font-family: 'PD Body'; src: url('../assets/fonts/pd-body.woff2') format('woff2'); font-weight: 300 800; font-display: swap; }
+  @font-face { font-family: 'PD Body Alt'; src: url('../assets/fonts/pd-body-alt.woff2') format('woff2'); font-weight: 300 700; font-display: swap; }
+  @font-face { font-family: 'PD Eyebrow'; src: url('../assets/fonts/pd-eyebrow.woff2') format('woff2'); font-weight: 400 700; font-display: swap; }
+  /* Daphne's story: one frame scrolled like a film, its lines set as subtitles, then a quiet chapter on Grove.
+     Gold appears only in the laurels people make; Bloom is her heart, once, in the film of the story. */
+  :root {
+    --night: #09160F; --deep: #0B1B13; --grove: #12291E; --paper: #F3F6EF; --leaf: #B8E59A; --bay: #1F5C3B;
+    --mist: rgba(243, 246, 239, .66); --hair: rgba(184, 229, 154, .16);
+    --display: 'PD Head', Georgia, serif; --lead: 'PD Body Alt', 'PD Body', system-ui, sans-serif; --text: 'PD Body', system-ui, sans-serif; --data: 'PD Eyebrow', ui-monospace, monospace;
+    --gut: max(16px, env(safe-area-inset-left, 0px)); --gutR: max(16px, env(safe-area-inset-right, 0px));
+    --bar: var(--pdn-h, 0px);
+  }
+  * { box-sizing: border-box; }
+  html { background: var(--night); }
+  body { margin: 0; background: var(--grove); color: var(--paper); font: 400 17px/1.55 var(--text); -webkit-font-smoothing: antialiased; overflow-x: hidden; }
+  main { display: block; }
+  ::selection { background: var(--leaf); color: var(--grove); }
+  a { color: var(--leaf); text-underline-offset: .2em; }
+  :focus-visible { outline: 2px solid var(--leaf); outline-offset: 3px; border-radius: 4px; }
+  .wrap { max-width: 1120px; margin: 0 auto; padding-left: calc(var(--gut) + 8px); padding-right: calc(var(--gutR) + 8px); }
+
+  /* the story: without JavaScript, its lines read as text on the night; with it, one frame sticks under the bar */
+  .story { position: relative; background: var(--night); color-scheme: dark; }
+  .story.live { height: 720vh; height: 720svh; }
+  .stage { position: relative; }
+  .live .stage { position: sticky; top: var(--bar); height: calc(100vh - var(--bar)); height: calc(100svh - var(--bar)); overflow: hidden; }
+  .stage canvas { position: absolute; inset: 0; display: block; width: 100%; height: 100%; }
+  .shade { position: absolute; inset: auto 0 0 0; height: 40%; background: linear-gradient(to top, rgba(8, 20, 14, .8), rgba(8, 20, 14, 0)); pointer-events: none; }
+  .head { position: absolute; top: 0; left: 0; right: 0; z-index: 2; display: flex; justify-content: space-between; align-items: baseline; gap: 16px; padding: 20px calc(var(--gutR) + 8px) 0 calc(var(--gut) + 8px); font: 500 11.5px/1.2 var(--data); letter-spacing: .1em; text-transform: uppercase; color: var(--mist); }
+  .head h1 { margin: 0; font: inherit; letter-spacing: inherit; }
+  .head a { color: inherit; text-decoration: none; white-space: nowrap; padding: 6px 0; }
+  .head a:hover { color: var(--paper); }
+  .caps { display: grid; gap: 28px; padding: 120px var(--gutR) 48px var(--gut); }
+  .cap { margin: 0 auto; max-width: 28ch; text-align: center; font: 300 clamp(22px, min(3.1vw, 5.2vh), 42px)/1.26 var(--display); font-size: clamp(22px, min(3.1vw, 5.2svh), 42px); color: var(--paper); text-wrap: balance; text-shadow: 0 1px 26px rgba(8, 20, 14, .95), 0 0 2px rgba(8, 20, 14, .6); }
+  .cap.end { position: relative; z-index: 2; display: grid; gap: 18px; justify-items: center; max-width: none; padding: 0 var(--gutR) 120px var(--gut); }
+  .cap.end .tag { font: 400 clamp(19px, 2vw, 26px)/1.3 var(--lead); margin: 0; text-wrap: balance; }
+  .live .caps { position: absolute; inset: auto 0 max(10vh, 60px) 0; padding: 0 var(--gutR) 0 var(--gut); }
+  .live .cap { grid-area: 1 / 1; align-self: end; opacity: 0; will-change: opacity, transform; }
+  .live .cap.end { position: absolute; left: 0; right: 0; top: 70%; padding-bottom: 0; visibility: hidden; }
+  .live .cap.end.on { visibility: visible; }
+  .hint { display: none; }
+  .live .hint { display: block; position: absolute; left: 50%; bottom: calc(env(safe-area-inset-bottom, 0px) + 18px); transform: translateX(-50%); font: 500 10.5px var(--data); letter-spacing: .16em; text-transform: uppercase; color: var(--mist); }
+
+  /* the one way out of the story, and the chapter's too */
+  .make { display: inline-flex; align-items: center; justify-content: center; gap: 10px; min-height: 48px; padding: 13px 24px; border-radius: 999px; background: var(--leaf); color: var(--grove); text-decoration: none; font: 600 16px/1.2 var(--text); text-shadow: none; transition: background .2s, transform .2s cubic-bezier(.2, .7, .1, 1); }
+  .make:hover { background: #CDEFB6; transform: translateY(-1px); }
+  .make svg { width: 16px; height: 16px; flex: none; }
+  .free { font: 500 12px/1.4 var(--data); letter-spacing: .08em; text-transform: uppercase; color: var(--mist); margin: 0; }
+
+  /* the chapter after the story */
+  .after { background: var(--grove); padding-block: clamp(72px, 10vw, 136px); border-top: 1px solid var(--hair); }
+  .eyebrow { font: 500 12px/1.2 var(--data); letter-spacing: .1em; text-transform: uppercase; color: var(--leaf); margin: 0 0 18px; }
+  h2 { font: 400 clamp(34px, 4.6vw, 60px)/1.08 var(--display); margin: 0 0 22px; max-width: 18ch; text-wrap: balance; letter-spacing: -.01em; }
+  .lede { font: 400 clamp(19px, 1.8vw, 23px)/1.45 var(--lead); max-width: 40ch; margin: 0 0 18px; text-wrap: pretty; }
+  .after p { max-width: 62ch; text-wrap: pretty; }
+  .mist { color: var(--mist); }
+  .held { white-space: nowrap; }
+  .lb { display: inline-block; width: .3976em; height: 1.24em; vertical-align: -.3em; background: var(--leaf); -webkit-mask: url('../assets/leaf-left.svg') center / contain no-repeat; mask: url('../assets/leaf-left.svg') center / contain no-repeat; }
+  .lb.r { -webkit-mask-image: url('../assets/leaf-right.svg'); mask-image: url('../assets/leaf-right.svg'); margin-left: .02em; }
+  .lb:first-child { margin-right: .04em; }
+  .laurels { list-style: none; margin: 44px 0 0; padding: 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: clamp(10px, 1.4vw, 16px); }
+  .laurels li { margin: 0; background: var(--deep); border-radius: 6px; padding: clamp(10px, 1.6vw, 18px) clamp(10px, 1.6vw, 18px) 12px; display: grid; gap: 10px; min-width: 0; align-content: start; }
+  .laurels img { width: 100%; height: auto; aspect-ratio: 520 / 340; object-fit: contain; display: block; }
+  .laurels span { font: 500 12.5px/1.4 var(--data); letter-spacing: .03em; color: var(--mist); }
+  .laurels.wait li { opacity: 0; transform: translateY(14px); transition: opacity .9s cubic-bezier(.33, 0, .15, 1), transform .9s cubic-bezier(.2, .7, .1, 1); }
+  .laurels.wait.in li { opacity: 1; transform: none; }
+  .laurels.in li:nth-child(2) { transition-delay: .08s; } .laurels.in li:nth-child(3) { transition-delay: .16s; } .laurels.in li:nth-child(4) { transition-delay: .24s; } .laurels.in li:nth-child(5) { transition-delay: .32s; }
+  /* phones: the first laurel leads, the other four sit two by two */
+  @media (max-width: 720px) {
+    .laurels { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .laurels li:first-child { grid-column: 1 / -1; }
+    .laurels li:first-child img { width: min(100%, 300px); margin: 0 auto; }
+  }
+  .go { display: flex; flex-wrap: wrap; align-items: center; gap: 14px 20px; margin-top: 44px; }
+
+  /* the film of the story, on the same night, before the chapter: a phone held upright gets the upright cut (film.js) */
+  .watch { background: var(--night); color-scheme: dark; border-top: 1px solid var(--hair); padding-block: clamp(64px, 9vw, 120px); text-align: center; }
+  .watch h2 { font-size: clamp(28px, 3.4vw, 44px); max-width: none; margin: 0 auto 28px; }
+  .screen { width: 100%; aspect-ratio: 16 / 9; margin: 0 auto; max-width: calc((100vh - var(--bar) - 72px) * 16 / 9); max-width: calc((100svh - var(--bar) - 72px) * 16 / 9); border-radius: 10px; overflow: hidden; background: var(--night); box-shadow: 0 0 0 1px var(--hair), 0 30px 80px rgba(0, 0, 0, .5); }
+  .screen.tall { aspect-ratio: 9 / 16; max-width: min(100%, calc((100vh - var(--bar) - 72px) * 9 / 16)); max-width: min(100%, calc((100svh - var(--bar) - 72px) * 9 / 16)); }
+  .screen video { display: block; width: 100%; height: 100%; object-fit: contain; background: var(--night); }
+  .words { max-width: 640px; margin: 28px auto 0; text-align: left; border-block: 1px solid var(--hair); }
+  .words summary { cursor: pointer; list-style: none; display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 16px 2px; font: 500 12px/1.2 var(--data); letter-spacing: .1em; text-transform: uppercase; color: var(--mist); }
+  .words summary::-webkit-details-marker { display: none; }
+  .words summary::after { content: '+'; font: 300 22px/1 var(--display); color: var(--leaf); transition: transform .3s cubic-bezier(.2, .7, .1, 1); }
+  .words[open] summary::after { transform: rotate(45deg); }
+  .words summary:hover { color: var(--paper); }
+  .words div { padding: 4px 2px 24px; font: 300 clamp(18px, 2.2vw, 21px)/1.55 var(--display); }
+  .words p { margin: 0 0 .8em; }
+
+  footer { background: var(--deep); padding-block: 40px calc(env(safe-area-inset-bottom, 0px) + 48px); color: var(--mist); font: 400 14px/1.6 var(--text); }
+  footer p { margin: 0 0 10px; max-width: 62ch; }
+  footer .by { color: var(--paper); font: 400 16px/1.5 var(--lead); margin-bottom: 18px; }
+  footer .data { font: 500 12px/1.6 var(--data); letter-spacing: .06em; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .hint { display: none !important; }
+    .make { transition: none; }
+    .words summary::after { transition: none; }
+  }
+</style>
+</head>
+<body>
+<main id="main">
+<section class="story" aria-label="Daphne’s story">
+  <div class="stage"><canvas id="grove" aria-hidden="true"></canvas><div class="shade"></div>
+    <div class="head"><h1>Daphne’s story</h1><a href="../">Make a laurel</a></div>
+    <div class="caps">
+      <p class="cap">Daphne was a river nymph who wanted to belong to no one.</p>
+      <p class="cap">When a god chased her, she begged to be changed. Her arms became branches. Her hair became leaves.</p>
+      <p class="cap">She became the first laurel tree. Her heart, the story goes, still beat under the bark.</p>
+      <p class="cap">The god wore her leaves as a crown. Since then, laurels have gone to the poets, athletes and artists who were chosen.</p>
+      <p class="cap">Every laurel since is hers. She still belongs to no one, so now she’s free to every filmmaker who’s earned one.</p>
+    </div>
+    <div class="cap end"><p class="tag">Make festival laurels for your film. It’s free.</p><a class="make" href="../">Make your laurel<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8h10M9 4l4 4-4 4"/></svg></a></div>
+    <div class="hint" aria-hidden="true">Scroll</div>
+  </div>
+</section>
+
+<section class="watch" aria-labelledby="watch-it">
+  <div class="wrap">
+    <p class="eyebrow">A short film · 1 min 50 s · Sound on</p>
+    <h2 id="watch-it">Watch her story as a film</h2>
+    <div class="screen" id="screen">
+      <video id="film" controls playsinline preload="none" poster="poster-16x9.webp" data-size="16x9" aria-label="Daphne’s story, a short film with music. Its words are on screen, and written out below.">
+        <source src="daphne-story-16x9.mp4" type="video/mp4">
+      </video>
+    </div>
+    <details class="words">
+      <summary>Read the film’s words</summary>
+      <div>
+        <p>You’ve seen her on a thousand film posters.</p>
+        <p>You just never knew her name.</p>
+        <p>Daphne.</p>
+        <p>She was a river’s daughter, and she wanted to belong to no one.</p>
+        <p>Then a god saw her, and wanted her.</p>
+        <p>She ran.</p>
+        <p>And when she could run no farther, she begged her father, the river, to change her.</p>
+        <p>Her feet took root. Her arms became branches. Her hair became leaves.</p>
+        <p>When he laid his hand on the bark, he could still feel her heart, trembling underneath.</p>
+        <p>He kissed the wood. Even as wood, she pulled away.</p>
+        <p>He couldn’t have her. So he took her leaves, and wore them as a crown.</p>
+        <p>Ever since, her leaves have crowned the chosen. Poets. Athletes. Artists.</p>
+        <p>Now she sits on film posters, and quietly says: this film was chosen.</p>
+        <p>But she only ever asked to belong to no one.</p>
+        <p>So we made her free.</p>
+        <p>Daphne makes festival laurels for your film.</p>
+        <p>No account. No watermark. Nothing leaves your device.</p>
+        <p>For every filmmaker who’s earned one.</p>
+      </div>
+    </details>
+  </div>
+</section>
+
+<section class="after" aria-labelledby="make-it">
+  <div class="wrap">
+    <p class="eyebrow">Every laurel since</p>
+    <h2 id="make-it"><span class="held"><i class="lb" aria-hidden="true"></i>Your film<i class="lb r" aria-hidden="true"></i></span> did the hard part. Now make the laurel.</h2>
+    <p class="lede">Daphne makes festival laurels, the wreaths on a film’s poster that say it was selected for, or won at, a festival.</p>
+    <p class="mist">Type the festival, your selection and the year, pick a look, and download it for your poster, trailer and socials as a PNG, SVG, PDF or video. It’s free and works in your browser, with no account and no watermark. Nothing you make leaves your device unless you share it.</p>
+    <ul class="laurels" aria-label="Five laurels made with Daphne">
+      <li><img src="laurels/classic-gold.webp" alt="A gold laurel: Official Selection, Your Festival, 2026" width="520" height="303" loading="lazy" decoding="async"><span>Classic Gold</span></li>
+      <li><img src="laurels/black-tie.webp" alt="A silver laurel: World Premiere, Your Festival, 2026" width="520" height="292" loading="lazy" decoding="async"><span>Black Tie</span></li>
+      <li><img src="laurels/laureate.webp" alt="A gold laurel: Winner, Best Short Film, Your Festival 2026" width="520" height="297" loading="lazy" decoding="async"><span>Laureate</span></li>
+      <li><img src="laurels/gala-seal.webp" alt="A gold ring seal: Official Selection, Your Festival, 2026" width="520" height="521" loading="lazy" decoding="async"><span>Gala Seal</span></li>
+      <li><img src="laurels/hot-foil.webp" alt="A foil laurel: Audience Award, Your Festival, 2026" width="520" height="293" loading="lazy" decoding="async"><span>Hot Foil</span></li>
+    </ul>
+    <div class="go"><a class="make" href="../">Make your laurel<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8h10M9 4l4 4-4 4"/></svg></a><p class="free">Free · No account · No watermark</p></div>
+  </div>
+</section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <p class="by" id="pitchdog">Made by <a href="/">pitch.dog</a>. We write and design pitch decks for film and TV. <a href="/work/">See our work</a></p>
+    <p>The story follows Ovid’s <i>Metamorphoses</i>, book I. The film’s score is original, played on VS Chamber Orchestra: Community Edition, by Versilian Studios and Ivy Audio.</p>
+    <p class="data">Daphne is open source · <a href="https://github.com/bomkino/Daphne">Source on GitHub</a></p>
+  </div>
+</footer>
+<script type="module" src="story.js"></script>
+<script type="module" src="film.js"></script>
+</body>
+</html>
