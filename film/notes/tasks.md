@@ -4,12 +4,13 @@
 
 ## Now
 
+- Nothing in progress. The film is live.
 
 ## Next
 
 - [ ] Someone listens to the score on headphones and a phone speaker
 - [ ] If Manali records: takes into `public/vo/<voice>/L01.wav`..., render the narrated cut (NARRATION.md)
-- [ ] When PR #5 (the intro/outro) merges, run `npm run outro` in a fresh checkout before rendering
+- [ ] In a fresh checkout, run `npm run outro` before rendering (the outro mp4s are git-ignored copies of brand/motion/)
 - [ ] Covers and captions for posting (guides/packaging.md in the kit)
 
 ## Blocked
