@@ -1,0 +1,8 @@
+# Daphne's story film: learnings
+
+- 2026-10-31 Time the words before building the picture: estimate each line's length from syllables and compare it with the room before the next line. Why: five of 21 lines here had less room than their words needed, found only once the narration sheet was printed; fixing it meant adding rests to picture and score. (`general`, `process`)
+- 2026-10-31 A score written in beats can be retimed with a table of rests that maps written beats to film beats, holding any note that crosses a rest. Add a check that the film's acts equal the mapped beats, so the two can't drift. Why: added seven rests to a finished cue without rewriting a note. (`general`, `technique`)
+- 2026-10-31 A synthesized heartbeat needs harmonics (soft saturation, a 120–480 Hz thud) to be heard on a phone. Why: the first one sat at 40–64 Hz, topped the loudness meter and would have been silent on a phone speaker. (`general`, `technique`)
+- 2026-10-31 Morphing a polyline from a short shape to a tall one point by point draws loops when its lower points arrive first. Grow the tall shape along its length instead. Why: the stem-to-tree morph drew loops at the strand tips for a second. (`general`, `technique`)
+- 2026-10-31 When a film cuts into another team's sting, compare your last frame with its first frame by pixels, not by spec. Why: the laurel's size and position matched the spec, but its words were set at a different size, which only the frame comparison showed. (`general`, `process`)
+- 2026-10-31 A sampled note held longer than its recording needs a crossfaded loop of its steady middle; jumping back without a crossfade clicks. Why: long drones in the prologue and the roots. (`general`, `technique`)

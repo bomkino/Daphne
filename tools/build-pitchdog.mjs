@@ -4,10 +4,11 @@
 // The app in prototype/ has no build step and works under any base path, so this
 // copies it as it is, minus the test and QA pages, and adds what only pitch.dog
 // needs: the canonical link, pitch.dog's page-view analytics (no session replay)
-// and BUILD.json, which names the commit it came from.
+// and BUILD.json, which names the commit it came from. It stops on an inline
+// <script>, which pitch.dog's Content-Security-Policy would block.
 //
-// pitch.dog/daphne/story/ belongs to the story film. Its page goes in
-// prototype/story/, and this build ships it from there. Nothing else uses that path.
+// pitch.dog/daphne/story/ is Daphne's story, told as you scroll (prototype/story/), and
+// this build ships it from there, with the story film as a section of it (film.js, daphne-story-*.mp4).
 //
 //   node tools/build-pitchdog.mjs
 //
@@ -34,17 +35,38 @@ await cp(app, out, { recursive: true, filter: (src) => src === app || !devOnly(r
 await cp(join(root, 'LICENSE'), join(out, 'LICENSE.txt'))
 await cp(join(root, 'LICENSE-CC0.md'), join(out, 'LICENSE-CC0.md'))
 
-function replaceOnce(text, from, to) {
+function replaceOnce(text, from, to, file = 'index.html') {
   const at = text.indexOf(from)
-  if (at < 0 || text.indexOf(from, at + 1) >= 0) throw new Error(`index.html: expected exactly one ${from}`)
+  if (at < 0 || text.indexOf(from, at + 1) >= 0) throw new Error(`${file}: expected exactly one ${from}`)
   return text.slice(0, at) + to + text.slice(at + from.length)
 }
+// Page views only: the script drops the URL's #l= laurel link before anything is sent, and replay stays off.
+const analytics = '<script src="/assets/site-analytics.js" data-analytics-replay="off" defer></script>\n</head>'
 const indexPath = join(out, 'index.html')
 let html = await readFile(indexPath, 'utf8')
 html = replaceOnce(html, '<link rel="manifest"', `<link rel="canonical" href="https://pitch.dog${base}">\n<link rel="manifest"`)
-// Page views only: the script drops the URL's #l= laurel link before anything is sent, and replay stays off.
-html = replaceOnce(html, '</head>', '<script src="/assets/site-analytics.js" data-analytics-replay="off" defer></script>\n</head>')
+html = replaceOnce(html, '</head>', analytics)
 await writeFile(indexPath, html)
+// The story page carries its own canonical link; it gets the same page-view count.
+const storyPath = join(out, 'story', 'index.html')
+await writeFile(storyPath, replaceOnce(await readFile(storyPath, 'utf8'), '</head>', analytics, 'story/index.html'))
+
+// pitch.dog's Content-Security-Policy for /daphne/ runs scripts from files only, so an inline
+// <script> would silently not run there. Catch it here instead of on the live site.
+async function* pages(dir) {
+  for (const entry of await readdir(dir, { withFileTypes: true })) {
+    const path = join(dir, entry.name)
+    if (entry.isDirectory()) yield* pages(path)
+    else if (entry.name.endsWith('.html')) yield path
+  }
+}
+const inline = /<script\b(?![^>]*\bsrc=)(?![^>]*type=["']application\/(?:ld\+)?json["'])[^>]*>/i
+const blocked = []
+for await (const path of pages(out)) if (inline.test(await readFile(path, 'utf8'))) blocked.push(relative(out, path))
+if (blocked.length) {
+  console.error(`Inline <script> in ${blocked.join(', ')}. pitch.dog's Content-Security-Policy blocks inline scripts, so move each one into a .js file next to its page.`)
+  process.exit(1)
+}
 
 const build = {
   name: 'Daphne',
