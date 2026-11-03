@@ -1,6 +1,6 @@
 # Daphne — product plan
 
-pitch.dog · 31 Oct 2026 · draft 1 for Kay, Em and Jen
+pitch.dog · 31 Oct 2026 · draft 1 for the studio
 
 A free, open-source laurel maker for filmmakers. It runs in the browser with no account, no watermark and no server. It makes laurels that look designed rather than downloaded, and it gives anyone who wants them every control there is.
 
@@ -510,7 +510,7 @@ Each phase ends when its exit test passes, not on a date.
 
 ---
 
-## 17. Decisions for Kay, Em and Jen
+## 17. Decisions for the studio
 
 1. **Name and home: Daphne, at pitch.dog/daphne** (decided 31 Oct 2026). No separate domain. The app is built for a sub-path, so assets and share links sit under `/daphne/`, for example `pitch.dog/daphne#l=…`. pitch.dog confirmed Daphne over Laurelist on 31 Oct 2026: it carries the laurel's origin story and reads as a someone, while Laurelist reads like a list of selections. Search is handled by the words around the name: always "Daphne — free festival laurel maker" in the page title, the H1 and social cards, and pitch.dog/laurels and pitch.dog/laurel-generator redirect to /daphne. Credit line on exports: "Made with Daphne".
 2. **Where it lives.** A public repo under the bomkino GitHub organisation or a new pitch.dog one, and whether it carries pitch.dog branding ("made by pitch.dog") in the app footer.
