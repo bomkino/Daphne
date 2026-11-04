@@ -59,13 +59,13 @@ All work goes on the branch `claude/project-thread-tx7lhm` with one draft PR. Me
 
 | ID | Wave | Status | Test / note |
 | --- | --- | --- | --- |
-| D17 | 0 | todo | |
+| D17 | 0 | fixed | Repo public (November 4, 2026), MIT detected by GitHub; tests and CI in the open |
 | D40 | 0 | todo | |
 | D01 | 1 | fixed | Status read per sentence about this film; unsure results unticked; tests/unit/email.test.mjs (6 of 12 fail on main) |
 | D08 | 1 | todo | |
 | D20 | 1 | todo | |
 | D21 | 1 | todo | |
-| D22 | 1 | todo | |
+| D22 | 1 | fixed | Outcome read from qualifiers before award words; ranking is order only; no status, submissions or artwork metadata never become a selection; hidden row laurels left out; tests/unit/accolades.test.mjs (10 of 11 fail on main) |
 | D32 | 1 | todo | |
 | D33 | 1 | todo | |
 | D34 | 1 | todo | |

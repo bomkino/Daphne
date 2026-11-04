@@ -1,7 +1,7 @@
 // studio.js — Export. Say where the laurel is going and get exactly the files that place needs.
 // Nothing here changes the laurel: every destination re-dresses a copy of the document (a one-color version, a social
 // card, an end-card frame) and packs it. The settings people pick are remembered on this device.
-import { checkLaurel, statusRank, prestige } from './rules.js';
+import { checkLaurel, accoladesOf } from './rules.js';
 import { STATUS_COMMON } from './words.js';
 
 const AWARD_LAYOUTS = ['winner', 'award-detail', 'award-festival-hero', 'star-winner'];
@@ -53,26 +53,9 @@ async function withDpi(blob, dpi) {
   return new Blob([src.subarray(0, 33), chunk, src.subarray(33)], { type: 'image/png' });
 }
 
-// ── what the laurels say, as text: for press releases, IMDb, FilmFreeway, a website ──
-function accolades(ctx) {
-  const d = ctx.doc, t = (k) => d.fields.filter((f) => f.kind === k && f.show !== false && f.text).map((f) => f.text.trim()).join(' ');
-  const items = [];
-  const self = { status: t('status'), festival: t('festival'), award: t('award'), year: (t('year').match(/\d{4}/) || [''])[0] };
-  if (self.festival || self.award) items.push(self);
-  for (const it of (d.row && d.row.items) || []) if (it.festival || it.award) items.push({ status: it.status || '', festival: it.festival || '', award: it.award || '', year: String(it.year || '').match(/\d{4}/)?.[0] || '' });
-  const seen = new Set(), list = items.filter((it) => { const k = [it.status, it.festival, it.award, it.year].join('|').toLowerCase(); if (seen.has(k)) return false; seen.add(k); return true; });
-  list.sort((a, b) => prestige(b) - prestige(a));
-  const line = (it) => [it.status, it.award, [it.festival, it.year].filter(Boolean).join(' ')].filter(Boolean).join(', ');
-  const wins = list.filter((it) => statusRank(it.status || it.award) >= 50), fests = [...new Set(list.map((it) => it.festival).filter(Boolean))];
-  const prem = list.find((it) => /premiere/i.test(it.status));
-  const and = (a) => (a.length < 2 ? a.join('') : a.slice(0, -1).join(', ') + ' and ' + a[a.length - 1]);
-  const s = [];
-  if (prem) s.push(`${prem.status} at ${[prem.festival, prem.year].filter(Boolean).join(' ')}.`);
-  if (fests.length > 1) s.push(`Selected for ${fests.length} festivals, including ${and(fests.slice(0, 3))}.`);
-  else if (fests.length === 1 && !prem) s.push(`${list[0].status || 'Official Selection'}, ${fests[0]}${list[0].year ? ' ' + list[0].year : ''}.`);
-  if (wins.length) s.push(`Winner of ${and(wins.slice(0, 3).map((w) => (w.award || 'an award') + (w.festival ? ` at ${w.festival}${w.year ? ' ' + w.year : ''}` : '')))}${wins.length > 3 ? `, and ${wins.length - 3} more` : ''}.`);
-  return { list, lines: list.map(line), sentence: s.join(' '), html: `<ul class="laurels">\n${list.map((it) => `  <li>${esc(line(it))}</li>`).join('\n')}\n</ul>` };
-}
+// what the laurels say, as text: rules.js accoladesOf keeps it to what the laurels claim
+const accolades = (ctx) => accoladesOf(ctx.doc);
+const NO_SENTENCE = 'No sentence yet: none of these laurels says what the festival gave the film. Add a status (Official Selection, a premiere, Winner) and it writes itself.';
 
 // a first line for the post that goes with the card; the filmmaker makes it theirs
 function caption(ctx, title) {
@@ -318,7 +301,7 @@ export function openStudio(ctx) {
       pv.append(h('div', { class: 'sigs' }, sig(false), sig(true)), cap('How it sits in a light and a dark inbox, at the size it’s shown.'));
     } else if (D === 'words') {
       const a = accolades(ctx);
-      pv.append(h('div', { class: 'wordsheet' }, a.list.length ? [h('h4', {}, 'Laurels'), h('ul', {}, a.lines.map((l) => h('li', {}, l))), a.sentence ? [h('h4', {}, 'In a sentence'), h('p', {}, a.sentence)] : null] : h('p', {}, 'Fill in the festival on the Words tab, or add laurels to the row, and the text writes itself.')));
+      pv.append(h('div', { class: 'wordsheet' }, a.list.length ? [h('h4', {}, 'Laurels'), h('ul', {}, a.lines.map((l) => h('li', {}, l))), [h('h4', {}, 'In a sentence'), h('p', {}, a.sentence || NO_SENTENCE)]] : h('p', {}, 'Fill in the festival on the Words tab, or add laurels to the row, and the text writes itself.')));
     } else if (D === 'pack') {
       const vs = packList();
       pv.append(h('div', { class: 'packgrid' }, vs.slice(0, 24).map((v) => { const r = ctx.render(colorway(v.doc, 'color', ctx.clone)); return h('figure', {}, h('div', { class: 'pt', html: (d0().canvas.bg ? r.svg : stripBg(r.svg)).replace(/width="[^"]+" height="[^"]+"/, '') }), h('figcaption', {}, v.label)); })),
@@ -446,9 +429,9 @@ export function openStudio(ctx) {
       const a = accolades(ctx), forms = { list: ['List', a.lines.join('\n')], sentence: ['Sentence', a.sentence], html: ['HTML', a.html] };
       const cur = forms[P.words] ? P.words : 'list';
       put(seg(Object.entries(forms).map(([k, v]) => [k, v[0]]), cur, (v) => set('words', v), 'Format'),
-        h('pre', {}, forms[cur][1] || 'Nothing yet: fill in the festival first.'),
+        h('pre', {}, forms[cur][1] || (a.list.length ? NO_SENTENCE : 'Nothing yet: fill in the festival first.')),
         go(h('button', { class: 'btn primary', onclick: () => copy(forms[cur][1], 'Copied') }, 'Copy')),
-        h('div', { class: 'hint' }, a.list.length > 1 ? 'Ordered by what carries furthest: wins, then premieres, then selections.' : 'Add laurels to the row (Row, in the top bar) and they all appear here, in order.'),
+        h('div', { class: 'hint' }, a.list.length > 1 ? `${a.count} laurels, ordered by what carries furthest: wins, then premieres, then selections. Laurels hidden in the row are left out.` : 'Add laurels to the row (Row, in the top bar) and they all appear here, in order.'),
         altBlock());
     } else if (D.id === 'pack') {
       const K = P.pack, n = packList().length;
