@@ -16,12 +16,14 @@ async function gfFetch(path) {
 let HBP = null;
 const hb = () => HBP || (HBP = import('./vendor/hb-index.mjs'));
 const metaCache = new Map(), blobCache = new Map();
+// D30: a lookup that failed (offline, a blocked mirror) is forgotten, so the next export asks again
+const forgetOnFail = (cache, key, fn) => { const p = fn(); p.catch(() => { if (cache.get(key) === p) cache.delete(key); }); return p; };
 const dirOf = (fam) => fam.toLowerCase().replace(/[^a-z0-9]/g, '');
 const fileUrl = (u) => u.replace(/\[/g, '%5B').replace(/\]/g, '%5D');
 
 // the family's METADATA.pb lists its files (static weights or one variable file per style) and its axes
 function meta(fam) {
-  if (!metaCache.has(fam)) metaCache.set(fam, (async () => {
+  if (!metaCache.has(fam)) metaCache.set(fam, forgetOnFail(metaCache, fam, async () => {
     for (const lic of ['ofl', 'apache', 'ufl']) {
       const r = await gfFetch(`${lic}/${dirOf(fam)}/METADATA.pb`);
       if (!r || !r.ok) continue;
@@ -30,8 +32,8 @@ function meta(fam) {
       const axes = [...t.matchAll(/axes \{\s*tag: "(\w+)"\s*min_value: ([-\d.]+)\s*max_value: ([-\d.]+)/g)].map((m) => ({ tag: m[1], min: +m[2], max: +m[3] }));
       if (fonts.length) return { base: `${lic}/${dirOf(fam)}/`, fonts, axes };
     }
-    throw new Error(`Couldn't find the font files for ${fam}`);
-  })());
+    throw new Error(`Couldn’t find the font files for ${fam}`);
+  }));
   return metaCache.get(fam);
 }
 
@@ -42,7 +44,7 @@ async function fontFor(fam, weight = 400, italic = false) {
   const vf = cands.find((x) => x.file.includes('['));
   const pick = vf || cands.reduce((a, b) => (Math.abs(b.weight - weight) < Math.abs(a.weight - weight) ? b : a));
   const url = m.base + pick.file;
-  if (!blobCache.has(url)) blobCache.set(url, (async () => { const r = await gfFetch(fileUrl(url)); if (!r || !r.ok) throw new Error(`Couldn't load ${pick.file}`); const face = new H.Face(new H.Blob(await r.arrayBuffer())); return face; })());
+  if (!blobCache.has(url)) blobCache.set(url, forgetOnFail(blobCache, url, async () => { const r = await gfFetch(fileUrl(url)); if (!r || !r.ok) throw new Error(`Couldn’t load ${pick.file}`); const face = new H.Face(new H.Blob(await r.arrayBuffer())); return face; }));
   const face = await blobCache.get(url), font = new H.Font(face);
   if (vf) { const wa = m.axes.find((a) => a.tag === 'wght'); if (wa) font.setVariations([new H.Variation('wght', Math.min(wa.max, Math.max(wa.min, weight)))]); }
   return { H, font, upem: face.upem, fam };
@@ -57,27 +59,84 @@ const FALLBACK = [
 ];
 const fallbackFor = (s) => FALLBACK.find(([re]) => re.test(s))[1];
 
-// shape a string: glyphs in visual order with their outline, advance and offsets, in px at `size`
-async function shapeRun(fam, weight, italic, text, size, ls, notes) {
-  const F = await fontFor(fam, weight, italic);
-  const out = shapeWith(F, text, size, ls);
-  if (!out.some((g) => g.id === 0)) return out;
-  // split the text into stretches the font covers and stretches it doesn't, and shape the missing ones in Noto
-  const miss = new Set(out.filter((g) => g.id === 0).map((g) => g.cluster)), segs = [];
-  const chars = [...text]; let i16 = 0;
-  for (const ch of chars) { const bad = miss.has(i16) || /\s/.test(ch) && segs.length && segs[segs.length - 1].bad; const last = segs[segs.length - 1]; if (last && last.bad === bad) last.s += ch; else segs.push({ s: ch, bad }); i16 += ch.length; }
+// ── bidi: the visual order a browser gives an SVG <text> (base direction left to right), simplified from Unicode's
+// bidi algorithm (UAX #9): Hebrew and Arabic read right to left, numbers inside them stay left to right, and spaces
+// and punctuation take the direction of what's around them. Marks go with the letter before them.
+const isMark = (c) => /\p{M}/u.test(c);
+function bidiType(c) {
+  const u = c.codePointAt(0);
+  if (u >= 0x30 && u <= 0x39) return 'EN';
+  if (u >= 0x660 && u <= 0x669) return 'AN';
+  if (u >= 0x6f0 && u <= 0x6f9) return 'EN';
+  if ((u >= 0x590 && u <= 0x5ff) || (u >= 0xfb1d && u <= 0xfb4f) || (u >= 0x7c0 && u <= 0x85f)) return 'R';
+  if ((u >= 0x600 && u <= 0x6ff) || (u >= 0x750 && u <= 0x77f) || (u >= 0x8a0 && u <= 0x8ff) || (u >= 0xfb50 && u <= 0xfdff) || (u >= 0xfe70 && u <= 0xfeff)) return 'AL';
+  if (/\p{L}/u.test(c)) return 'L';
+  return 'ON';
+}
+export function bidiLevels(chars) {
+  const t = chars.map(bidiType);
+  for (let i = 0; i < t.length; i++) if (isMark(chars[i])) t[i] = i ? t[i - 1] : 'ON'; // W1
+  let strong = 'L'; for (let i = 0; i < t.length; i++) { if (t[i] === 'EN' && strong === 'AL') t[i] = 'AN'; if (['L', 'R', 'AL'].includes(t[i])) strong = t[i]; } // W2
+  for (let i = 0; i < t.length; i++) if (t[i] === 'AL') t[i] = 'R'; // W3
+  for (let i = 1; i < t.length - 1; i++) if (/^[.,:/]$/.test(chars[i]) && t[i - 1] === t[i + 1] && (t[i - 1] === 'EN' || t[i - 1] === 'AN')) t[i] = t[i - 1]; // W4
+  for (let i = 0; i < t.length; i++) if (/^[%$€£¥#+\-°]$/.test(chars[i]) && (t[i - 1] === 'EN' || t[i + 1] === 'EN')) t[i] = 'EN'; // W5
+  strong = 'L'; for (let i = 0; i < t.length; i++) { if (t[i] === 'EN' && strong === 'L') t[i] = 'L'; if (t[i] === 'L' || t[i] === 'R') strong = t[i]; } // W7
+  const dir = (x) => (x === 'L' ? 'L' : x === 'R' || x === 'EN' || x === 'AN' ? 'R' : null);
+  for (let i = 0; i < t.length; ) { // N1, N2
+    if (t[i] !== 'ON') { i++; continue; }
+    let j = i; while (j < t.length && t[j] === 'ON') j++;
+    const a = i ? dir(t[i - 1]) : 'L', b = j < t.length ? dir(t[j]) : 'L', v = a === b ? a : 'L';
+    for (let k = i; k < j; k++) t[k] = v; i = j;
+  }
+  return t.map((x) => (x === 'L' ? 0 : x === 'R' ? 1 : 2)); // I1
+}
+// L2: reverse, from the highest level down to 1, every stretch at that level or higher
+export function visualOrder(items, levelOf) {
+  const out = [...items], max = Math.max(0, ...out.map(levelOf));
+  for (let lv = max; lv >= 1; lv--) for (let i = 0; i < out.length; ) {
+    if (levelOf(out[i]) < lv) { i++; continue; }
+    let j = i; while (j < out.length && levelOf(out[j]) >= lv) j++;
+    out.splice(i, j - i, ...out.slice(i, j).reverse()); i = j;
+  }
+  return out;
+}
+
+// the script a character belongs to, for choosing a fallback font; marks, spaces, digits and punctuation go with
+// their neighbours, so a word and its marks are always shaped together, in one font
+const SCRIPTS = FALLBACK.slice(0, -1);
+const scriptOf = (c) => { const k = SCRIPTS.findIndex(([re]) => re.test(c)); return k < 0 ? (/[\p{L}]/u.test(c) ? 'base' : null) : k; };
+
+// D23, D24, D15: shape a string into glyphs in visual order. The text is split into runs of one direction and one
+// script; each run is shaped whole, in the chosen font or, when that font can't draw it, in the script's Noto font.
+// A run no font here can draw, or a fallback font that can't be loaded, is an error: nothing is silently left out.
+export async function shapeRun(fam, weight, italic, text, size, ls, notes = new Set()) {
+  const F = await fontFor(fam, weight, italic), chars = [...text];
+  const plain = shapeWith(F, text, size, ls);
+  if (!plain.some((g) => g.id === 0) && chars.every((c) => bidiType(c) !== 'R' && bidiType(c) !== 'AL')) return plain; // the common case: one font, left to right
+  const lv = bidiLevels(chars), sc = chars.map(scriptOf);
+  for (let i = 0; i < sc.length; i++) if (sc[i] === null || isMark(chars[i])) sc[i] = i && sc[i - 1] !== null ? sc[i - 1] : null;
+  for (let i = sc.length - 1; i >= 0; i--) if (sc[i] === null) sc[i] = i < sc.length - 1 ? sc[i + 1] : 'base';
+  const runs = [];
+  chars.forEach((c, i) => { const last = runs[runs.length - 1]; if (last && last.level === lv[i] && last.script === sc[i]) last.s += c; else runs.push({ s: c, level: lv[i], script: sc[i] }); });
   const glyphs = [];
-  for (const sg of segs) {
-    const fb = sg.bad ? fallbackFor(sg.s) : null;
-    if (fb) notes.add(fb);
-    const G = sg.bad ? await fontFor(fb, weight, false).catch(() => null) : F;
-    glyphs.push(...(G ? shapeWith(G, sg.s, size, ls) : []));
+  for (const run of visualOrder(runs, (r) => r.level)) {
+    const dirn = run.level % 2 ? 5 : 4; // HarfBuzz: 5 right to left, 4 left to right
+    let gs = shapeWith(F, run.s, size, ls, dirn);
+    if (gs.some((g) => g.id === 0)) {
+      const fb = run.script === 'base' ? 'Noto Sans' : SCRIPTS[run.script][1];
+      const G = await fontFor(fb, weight, false).catch(() => null);
+      if (!G) throw new Error(`Couldn’t load ${fb} to draw “${run.s.trim()}” as shapes`);
+      notes.add(fb); gs = shapeWith(G, run.s, size, ls, dirn);
+    }
+    const lost = gs.find((g) => g.id === 0);
+    if (lost) throw new Error(`No font here can draw “${run.s.trim()}” as shapes`);
+    glyphs.push(...gs);
   }
   return glyphs;
 }
-function shapeWith(F, text, size, ls) {
+function shapeWith(F, text, size, ls, dirn) {
   const { H, font, upem } = F, buf = new H.Buffer();
-  buf.addText(text); buf.guessSegmentProperties();
+  buf.addText(text); buf.guessSegmentProperties(); if (dirn) buf.setDirection(dirn);
   // browsers drop ligatures from letter-spaced text; match them
   H.shape(font, buf, ls ? ['liga=0', 'clig=0', 'dlig=0'].map((x) => H.Feature.fromString(x)).filter(Boolean) : []);
   const gs = buf.getGlyphInfosAndPositions(), s = size / upem;
@@ -170,6 +229,25 @@ let PDFP = null;
 const script = (src) => new Promise((ok, no) => { const s = document.createElement('script'); s.src = src; s.onload = ok; s.onerror = () => no(new Error('Couldn\'t load ' + src)); document.head.append(s); });
 const pdfLibs = () => PDFP || (PDFP = (async () => { await script(new URL('./vendor/jspdf.umd.min.js', import.meta.url).href); await script(new URL('./vendor/svg2pdf.umd.min.js', import.meta.url).href); return window.jspdf; })());
 
+// D25: the PDF converter ignores SVG masks, so a tinted logo (the artwork as a mask over a color) would print as a
+// solid block. Each masked shape is drawn into an image first, at 600 dpi, and the image goes in its place.
+export async function flattenMasks(root, pxPerUnit) {
+  const ser = new XMLSerializer(), byId = (v) => { const id = (/url\(#([^)]+)\)/.exec(v || '') || [])[1]; return id ? root.querySelector(`[id="${CSS.escape(id)}"]`) : null; };
+  for (const el of [...root.querySelectorAll('[mask]')]) {
+    const mk = byId(el.getAttribute('mask')), [x, y, w, h] = ['x', 'y', 'width', 'height'].map((a) => +el.getAttribute(a));
+    if (!mk || el.localName !== 'rect' || !(w > 0 && h > 0)) continue;
+    const paint = byId(el.getAttribute('fill')), k = Math.min(pxPerUnit, 4096 / Math.max(w, h)), W = Math.max(1, Math.round(w * k)), H = Math.max(1, Math.round(h * k));
+    const one = el.cloneNode(false); one.removeAttribute('transform');
+    const svg = `<svg xmlns="${NS}" viewBox="${x} ${y} ${w} ${h}" width="${W}" height="${H}"><defs>${ser.serializeToString(mk)}${paint ? ser.serializeToString(paint) : ''}</defs>${ser.serializeToString(one)}</svg>`;
+    const img = new Image(); img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg); await img.decode();
+    const c = document.createElement('canvas'); c.width = W; c.height = H; c.getContext('2d').drawImage(img, 0, 0, W, H);
+    const out = root.ownerDocument.createElementNS(NS, 'image');
+    for (const a of ['x', 'y', 'width', 'height', 'transform', 'opacity', 'data-ids']) if (el.hasAttribute(a)) out.setAttribute(a, el.getAttribute(a));
+    out.setAttribute('preserveAspectRatio', 'none'); out.setAttribute('href', c.toDataURL('image/png'));
+    el.replaceWith(out);
+  }
+}
+
 // An outlined SVG into a vector PDF `widthMm` wide. Soft effects (SVG filters) don't exist in PDF and are left out;
 // the caller says so. Returns a Blob.
 export async function svgToPdf(svgText, widthMm = 100, meta = {}) {
@@ -178,6 +256,7 @@ export async function svgToPdf(svgText, widthMm = 100, meta = {}) {
   const vb = (el.getAttribute('viewBox') || '0 0 100 100').split(/[\s,]+/).map(Number);
   const w = widthMm * 72 / 25.4, h = (w * vb[3]) / vb[2];
   el.setAttribute('width', w); el.setAttribute('height', h);
+  await flattenMasks(el, (w / vb[2]) * 600 / 72);
   // svg2pdf reads the live DOM, so mount the SVG off-screen while it draws
   const host = document.createElement('div'); host.style.cssText = 'position:absolute;left:-99999px;top:0;width:0;height:0;overflow:hidden'; host.append(el); document.body.append(host);
   try {

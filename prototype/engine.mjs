@@ -16,7 +16,10 @@ const rad = (d) => (d * Math.PI) / 180;
 const f = (v) => Math.round(v * 100) / 100; // two decimals, as a number (the hot path of every outline)
 const lerp = (a, b, t) => a + (b - a) * t;
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
-const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+// C02: text goes into XML, so it is escaped whole (']]>' included) and the characters XML forbids are dropped: control
+// codes other than tab and newlines, and halves of broken surrogate pairs (shown as the replacement mark)
+export const xmlSafe = (s) => String(s).replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\uFFFE\uFFFF]/g, '').replace(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g, '\uFFFD');
+const esc = (s) => xmlSafe(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 export const clone = (o) => JSON.parse(JSON.stringify(o));
 export const merge = (a, b) => { const o = Array.isArray(a) ? [...a] : { ...a }; for (const k of Object.keys(b || {})) o[k] = b[k] && typeof b[k] === 'object' && !Array.isArray(b[k]) && a && a[k] && typeof a[k] === 'object' && !Array.isArray(a[k]) ? merge(a[k], b[k]) : b[k]; return o; };
 const X = (ox, oy, ang) => { const c = Math.cos(ang), s = Math.sin(ang); return ([x, y]) => [ox + x * c - y * s, oy + x * s + y * c]; };
@@ -212,24 +215,67 @@ function profileD(prof, L, W, bend, xf, o = {}) {
 }
 
 // a user's own leaf: any SVG path (M L H V C S Q T Z, absolute or relative). Fitted base→tip along +x.
-export function parsePath(d) {
-  const toks = String(d).match(/[a-zA-Z]|-?\d*\.?\d+(?:e-?\d+)?/g) || [], out = [];
-  let i = 0, cmd = '', x = 0, y = 0, sx = 0, sy = 0, lc = null;
-  const n = () => +toks[i++];
-  while (i < toks.length) {
-    if (/[a-zA-Z]/.test(toks[i])) cmd = toks[i++];
-    const rel = cmd === cmd.toLowerCase(), C = cmd.toUpperCase(), ox = rel ? x : 0, oy = rel ? y : 0;
-    if (C === 'Z') { out.push(['Z']); x = sx; y = sy; lc = null; continue; }
-    if (C === 'M') { x = ox + n(); y = oy + n(); sx = x; sy = y; out.push(['M', x, y]); cmd = rel ? 'l' : 'L'; lc = null; }
-    else if (C === 'L') { x = ox + n(); y = oy + n(); out.push(['L', x, y]); lc = null; }
-    else if (C === 'H') { x = ox + n(); out.push(['L', x, y]); lc = null; }
-    else if (C === 'V') { y = (rel ? y : 0) + n(); out.push(['L', x, y]); lc = null; }
-    else if (C === 'C') { const a = [ox + n(), oy + n(), ox + n(), oy + n()]; x = ox + n(); y = oy + n(); out.push(['C', ...a, x, y]); lc = [a[2], a[3]]; }
-    else if (C === 'S') { const r = lc ? [2 * x - lc[0], 2 * y - lc[1]] : [x, y], a = [ox + n(), oy + n()]; const px = x, py = y; x = ox + n(); y = oy + n(); out.push(['C', r[0], r[1], a[0], a[1], x, y]); lc = a; void px; void py; }
-    else if (C === 'Q') { const a = [ox + n(), oy + n()]; x = ox + n(); y = oy + n(); out.push(['Q', ...a, x, y]); lc = null; }
-    else { i++; }
+// an SVG path's commands as absolute M, L, C, Q and Z, for custom leaves. Every SVG command is read (T and A included;
+// arcs become curves), every step moves forward, and a path that runs out of numbers stops at the last whole command.
+const arcToCubics = (x1, y1, rx, ry, phi, large, sweep, x2, y2) => {
+  if (!rx || !ry) return [[x2, y2, x2, y2, x2, y2]];
+  rx = Math.abs(rx); ry = Math.abs(ry);
+  const r = (phi * Math.PI) / 180, cs = Math.cos(r), sn = Math.sin(r), dx = (x1 - x2) / 2, dy = (y1 - y2) / 2;
+  const xp = cs * dx + sn * dy, yp = -sn * dx + cs * dy, lam = (xp * xp) / (rx * rx) + (yp * yp) / (ry * ry);
+  if (lam > 1) { rx *= Math.sqrt(lam); ry *= Math.sqrt(lam); }
+  const num = rx * rx * ry * ry - rx * rx * yp * yp - ry * ry * xp * xp, den = rx * rx * yp * yp + ry * ry * xp * xp;
+  const k = (large === sweep ? -1 : 1) * Math.sqrt(Math.max(0, num / (den || 1))), cxp = (k * rx * yp) / ry, cyp = (-k * ry * xp) / rx;
+  const cx = cs * cxp - sn * cyp + (x1 + x2) / 2, cy = sn * cxp + cs * cyp + (y1 + y2) / 2;
+  const ang = (ux, uy, vx, vy) => { const a = Math.atan2(ux * vy - uy * vx, ux * vx + uy * vy); return a; };
+  const t1 = ang(1, 0, (xp - cxp) / rx, (yp - cyp) / ry); let dt = ang((xp - cxp) / rx, (yp - cyp) / ry, (-xp - cxp) / rx, (-yp - cyp) / ry);
+  if (!sweep && dt > 0) dt -= 2 * Math.PI; else if (sweep && dt < 0) dt += 2 * Math.PI;
+  const segs = Math.max(1, Math.ceil(Math.abs(dt) / (Math.PI / 2))), dd = dt / segs, al = (4 / 3) * Math.tan(dd / 4), out = [];
+  const pt = (t) => [cx + rx * Math.cos(t) * cs - ry * Math.sin(t) * sn, cy + rx * Math.cos(t) * sn + ry * Math.sin(t) * cs];
+  const dv = (t) => [-rx * Math.sin(t) * cs - ry * Math.cos(t) * sn, -rx * Math.sin(t) * sn + ry * Math.cos(t) * cs];
+  for (let i = 0; i < segs; i++) {
+    const a0 = t1 + i * dd, a1 = a0 + dd, p0 = pt(a0), p1 = pt(a1), d0 = dv(a0), d1 = dv(a1);
+    out.push([p0[0] + al * d0[0], p0[1] + al * d0[1], p1[0] - al * d1[0], p1[1] - al * d1[1], ...(i === segs - 1 ? [x2, y2] : p1)]);
   }
   return out;
+};
+export function parsePath(d) {
+  let src = String(d ?? '').slice(0, 20000);
+  const attr = /\bd\s*=\s*["']([^"']*)["']/.exec(src); if (attr) src = attr[1]; // a whole <path d="…"> pasted in: read its d
+  const toks = (src.match(/[MmLlHhVvCcSsQqTtAaZz]|[-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?/g) || []).slice(0, 8000), out = [];
+  let i = 0, cmd = '', x = 0, y = 0, sx = 0, sy = 0, lc = null, lq = null;
+  const isCmd = (t) => /^[a-zA-Z]$/.test(t);
+  const n = () => { if (i >= toks.length || isCmd(toks[i])) throw 0; const v = +toks[i++]; if (!Number.isFinite(v)) throw 0; return v; };
+  // arc flags can be written run together ("a1 1 0 01 2 3"): take one digit at a time
+  const flag = () => { if (i >= toks.length || isCmd(toks[i])) throw 0; const t = toks[i]; if (t === '0' || t === '1') { i++; return +t; } if (/^[01]/.test(t)) { toks[i] = t.slice(1); return +t[0]; } throw 0; };
+  try {
+    while (i < toks.length) {
+      const start = i;
+      if (isCmd(toks[i])) cmd = toks[i++]; else if (!cmd || cmd === 'Z' || cmd === 'z') { i++; continue; } // a number with no command: skip it
+      const rel = cmd === cmd.toLowerCase(), C = cmd.toUpperCase(), ox = rel ? x : 0, oy = rel ? y : 0;
+      if (C === 'Z') { out.push(['Z']); x = sx; y = sy; lc = lq = null; }
+      else if (C === 'M') { x = ox + n(); y = oy + n(); sx = x; sy = y; out.push(['M', x, y]); cmd = rel ? 'l' : 'L'; lc = lq = null; }
+      else if (C === 'L') { const nx = ox + n(), ny = oy + n(); x = nx; y = ny; out.push(['L', x, y]); lc = lq = null; }
+      else if (C === 'H') { x = ox + n(); out.push(['L', x, y]); lc = lq = null; }
+      else if (C === 'V') { y = oy + n(); out.push(['L', x, y]); lc = lq = null; }
+      else if (C === 'C') { const a = [ox + n(), oy + n(), ox + n(), oy + n()], nx = ox + n(), ny = oy + n(); x = nx; y = ny; out.push(['C', ...a, x, y]); lc = [a[2], a[3]]; lq = null; }
+      else if (C === 'S') { const r = lc ? [2 * x - lc[0], 2 * y - lc[1]] : [x, y], a = [ox + n(), oy + n()], nx = ox + n(), ny = oy + n(); x = nx; y = ny; out.push(['C', r[0], r[1], a[0], a[1], x, y]); lc = a; lq = null; }
+      else if (C === 'Q') { const a = [ox + n(), oy + n()], nx = ox + n(), ny = oy + n(); x = nx; y = ny; out.push(['Q', ...a, x, y]); lq = a; lc = null; }
+      else if (C === 'T') { const a = lq ? [2 * x - lq[0], 2 * y - lq[1]] : [x, y], nx = ox + n(), ny = oy + n(); x = nx; y = ny; out.push(['Q', ...a, x, y]); lq = a; lc = null; }
+      else if (C === 'A') { const rx = n(), ry = n(), phi = n(), la = flag(), sw = flag(), nx = ox + n(), ny = oy + n(); for (const c of arcToCubics(x, y, rx, ry, phi, la, sw, nx, ny)) out.push(['C', ...c]); x = nx; y = ny; lc = lq = null; }
+      const last = out[out.length - 1];
+      if (last && !last.every((v, k) => k === 0 || Number.isFinite(v))) { out.pop(); break; } // numbers too big to draw: stop
+      if (i === start) i++; // always move forward
+    }
+  } catch (e) { /* ran out of numbers: keep the whole commands read so far */ }
+  return out;
+}
+// a custom leaf's commands, read once per shape; a shape with nothing to draw falls back to the plain leaf
+const SHAPES = new Map(), PLAIN = 'M0 0C30 -20 70 -20 100 0C70 20 30 20 0 0Z';
+export const drawable = (cmds) => cmds.some((c) => c[0] !== 'M' && c[0] !== 'Z');
+function shapeOf(p) {
+  const key = String(p || PLAIN);
+  if (!SHAPES.has(key)) { if (SHAPES.size > 32) SHAPES.clear(); const c = parsePath(key); SHAPES.set(key, drawable(c) ? c : parsePath(PLAIN)); }
+  return SHAPES.get(key);
 }
 function customD(cmds, L, W, xf) {
   let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
@@ -300,7 +346,7 @@ export const FAMILIES = {
     return out;
   },
   star: (L, W, o, xf) => [polyD(starPts(L * 0.55, 0, L * 0.45, 5, 0.45, o.phase || 0).map((p) => sink(xf(p))))],
-  custom: (L, W, o, xf) => { if (!o._cmds) o._cmds = parsePath(o.path || 'M0 0C30 -20 70 -20 100 0C70 20 30 20 0 0Z'); return [customD(o._cmds, L, W, xf)]; },
+  custom: (L, W, o, xf) => [customD(shapeOf(o.path), L, W, xf)],
 };
 
 // ── spine ──
@@ -373,7 +419,8 @@ function freeOf(pts, mirror) {
 function buildOnce(p, seed) {
   const rnd = rngOf(seed), J = (amt) => (rnd() * 2 - 1) * amt;
   const sp = p.spine, lf = { ...p.leaf }, orn = p.orn;
-  const tail = sp.cross ? (sp.a0 - 90 + sp.cross) / (sp.a1 - sp.a0) : 0;
+  // the crossing tail, as a share of the arc; an arc with no length (start = end) gets a one-degree span, not a NaN
+  const span = Math.abs(sp.a1 - sp.a0) < 1 ? (sp.a1 < sp.a0 ? -1 : 1) : sp.a1 - sp.a0, tail = sp.cross ? (sp.a0 - 90 + sp.cross) / span : 0;
   const S0 = sampleSpine(sp, -tail, 1);
   const pts = (SINK = []);
   SHADE = [];
@@ -475,15 +522,19 @@ export const METALS = {
 };
 let PID = 0;
 // returns a fill value; pushes any gradient into defs. bbox = [x, y, w, h] of what is painted (user space)
+// a color as it may appear in an attribute: anything else (a stray quote, markup) becomes black
+const COLOR_RE = /^(#[0-9a-f]{3,8}|(rgb|hsl)a?\([\d\s.,%deg]+\)|[a-z]{3,20})$/i;
+const colorOf = (c) => (typeof c === 'string' && COLOR_RE.test(c.trim()) ? c.trim() : '#000000');
+const num01 = (v, d) => (Number.isFinite(+v) && v !== null && v !== '' ? +v : d);
 export function paintRef(paint, defs, bbox) {
   if (!paint) return 'none';
-  if (typeof paint === 'string') return paint;
-  if (paint.type === 'solid') return paint.color;
+  if (typeof paint === 'string') return paint === 'none' ? 'none' : colorOf(paint);
+  if (paint.type === 'solid') return colorOf(paint.color);
   const id = 'p' + ++PID;
-  const stops = (paint.type === 'metal' ? METALS[paint.metal] || METALS.gold : paint.stops).map(([o, c, a]) => `<stop offset="${f(o)}" stop-color="${c}"${a != null && a < 1 ? ` stop-opacity="${a}"` : ''}/>`).join('');
+  const stops = (paint.type === 'metal' ? METALS[paint.metal] || METALS.gold : Array.isArray(paint.stops) ? paint.stops : METALS.gold).map(([o, c, a]) => `<stop offset="${f(num01(o, 0))}" stop-color="${colorOf(c)}"${a != null && num01(a, 1) < 1 ? ` stop-opacity="${f(num01(a, 1))}"` : ''}/>`).join('');
   if (paint.type === 'radial') {
     const [x, y, w, h] = bbox, cx = x + w * (paint.cx ?? 0.5), cy = y + h * (paint.cy ?? 0.5), r = Math.max(w, h) * (paint.r ?? 0.6);
-    defs.push(paint.scope === 'leaf' ? `<radialGradient id="${id}" cx="${paint.cx ?? 0.5}" cy="${paint.cy ?? 0.5}" r="${paint.r ?? 0.6}">${stops}</radialGradient>` : `<radialGradient id="${id}" gradientUnits="userSpaceOnUse" cx="${f(cx)}" cy="${f(cy)}" r="${f(r)}">${stops}</radialGradient>`);
+    defs.push(paint.scope === 'leaf' ? `<radialGradient id="${id}" cx="${f(num01(paint.cx, 0.5))}" cy="${f(num01(paint.cy, 0.5))}" r="${f(num01(paint.r, 0.6))}">${stops}</radialGradient>` : `<radialGradient id="${id}" gradientUnits="userSpaceOnUse" cx="${f(cx)}" cy="${f(cy)}" r="${f(r)}">${stops}</radialGradient>`);
     return `url(#${id})`;
   }
   const a = rad(paint.angle ?? (paint.type === 'metal' ? 20 : 0)), sx = Math.sin(a), sy = -Math.cos(a); // CSS angles: 0 = to top
@@ -535,7 +586,7 @@ function roughMeasure(s, font, weight, italic, size) {
   for (const ch of s) w += ch === ' ' ? 0.28 : /[IJ1.,'’:;!|]/.test(ch) ? 0.34 : /[MW]/.test(ch) ? 0.92 : /[a-z]/.test(ch) ? capW * 0.74 : /[　-鿿가-힯]/.test(ch) ? 1 : capW;
   return w * size;
 }
-const caseOf = (s, c) => (c === 'upper' ? s.toLocaleUpperCase() : c === 'lower' ? s.toLocaleLowerCase() : c === 'title' ? s.toLocaleLowerCase().replace(/(^|[\s\-–])(\p{L})/gu, (m, a, b) => a + b.toLocaleUpperCase()) : s);
+export const caseOf = (s, c) => (c === 'upper' ? s.toLocaleUpperCase() : c === 'lower' ? s.toLocaleLowerCase() : c === 'title' ? s.toLocaleLowerCase().replace(/(^|[\s\-–])(\p{L})/gu, (m, a, b) => a + b.toLocaleUpperCase()) : s);
 const splitTwo = (s) => { const w = s.split(' '); if (w.length < 2) return null; let best = null; for (let i = 1; i < w.length; i++) { const a = w.slice(0, i).join(' '), b = w.slice(i).join(' '), d = Math.abs(a.length - b.length); if (!best || d < best.d) best = { a, b, d }; } return [best.a, best.b]; };
 const ICONS = ['star', 'stars', 'crown', 'dot', 'diamond', 'rule', 'none'];
 // an uploaded logo (official artwork, SVG or PNG): a line of its own, as tall as LOGO_H × its role's size, as wide as its aspect ratio makes it.
@@ -601,6 +652,8 @@ export function applyForm(doc, form) { const d = merge(doc, FORMS[form] || {}); 
 
 // ── layout + render ───────────────────────────────────────────────────────
 const MCACHE = new WeakMap(); // measured widths, kept per measure function across renders
+// D14: when a font arrives, the widths measured with its stand-in are wrong; the app forgets them and draws again
+export const forgetWidths = (measure) => { MCACHE.delete(measure); };
 // built branches, keyed by their parameters: typing, recoloring and re-layout passes reuse the leaves
 const BCACHE = new Map();
 function branchOf(br, seed) {
@@ -830,6 +883,7 @@ export function render(docIn, env = {}) {
   if (flank) { const out = best ? best.set.out : [], w = Math.max(0, ...out.map((l) => l.w)); shift = -(w / 2 + padOf(H) * 1.4) - B.innerX; }
 
   const texts = [], shapes = [], items = [];
+  const nudge = (l) => (l && (l.dx || l.dy) ? ` transform="translate(${f(l.dx || 0)} ${f(l.dy || 0)})"` : ''); // a line's own placement, for shapes drawn whole (L02)
   const drawLine = (l, x, base, cls) => {
     const r = roleOf(l.role), fill = paintRef(frameInk && cls === 'inside' ? frameInk : textPaint(l.role), defs, [x - l.w / 2, base - l.size, l.w, l.size]);
     if (l.icon === 'logo') {
@@ -862,7 +916,7 @@ export function render(docIn, env = {}) {
     for (const l of out) {
       const top = l.top + off + l.dy, base = top + l.h;
       drawLine(l, l.dx, base, 'inside');
-      if (!flank) report.lines.push({ s: l.text || l.icon, icon: !!l.icon, margin: Math.min(free(top - pad * 0.6, base + l.desc + pad * 0.6) - pad, maxW / 2) - l.w / 2, w: l.w, size: l.size, track: l.track });
+      if (!flank) report.lines.push({ s: l.text || l.icon, icon: !!l.icon, margin: Math.min(free(top - pad * 0.6, base + l.desc + pad * 0.6) - pad, maxW / 2) - l.w / 2 - Math.abs(l.dx || 0), w: l.w, size: l.size, track: l.track }); // a nudged line is judged where it's drawn
     }
   }
   let top = flank ? Math.min(B.top, -H) : B.top, bottom = B.bottom;
@@ -878,9 +932,12 @@ export function render(docIn, env = {}) {
   const ribbonPaint = doc.ribbon.paint || (FG && frameInk) || doc.paint.branch; // across a filled seal the ribbon takes its ink, so it reads against the face
   const ribbonInk = doc.ribbon.text && doc.ribbon.text !== 'auto' ? doc.ribbon.text : lumOf(solidOf(ribbonPaint)) > 0.5 ? '#1a1206' : bgSolid && lumOf(bgSolid) > 0.6 ? bgSolid : '#ffffff';
   // badge: a medallion in the top gap holding an icon or a short text (a year, "1st")
+  // several lines in the medallion share it, joined like a ribbon's ("1st · 2026"), so none goes missing
   const badgeF = toLines(fieldsIn('badge'));
   if (badgeF.length) {
-    const l = badgeF[0], rb = Math.max(8, H * 0.62) * L.badgeR; let cy = B.top + rb * 0.15;
+    const words = badgeF.filter((x) => !x.icon), l = words.length ? { s: words.map((x) => x.s).join(L.joinSep), ids: badgeF.flatMap((x) => x.ids), dx: words[0].dx, dy: words[0].dy } : badgeF[0];
+    if (words.length && words.length < badgeF.length) report.warnings.push('The medallion holds words or a star, not both: the star is left out. Move one of them out of the medallion.');
+    const rb = Math.max(8, H * 0.62) * L.badgeR; let cy = B.top + rb * 0.15;
     const inside = FR && (!FG || (FG.hasBand && fieldsIn('arc-top').length));
     if (FG) cy = inside ? -FG.tb + rb + padOf(H) * 0.5 : -FG.ob;
     // tendrils curl into the top gap: the medallion rises clear of them
@@ -892,11 +949,13 @@ export function render(docIn, env = {}) {
     // on a filled frame's face the medallion is struck in the ink, its star in the metal
     const onFace = inside && frameInk, bInk = onFace ? framePaint : ribbonInk;
     const bfill = paintRef(onFace ? frameInk : doc.ribbon.paint || doc.paint.branch, defs, [-rb, cy - rb, 2 * rb, 2 * rb]);
-    shapes.push(`<path d="${circleD(0, cy, rb)}" fill="${bfill}"/>`);
-    if (l.icon) shapes.push(`<path d="${polyD(starPts(0, cy, rb * 0.62))}" fill="${paintRef(bInk, defs, [-rb, cy - rb, 2 * rb, 2 * rb])}"/>`);
-    else { const r = roleOf('arc'), s = caseOf(l.s, r.case); let size = rb * 0.62; while (measure(s, r.font, r.weight, r.italic, size) > rb * 1.6 && size > 3) size *= 0.92; texts.push(`<text x="0" y="${f(cy + size * 0.36)}" text-anchor="middle" font-family="${esc(r.font)}" font-weight="${r.weight}" font-size="${f(size)}" fill="${paintRef(bInk, defs, [-rb, cy - rb, 2 * rb, 2 * rb])}">${esc(s)}</text>`); }
-    items.push({ ids: l.ids, slot: 'badge', bbox: [-rb, cy - rb, 2 * rb, 2 * rb] });
-    top = Math.min(top, cy - rb);
+    // L02: the medallion is placed like any line: it carries its field's id and moves with its nudge, as a whole
+    const mv = nudge(l), ids = ` data-ids="${l.ids.join(' ')}"`;
+    shapes.push(`<path d="${circleD(0, cy, rb)}" fill="${bfill}"${mv}${ids}/>`);
+    if (l.icon) shapes.push(`<path d="${polyD(starPts(0, cy, rb * 0.62))}" fill="${paintRef(bInk, defs, [-rb, cy - rb, 2 * rb, 2 * rb])}"${mv}${ids}/>`);
+    else { const r = roleOf('arc'), s = caseOf(l.s, r.case); let size = rb * 0.62; while (measure(s, r.font, r.weight, r.italic, size) > rb * 1.6 && size > 3) size *= 0.92; if (size < MS * 0.8) report.warnings.push(`"${l.s}" is too long for the medallion to read: keep it to a year or a short word like "1st".`); texts.push(`<text x="0" y="${f(cy + size * 0.36)}" text-anchor="middle" font-family="${esc(r.font)}" font-weight="${r.weight}"${r.italic ? ' font-style="italic"' : ''} font-size="${f(size)}" fill="${paintRef(bInk, defs, [-rb, cy - rb, 2 * rb, 2 * rb])}"${mv}${ids}>${esc(s)}</text>`); }
+    items.push({ ids: l.ids, slot: 'badge', bbox: [-rb + (l.dx || 0), cy - rb + (l.dy || 0), 2 * rb, 2 * rb] });
+    top = Math.min(top, cy - rb + (l.dy || 0)); halfWExtra = Math.max(halfWExtra, rb + Math.abs(l.dx || 0));
   }
 
   // the badge frame: a fixed frame was fitted already; a hugging one is drawn round the words (and medallion) now
@@ -927,6 +986,8 @@ export function render(docIn, env = {}) {
   if (ribbonF.length) {
     const r = roleOf('arc'), s = ribbonF.map((l) => caseOf(l.s || '', r.case)).join(L.joinSep);
     const size = Math.max(MS, H * r.ratio * 1.45), hh = size * 0.92;
+    // L02: the ribbon carries its fields' ids and moves, band and words together, with the first field's nudge
+    const mv = nudge(ribbonF[0]), ids = ` data-ids="${ribbonF.flatMap((l) => l.ids).join(' ')}"`, dxR = ribbonF[0].dx || 0, dyR = ribbonF[0].dy || 0;
     const tw = measure(s, r.font, r.weight, r.italic, size) + r.track * size * [...s].length;
     const halfW = Math.max(tw / 2 + hh * 1.6, Math.min(B.halfW * 0.86, 100) * L.ribbonW);
     const Rc = Math.max(100 * br.spine.ry * 2.4, halfW * 2.6), rise = (x) => Rc - Math.sqrt(Math.max(0, Rc * Rc - x * x)); // big circle, center above: a soft smile
@@ -945,14 +1006,16 @@ export function render(docIn, env = {}) {
       const a = sg < 0 ? A0 : A1, [ex, ey] = P(Rc, a), ox = sg * hh * 2.6, oy = hh * 0.9;
       const tail = [[ex - sg * hh * 0.2, ey - hh * 0.9 + oy], [ex + ox, ey - hh * 0.9 + oy], [ex + ox - sg * hh * 0.9, ey + oy], [ex + ox, ey + hh * 0.9 + oy], [ex - sg * hh * 0.2, ey + hh * 0.9 + oy]];
       const fold = [[ex, ey + hh], [ex - sg * hh * 0.2, ey + hh * 0.9 + oy], [ex - sg * hh * 0.2, ey + hh * 0.9 + oy - hh * 0.6]];
-      shapes.push(`<path data-part="ribbon" d="${polyD(tail)}" fill="${rfill}" opacity="0.82"/><path d="${polyD(fold)}" fill="#000" opacity="0.35"/>`);
+      shapes.push(`<path data-part="ribbon" d="${polyD(tail)}" fill="${rfill}" opacity="0.82"${mv}${ids}/><path d="${polyD(fold)}" fill="#000" opacity="0.35"${mv}/>`);
     }
-    shapes.push(`<path data-part="ribbon" d="${band}" fill="${rfill}"/>`);
-    const pid = 'rp' + ++PID, rm = Rc - size * 0.36;
+    shapes.push(`<path data-part="ribbon" d="${band}" fill="${rfill}"${mv}${ids}/>`);
+    // L01: the words sit in the middle of the band. Glyphs stand toward the circle's center (up), so the baseline goes
+    // below the band's middle line by half a cap height; the trailing letter-space is left out of the centering
+    const pid = 'rp' + ++PID, rm = Rc + size * 0.36, tr = r.track * size;
     defs.push(`<path id="${pid}" d="M${f(P(rm, A0 + 0.2)[0])} ${f(P(rm, A0 + 0.2)[1])}${arc(rm, A0 + 0.2, A1 - 0.2, 0)}"/>`);
-    texts.push(`<text font-family="${esc(r.font)}" font-weight="${r.weight}" font-size="${f(size)}" letter-spacing="${f(r.track * size)}" fill="${paintRef(ribbonInk, defs, [0, 0, 1, 1])}" text-anchor="middle"><textPath href="#${pid}" startOffset="50%">${esc(s)}</textPath></text>`);
-    items.push({ ids: ribbonF.flatMap((l) => l.ids), slot: 'ribbon', bbox: [-halfW, y0 - hh, 2 * halfW, 2 * hh] });
-    bottom = Math.max(bottom, y0 + hh * 2.2); halfWExtra = Math.max(halfWExtra, halfW + hh * 2.8);
+    texts.push(`<text font-family="${esc(r.font)}" font-weight="${r.weight}"${r.italic ? ' font-style="italic"' : ''} font-size="${f(size)}" letter-spacing="${f(tr)}" fill="${paintRef(ribbonInk, defs, [0, 0, 1, 1])}" text-anchor="middle"${mv}${ids}><textPath href="#${pid}" startOffset="${f(rm * (A0 - A1 + 0.4) / 2 + tr / 2)}">${esc(s)}</textPath></text>`);
+    items.push({ ids: ribbonF.flatMap((l) => l.ids), slot: 'ribbon', bbox: [-halfW + dxR, y0 - hh + dyR, 2 * halfW, 2 * hh] });
+    bottom = Math.max(bottom, y0 + hh * 2.2 + dyR); halfWExtra = Math.max(halfWExtra, halfW + hh * 2.8 + Math.abs(dxR));
   }
 
   // arcs: text on a circle — top (outside, reading over the wreath), bottom (inside, reading along the base) and
@@ -965,10 +1028,13 @@ export function render(docIn, env = {}) {
       let size = FG.bt * 0.5; const len = () => measure(s, r.font, r.weight, r.italic, size) + r.track * size * n;
       const room = Math.PI * Math.sqrt((ma * ma + mb * mb) / 2) * (under ? 0.58 : 0.84);
       while (len() > room && size > MS * 0.6) size *= 0.95;
-      const d = 0.36 * size, A = under ? ma + d : ma - d, Bv = under ? mb + d : mb - d, pid = 'ap' + ++PID;
+      const tooLong = () => report.warnings.push(`"${s.length > 40 ? s.slice(0, 39) + '…' : s}" is too long to curve round the seal: its ends would be cut off. Shorten it, or move it inside.`);
+      const d = 0.36 * size, A = under ? ma + d : ma - d, Bv = under ? mb + d : mb - d, pid = 'ap' + ++PID, tr = r.track * size, mv = nudge(ls[0]), ids = ls.flatMap((l) => l.ids).join(' ');
+      const half = (Math.PI * (3 * (A + Bv) - Math.sqrt((3 * A + Bv) * (A + 3 * Bv)))) / 2; // half the ellipse (Ramanujan)
+      if (len() > half * 0.98) tooLong(); // C01
       defs.push(`<path id="${pid}" d="M${f(-A)} 0A${f(A)} ${f(Bv)} 0 0 ${under ? 0 : 1} ${f(A)} 0"/>`);
-      texts.push(`<text data-part="${slot}" font-family="${esc(r.font)}" font-weight="${r.weight}"${r.italic ? ' font-style="italic"' : ''} font-size="${f(size)}" letter-spacing="${f(r.track * size)}" fill="${paintRef(frameInk || textPaint('arc'), defs, [-A, -Bv, 2 * A, 2 * Bv])}" text-anchor="middle"><textPath href="#${pid}" startOffset="50%">${esc(s)}</textPath></text>`);
-      items.push({ ids: ls.flatMap((l) => l.ids), slot, bbox: [-A, under ? Bv - size : -Bv, 2 * A, size], band: true });
+      texts.push(`<text data-part="${slot}" font-family="${esc(r.font)}" font-weight="${r.weight}"${r.italic ? ' font-style="italic"' : ''} font-size="${f(size)}" letter-spacing="${f(tr)}" fill="${paintRef(frameInk || textPaint('arc'), defs, [-A, -Bv, 2 * A, 2 * Bv])}" text-anchor="middle"${mv} data-ids="${ids}"><textPath href="#${pid}" startOffset="${f(half / 2 + tr / 2)}">${esc(s)}</textPath></text>`);
+      items.push({ ids: ls.flatMap((l) => l.ids), slot, bbox: [-A + (ls[0].dx || 0), (under ? Bv - size : -Bv) + (ls[0].dy || 0), 2 * A, size], band: true });
       continue;
     }
     let size = Math.max(MS, H * r.ratio);
@@ -996,11 +1062,14 @@ export function render(docIn, env = {}) {
     }
     const span = slot === 'arc-top' ? Math.PI * 0.9 : Math.PI * 0.62, len = () => measure(s, r.font, r.weight, r.italic, size) + r.track * size * [...s].length;
     while (len() > Rr * span && size > MS * 0.7) size *= 0.95;
-    const pid = 'ap' + ++PID;
+    if (len() > Math.PI * Rr * 0.98) report.warnings.push(`"${s.length > 40 ? s.slice(0, 39) + '…' : s}" is too long to curve round the wreath: its ends would be cut off. Shorten it, or move it inside.`); // C01
+    const pid = 'ap' + ++PID, tr = r.track * size, mv = nudge(ls[0]), ndx = ls[0].dx || 0, ndy = ls[0].dy || 0;
     defs.push(`<path id="${pid}" d="M${f(-Rr)} 0A${f(Rr)} ${f(Rr)} 0 0 ${sweep} ${f(Rr)} 0"/>`);
-    texts.push(`<text data-part="${slot}" font-family="${esc(r.font)}" font-weight="${r.weight}"${r.italic ? ' font-style="italic"' : ''} font-size="${f(size)}" letter-spacing="${f(r.track * size)}" fill="${paintRef(textPaint('arc'), defs, [-Rr, -Rr, 2 * Rr, 2 * Rr])}" text-anchor="middle"><textPath href="#${pid}" startOffset="50%">${esc(s)}</textPath></text>`);
-    items.push({ ids: ls.flatMap((l) => l.ids), slot, bbox: [-Rr, slot === 'arc-top' ? -Rr - size : Rr - size, 2 * Rr, size] });
-    if (slot === 'arc-top') top = Math.min(top, -Rr - size * 1.1); else bottom = Math.max(bottom, Rr + size * 0.4);
+    // L01: centered on the arc without the trailing letter-space; L02: its fields' ids and nudge, like any line
+    texts.push(`<text data-part="${slot}" font-family="${esc(r.font)}" font-weight="${r.weight}"${r.italic ? ' font-style="italic"' : ''} font-size="${f(size)}" letter-spacing="${f(tr)}" fill="${paintRef(textPaint('arc'), defs, [-Rr, -Rr, 2 * Rr, 2 * Rr])}" text-anchor="middle"${mv} data-ids="${ls.flatMap((l) => l.ids).join(' ')}"><textPath href="#${pid}" startOffset="${f((Math.PI * Rr) / 2 + tr / 2)}">${esc(s)}</textPath></text>`);
+    items.push({ ids: ls.flatMap((l) => l.ids), slot, bbox: [-Rr + ndx, (slot === 'arc-top' ? -Rr - size : Rr - size) + ndy, 2 * Rr, size] });
+    if (slot === 'arc-top') top = Math.min(top, -Rr - size * 1.1 + ndy); else bottom = Math.max(bottom, Rr + size * 0.4 + ndy);
+    if (ndx) halfWExtra = Math.max(halfWExtra, Rr + Math.abs(ndx));
   }
 
   // above / below: stacks outside the wreath
@@ -1070,6 +1139,8 @@ export function render(docIn, env = {}) {
 
   // canvas
   const pad = doc.canvas.pad;
+  // D04: every line's painted box, nudges included, sits inside the canvas (with a little room for ink past the advance: accents, italics)
+  for (const it of items) { const ink = it.slot === 'badge' ? 0 : it.bbox[3] * 0.2; /* the medallion is drawn to its box */ halfWExtra = Math.max(halfWExtra, -it.bbox[0] + ink, it.bbox[0] + it.bbox[2] + ink); top = Math.min(top, it.bbox[1] - ink); bottom = Math.max(bottom, it.bbox[1] + it.bbox[3] + ink); }
   const halfW = Math.max(halfW0, halfWExtra);
   let vx = -halfW - pad, vy = top - pad, vw = 2 * (halfW + pad), vh = bottom - top + 2 * pad;
   // legibility, measured on the real result: lines placed outside (ribbon, arcs, below…) make the laurel taller than
@@ -1103,4 +1174,74 @@ export function shuffleBranch(seed) {
     leaf: { family, profile, n, L0, L1, wr: family === 'simple' ? (['round', 'heart', 'teardrop'].includes(profile) ? R(0.65, 0.95) : profile === 'willow' ? R(0.16, 0.26) : R(0.26, 0.5)) : R(0.55, 0.9), bend: R(-0.05, 0.3), aOut: R(18, profile === 'round' ? 70 : 48), aIn: R(14, 40), inScale: R(0.65, 1), arr: pick(r, ['alternate', 'alternate', 'paired', 'outer']), gamma: R(0.85, 1.25), jitter: r() < 0.25 ? R(0.1, 0.4) : 0, vein: r() < 0.2 && family === 'simple' ? R(0.12, 0.22) : 0, scurve: r() < 0.2 ? R(-0.5, 0.6) : 0, fan: r() < 0.2 ? R(-0.4, 0.7) : 0, alt: r() < 0.15 ? R(0.2, 0.4) : 0 },
     orn: { tip: pick(r, ['leaf', 'leaf', 'bud', 'berry', 'none']), berries: r() < 0.2 ? 2 : 0, flowers: r() < 0.1 ? 3 : 0 },
   };
+}
+
+// the smallest type in a rendered laurel, in viewBox units, read from the SVG itself so every slot counts (inside,
+// flank, outside, arcs, ribbon, medallion); Infinity when the laurel has no words (a logo on its own)
+export function smallestText(svg) {
+  let m = Infinity;
+  for (const [, attrs, body] of String(svg).matchAll(/<text\b([^>]*)>([\s\S]*?)<\/text>/g)) {
+    const fs = /\bfont-size="([\d.]+)"/.exec(attrs);
+    if (fs && body.replace(/<[^>]*>/g, '').trim()) m = Math.min(m, +fs[1]);
+  }
+  return m;
+}
+
+// an uploaded image lives on the device it was added on: a reference without its bytes here is missing
+export const assetMissing = (src) => /^asset:/.test(src || '') && !ASSETS[src];
+
+// A document from outside (a share link, an autosave, a back-button entry) is checked before it replaces anything:
+// numbers are finite, switches are switches, lists are lists, and no string outside the words people type carries a
+// quote or markup into an SVG attribute. Throws when it isn't a laurel at all.
+const TEXT_KEYS = new Set(['text', 'title', 'line', 'status', 'festival', 'award', 'year', 'name', 'presetName', 'font', 'label', 'awards', 'winner', 'note']);
+export function sanitizeDoc(raw) {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) throw new Error('not a laurel');
+  let budget = 50000;
+  const clean = (v, def, key, depth) => {
+    if (--budget < 0) throw new Error('too big to be a laurel');
+    if (v === null) return null;
+    if (typeof v === 'number') return Number.isFinite(v) ? v : undefined;
+    if (typeof v === 'boolean') return typeof def === 'number' ? undefined : v;
+    if (typeof v === 'string') {
+      if (typeof def === 'number') return v === 'auto' ? v : /^-?\d+(\.\d+)?$/.test(v) ? +v : undefined;
+      if (typeof def === 'boolean') return undefined;
+      if (!TEXT_KEYS.has(key) && /["<>]/.test(v)) return undefined;
+      return v.length > 4000 && !/^data:image\//.test(v) ? v.slice(0, 4000) : v;
+    }
+    if (depth > 12 || typeof v !== 'object') return undefined;
+    if (Array.isArray(v)) return v.slice(0, 500).map((x) => clean(x, Array.isArray(def) ? def[0] : undefined, key, depth + 1)).filter((x) => x !== undefined);
+    const o = {};
+    for (const k of Object.keys(v).slice(0, 500)) {
+      if (k === '__proto__' || k === 'constructor' || k === 'prototype') continue;
+      const c = clean(v[k], def && typeof def === 'object' && !Array.isArray(def) ? def[k] : undefined, k, depth + 1);
+      if (c !== undefined) o[k] = c;
+    }
+    return o;
+  };
+  const obj = (x) => x && typeof x === 'object' && !Array.isArray(x);
+  // the shape itself must be right: a laurel whose lines or settings aren't lists and objects is refused, not guessed at
+  if ('fields' in raw && (!Array.isArray(raw.fields) || raw.fields.some((f) => !obj(f) || typeof f.kind !== 'string'))) throw new Error('its lines are damaged');
+  for (const k of Object.keys(DEFAULT_DOC)) if (obj(DEFAULT_DOC[k]) && k in raw && !obj(raw[k])) throw new Error(`its ${k} settings are damaged`);
+  if ('row' in raw && raw.row !== null && (!obj(raw.row) || ('items' in raw.row && !Array.isArray(raw.row.items)))) throw new Error('its row is damaged');
+  const d = clean(raw, DEFAULT_DOC, '', 0);
+  const okSrc = (s) => typeof s === 'string' && (/^asset:[\w-]{1,60}$/.test(s) || /^data:image\/(png|jpeg|webp|gif|svg\+xml);base64,[A-Za-z0-9+/=]+$/.test(s));
+  const seen = new Set();
+  if ('fields' in d) {
+    d.fields = (Array.isArray(d.fields) ? d.fields : []).filter((f) => obj(f) && typeof f.kind === 'string').slice(0, 80).map((f, i) => {
+      let id = typeof f.id === 'string' && /^[\w-]{1,40}$/.test(f.id) && !seen.has(f.id) ? f.id : 'i' + i + 'x'; seen.add(id);
+      const g = { ...f, id, text: typeof f.text === 'string' ? f.text : '' };
+      for (const k of ['dx', 'dy']) if (k in g && typeof g[k] !== 'number') delete g[k];
+      if ('src' in g && !okSrc(g.src)) delete g.src;
+      return g;
+    });
+    if (!d.fields.length) delete d.fields;
+  }
+  for (const k of Object.keys(DEFAULT_DOC)) if (obj(DEFAULT_DOC[k]) && k in d && !obj(d[k])) delete d[k];
+  if (obj(d.roles)) for (const r of Object.keys(d.roles)) { const x = d.roles[r]; if (!obj(x)) { delete d.roles[r]; continue; } if ('weight' in x && typeof x.weight !== 'number') delete x.weight; }
+  if ('row' in d) {
+    if (!obj(d.row)) delete d.row;
+    else d.row.items = (Array.isArray(d.row.items) ? d.row.items : []).filter(obj).slice(0, 60).map((it, i) => { const g = { ...it, id: typeof it.id === 'string' && /^[\w-]{1,60}$/.test(it.id) ? it.id : 'r' + i + 'x' }; if ('src' in g && !okSrc(g.src)) delete g.src; return g; });
+  }
+  if (obj(d.poster) && 'src' in d.poster && !okSrc(d.poster.src)) delete d.poster.src;
+  return d;
 }

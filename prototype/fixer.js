@@ -2,6 +2,7 @@
 // screenshots from a PDF. This makes it usable: takes the background out (with clean, anti-aliased edges, no white
 // fringe), sets it in one ink if asked, trims it and gives it even margins. Everything happens in the browser.
 // It doesn't redraw anything: the festival's artwork stays the festival's artwork.
+import { holdFocus } from './modal.js';
 
 const clamp = (v, a = 0, b = 1) => Math.min(b, Math.max(a, v));
 const hexRgb = (c) => { const m = /^#?([0-9a-f]{6})$/i.exec(c || ''); if (!m) return null; const n = parseInt(m[1], 16); return [n >> 16, (n >> 8) & 255, n & 255]; };
@@ -69,32 +70,37 @@ export function openFixer(ctx, onDone, opt = {}) {
   const o = { mode: 'keep', tol: 40, ink: null, pad: 0.04, view: 'dark' };
   const preview = h('div', { class: 'preview' }), opts = h('div', { class: 'opts' });
   const file = h('input', { type: 'file', accept: 'image/png,image/jpeg,image/webp,image/svg+xml', hidden: true, onchange: (e) => e.target.files[0] && load(e.target.files[0]) });
-  const close = () => { scrim.remove(); window.removeEventListener('keydown', onKey, true); };
-  const onKey = (e) => { if (e.key === 'Escape') { e.stopPropagation(); close(); } };
+  let release = () => {};
+  const close = () => { scrim.remove(); release(); };
   const modal = h('div', { class: 'modal', role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': 'fixer-title' },
     h('header', {}, h('div', {}, h('h2', { id: 'fixer-title' }, 'Clean up a festival file'), h('p', {}, 'Take out a white or black background, set it in one ink, trim it. It stays on your computer.')),
       h('button', { class: 'btn ghost x', 'aria-label': 'Close', onclick: close }, '✕')),
     h('div', { class: 'studio fixer' }, preview, opts), file);
   const scrim = h('div', { class: 'scrim', onmousedown: (e) => { if (e.target === scrim) close(); } }, modal);
-  document.body.append(scrim); window.addEventListener('keydown', onKey, true);
+  document.body.append(scrim); release = holdFocus(scrim, close);
+  requestAnimationFrame(() => modal.querySelector('.dropzone, .x').focus());
   for (const ev of ['dragover', 'drop']) modal.addEventListener(ev, (e) => { e.preventDefault(); if (ev === 'drop' && e.dataTransfer.files[0]) load(e.dataTransfer.files[0]); });
 
+  // D43: a new file replaces the current one only once it has been read; until then the name, image and result stay together
+  let loading = 0;
   async function load(f) {
     if (f.size > 20e6) { ctx.toast('That file is over 20 MB'); return; }
-    name = f.name.replace(/\.[^.]+$/, '') || name;
-    const url = await new Promise((ok) => { const r = new FileReader(); r.onload = () => ok(r.result); r.readAsDataURL(f); });
-    img = new Image(); img.src = url; await img.decode().catch(() => null);
-    if (!img.naturalWidth) { ctx.toast('Couldn’t read that image'); return; }
-    let w = img.naturalWidth, hh = img.naturalHeight; const k = Math.min(1, 3000 / Math.max(w, hh)), up = /svg/.test(f.type) ? Math.max(1, 2400 / Math.max(w, hh)) : 1;
+    const my = ++loading;
+    const url = await new Promise((ok) => { const r = new FileReader(); r.onload = () => ok(r.result); r.onerror = () => ok(null); r.readAsDataURL(f); });
+    const im = new Image(); if (url) { im.src = url; await im.decode().catch(() => null); }
+    if (my !== loading) return; // a newer file was chosen meanwhile
+    if (!im.naturalWidth) { ctx.toast(src ? `Couldn’t read that image, so ${name} stays` : 'Couldn’t read that image'); return; }
+    let w = im.naturalWidth, hh = im.naturalHeight; const k = Math.min(1, 3000 / Math.max(w, hh)), up = /svg/.test(f.type) ? Math.max(1, 2400 / Math.max(w, hh)) : 1;
     w = Math.round(w * k * up); hh = Math.round(hh * k * up);
-    const c = document.createElement('canvas'); c.width = w; c.height = hh; const g = c.getContext('2d'); g.drawImage(img, 0, 0, w, hh);
+    const c = document.createElement('canvas'); c.width = w; c.height = hh; const g = c.getContext('2d'); g.drawImage(im, 0, 0, w, hh);
+    img = im; name = f.name.replace(/\.[^.]+$/, '') || 'official-laurel';
     src = g.getImageData(0, 0, w, hh); W = w; H = hh;
     bg = readBackground(src.data, w, hh);
     const mono = colorfulness(src.data, bg) < 0.14;
     o.mode = bg.clear ? 'keep' : mono ? (L(...bg.rgb) > 0.5 ? 'dark' : 'light') : 'keep';
     o.tol = 40; o.view = bg.clear ? (mono && L(...bg.rgb) > 0.5 ? 'light' : 'dark') : L(...bg.rgb) > 0.5 ? 'dark' : 'light';
     if (o.mode === 'dark') o.view = 'light';
-    redo();
+    clearTimeout(timer); result = process(src, W, H, { ...o, bg }); draw();
   }
   function redo() { clearTimeout(timer); timer = setTimeout(() => { result = src ? process(src, W, H, { ...o, bg }) : null; draw(); }, 30); }
   const seg = (items, cur, on) => h('div', { class: 'segctl' }, items.map(([v, l]) => h('button', { class: v === cur ? 'on' : '', onclick: () => on(v) }, l)));

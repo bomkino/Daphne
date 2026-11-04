@@ -1,19 +1,25 @@
 // row.js — the row builder: several laurels in the current look, the way a poster carries them. The same type size in
 // every laurel, a shared center line, prestige order (wins, then premieres, then selections, biggest names first), a
 // tiered layout with a lead laurel, official artwork placed alongside, and the festival rules checked across the row.
-import { STATUSES, prestige, checkRow } from './rules.js';
+import { STATUSES, prestige, checkRow, SAMPLE_ROW, isExample } from './rules.js';
+export { isExample };
 import { zip } from './zip.js';
 
 export const ROW_DEFAULT = {
-  items: [
-    { id: 'r1', status: 'Official Selection', festival: 'Northlight', award: '', year: '2026' },
-    { id: 'r2', status: 'Winner', festival: 'Halcyon Film Festival', award: 'Best Documentary', year: '2026' },
-    { id: 'r3', status: 'World Premiere', festival: 'Atlas Film Festival', award: '', year: '2026' },
-    { id: 'r4', status: 'Nominee', festival: 'Meridian', award: 'Best Editing', year: '2026' },
-  ],
+  items: SAMPLE_ROW,
   arrange: 'row', perRow: 4, order: 'prestige', uniform: true, gap: 0.14, lead: 1.3,
 };
 const AWARD_LAYOUTS = ['winner', 'award-detail', 'award-festival-hero', 'star-winner'];
+// J05, V04: one answer, everywhere, to "is there a row to export?" Example laurels show on the stage to show what a row
+// is; they never go into a file, a caption or Motion. Null when there's a row to export, else what to do about it.
+export function rowEmpty(doc, ASSETS) {
+  const items = doc.row && Array.isArray(doc.row.items) ? doc.row.items : ROW_DEFAULT.items, own = items.filter((it) => !isExample(it));
+  const usable = own.filter((it) => it.show !== false && (it.src ? ASSETS[it.src] : it.festival || it.award || it.status));
+  if (usable.length) return null;
+  if (!own.length) return items.length ? 'Your row only has the example laurels so far. Add your own in Row, under the stage: type your festivals over the examples, paste a list, or start with this laurel.' : 'Your row is empty. Add laurels in Row, under the stage: type your festivals, paste a list, or start with this laurel.';
+  if (own.every((it) => it.show === false)) return 'Every laurel in your row is hidden. Show at least one in Row, under the stage.';
+  return 'Your row’s laurels have no words yet, or their artwork isn’t on this device. Fill them in, or upload the artwork again, in Row under the stage.';
+}
 
 // pasted rows from a spreadsheet: tabs, commas, semicolons or pipes; each cell is recognized by what it looks like
 const YEAR = /^(19|20)\d\d$/, AWARDISH = /\b(best|award|prize|jury|audience|mention|grand|golden|silver|bronze|honou?rable)\b/i;
@@ -55,7 +61,8 @@ function splitRow(l, sep) {
 export function rowMode(ctx) {
   const { h, clone } = ctx;
   let uid = 100, lastScene = null, tableEl = null, cache = new Map();
-  const R = () => ({ ...clone(ROW_DEFAULT), ...(ctx.doc.row || {}) });
+  // a fresh copy every time: edits change the copy, and change() sees the difference, so they redraw, save and undo
+  const R = () => clone({ ...ROW_DEFAULT, ...(ctx.doc.row || {}) });
   const setRow = (r, rebuild = false) => { ctx.change('row', r); if (rebuild) buildPanel(); };
 
   // one laurel of the row: the current look with this row's words. Award rows use an award layout (the user's, if the
@@ -65,31 +72,44 @@ export function rowMode(ctx) {
     let k = 0; const nid = () => 'rw' + k++;
     const lay = (id) => ctx.layoutById(id);
     const inAward = AWARD_LAYOUTS.includes(base.userLayoutId || base.layoutId), logoIsName = base.fields.some((f) => f.kind === 'logo' && f.src && f.show !== false && f.role === 'hero');
-    let fields = d.fields;
-    if (it.award && !fields.some((f) => f.kind === 'award' && f.show !== false)) fields = ctx.layoutFields(fields, lay(inAward ? base.userLayoutId || base.layoutId : 'winner'), nid);
-    if (!it.award && fields.some((f) => f.kind === 'award' && f.show !== false)) fields = ctx.layoutFields(fields, lay(!inAward && base.userLayoutId ? base.userLayoutId : 'year-below'), nid);
+    // this laurel's own words go in first, so a layout chooses from them: an award the base had and this laurel
+    // doesn't must not take the name line from the festival
     const vals = { status: it.status, festival: it.festival, award: it.award, year: it.year };
-    d.fields = fields.map((f) => {
+    const fill = (fs) => fs.map((f) => {
       // a row has no logos, so a name the look hid behind a logo comes back
-      if (f.kind in vals) { const v = String(vals[f.kind] || '').trim(); return { ...f, text: v, show: (f.show !== false || f.added || (logoIsName && f.kind === 'festival')) && !!v }; }
+      if (f.kind in vals) { const v = String(vals[f.kind] || '').trim(), { added, ...g } = f; return { ...g, text: v, show: (f.show !== false || added || (logoIsName && f.kind === 'festival')) && !!v }; }
       if (f.kind === 'icon') return f;
       return { ...f, show: false };
     });
+    const baseAward = d.fields.some((f) => f.kind === 'award' && f.show !== false);
+    let fields = fill(d.fields);
+    if (it.award && !baseAward) fields = ctx.layoutFields(fields, lay(inAward ? base.userLayoutId || base.layoutId : 'winner'), nid);
+    if (!it.award && baseAward) fields = ctx.layoutFields(fields, lay(!inAward && base.userLayoutId ? base.userLayoutId : 'year-below'), nid);
+    d.fields = fill(fields);
     return d;
   }
-  const renderCached = (d) => { const key = JSON.stringify(d); let r = cache.get(key); if (!r) { r = ctx.render(d, 1); cache.set(key, r); if (cache.size > 64) cache.delete(cache.keys().next().value); } return r; };
+  const renderCached = (d) => { const key = (ctx.fontEpoch || 0) + JSON.stringify(d); let r = cache.get(key); if (!r) { r = ctx.render(d, 1); cache.set(key, r); if (cache.size > 64) cache.delete(cache.keys().next().value); } return r; };
 
   // the row as placed laurels: { parts: [{ it, r?, x, y, w, h, s }], vb, svg }
   function scene(opts = {}) {
-    const row = R(), base = ctx.doc;
-    let items = row.items.filter((it) => it.show !== false && (it.src ? ctx.ASSETS[it.src] : it.festival || it.award || it.status));
+    const row = R(), base = opts.base || ctx.doc; // D07: Export passes its colorway's document, so the row is drawn in it
+    let items = row.items.filter((it) => !(opts.real && isExample(it)) && it.show !== false && (it.src ? ctx.ASSETS[it.src] : it.festival || it.award || it.status));
     if (row.order === 'prestige') items = [...items].sort((a, b) => prestige(b) - prestige(a));
     items = [...items.filter((it) => it.lead), ...items.filter((it) => !it.lead)];
     if (!items.length) return null;
     // laurels first, at the same type size if asked
     let docs = items.map((it) => (it.src ? null : itemDoc(base, it)));
     let rs = docs.map((d) => (d ? renderCached(d) : null));
-    if (row.uniform) { const H = Math.min(...rs.filter(Boolean).map((r) => r.report.hero)); if (isFinite(H)) { docs = docs.map((d) => { if (!d) return d; d.layout = { ...d.layout, heroMax: H }; return d; }); rs = docs.map((d) => (d ? renderCached(d) : null)); } }
+    // D36: the smallest name sets everyone's ceiling; a ceiling can make another laurel lay out smaller again, so
+    // repeat until every laurel lands on the same size
+    if (row.uniform) {
+      const least = () => Math.min(...rs.filter(Boolean).map((r) => r.report.hero));
+      for (let H = least(), k = 0; isFinite(H) && k < 6; k++) {
+        docs = docs.map((d) => (d ? { ...d, layout: { ...d.layout, heroMax: H } } : d));
+        rs = docs.map((d) => (d ? renderCached(d) : null));
+        const lo = least(); if (lo >= H - 0.01) break; H = lo;
+      }
+    }
     const hs = rs.filter(Boolean).map((r) => r.viewBox[3]).sort((a, b) => a - b), unitH = hs.length ? hs[Math.floor(hs.length / 2)] : 200;
     const tiered = row.arrange === 'tiered' && items.length > 1;
     const parts = items.map((it, i) => {
@@ -118,7 +138,7 @@ export function rowMode(ctx) {
     const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${vb.join(' ')}" width="${vb[2]}" height="${vb[3]}">${bg ? `<rect data-bg="1" x="${vb[0]}" y="${vb[1]}" width="${vb[2]}" height="${vb[3]}" fill="${bg}"/>` : ''}${inner}</svg>`;
     return { parts, vb, svg, unitH };
   }
-  ctx.rowScene = scene;
+  ctx.rowScene = scene; ctx.rowEmpty = () => rowEmpty(ctx.doc, ctx.ASSETS);
   // official artwork from elsewhere (the laurel fixer): joins the row at the same height as the rest
   ctx.addRowArt = (a) => { const r = R(); r.items.push({ id: 'r' + ++uid + Date.now().toString(36), ...a }); ctx.change('row', r); };
 
@@ -145,7 +165,13 @@ export function rowMode(ctx) {
         h('button', { class: 'btn small primary', onclick: () => { const t = pasteBox.querySelector('textarea').value, got = parsePaste(t); if (!got.length) return; const r = R(); r.items = r.items.filter((it) => it.src).concat(got.map((g) => ({ id: 'r' + ++uid + Date.now().toString(36), ...g }))); setRow(r, true); } }, 'Replace the row'),
         h('button', { class: 'btn small', onclick: () => { const t = pasteBox.querySelector('textarea').value, got = parsePaste(t); if (!got.length) return; const r = R(); r.items.push(...got.map((g) => ({ id: 'r' + ++uid + Date.now().toString(36), ...g }))); setRow(r, true); } }, 'Add to the row'),
         h('button', { class: 'btn small', onclick: () => (pasteBox.style.display = 'none') }, 'Close')));
+    const examples = row.items.filter(isExample).length;
+    // the laurel on the Words tab, as a row entry
+    const fromLaurel = () => { const t = (k) => ctx.doc.fields.filter((f) => f.kind === k && f.show !== false && f.text).map((f) => f.text.trim()).join(' '); return { id: 'r' + ++uid + Date.now().toString(36), status: t('status'), festival: t('festival'), award: t('award'), year: (t('year').match(/\d{4}/) || [''])[0] }; };
     P.append(
+      examples ? h('div', { class: 'note row-examples' }, h('span', {}, `${examples === row.items.length ? 'These are examples' : examples === 1 ? 'One of these is an example' : examples + ' of these are examples'}, to show how a row looks: type over ${examples === 1 ? 'it to make it' : 'them to make them'} yours. Examples never go into a file.`),
+        h('button', { class: 'btn small primary', onclick: () => { const r = R(); r.items = [fromLaurel(), ...r.items.filter((it) => !isExample(it))]; setRow(r, true); } }, 'Start with this laurel'),
+        h('button', { class: 'btn small', onclick: () => { const r = R(); r.items = r.items.filter((it) => !isExample(it)); setRow(r, true); } }, 'Clear the examples')) : null,
       h('div', { class: 'rowtools' },
         seg('Arrange', 'arrange', [['row', 'One row'], ['tiered', 'Tiered: lead on top'], ['grid', 'Grid']]),
         row.arrange !== 'row' ? seg('Per row', 'perRow', [2, 3, 4, 5, 6].map((n) => [n, String(n)])) : null,
@@ -153,7 +179,7 @@ export function rowMode(ctx) {
         seg('Type', 'uniform', [[true, 'Same size in every laurel'], [false, 'Fit each one']]),
         h('label', {}, 'Gap', h('input', { type: 'range', min: 0, max: 0.6, step: 0.01, value: row.gap, oninput: (e) => { const r = R(); r.gap = +e.target.value; ctx.change('row', r); } })),
         row.arrange === 'tiered' ? h('label', {}, 'Lead size', h('input', { type: 'range', min: 1, max: 1.8, step: 0.01, value: row.lead, oninput: (e) => { const r = R(); r.lead = +e.target.value; ctx.change('row', r); } })) : null),
-      tableEl = table(row),
+      h('div', { class: 'rowscroll' }, (tableEl = table(row))), // V/A: only the table scrolls sideways on a phone; the notes and controls wrap
       h('div', { class: 'rowtools' },
         h('button', { class: 'btn small', onclick: () => { const r = R(); r.items.push({ id: 'r' + ++uid + Date.now().toString(36), status: 'Official Selection', festival: '', award: '', year: String(new Date().getFullYear()) }); setRow(r, true); setTimeout(() => { const ins = P.querySelectorAll('tr.item input[data-k="festival"]'); ins[ins.length - 1]?.focus(); }, 30); } }, '+ Laurel'),
         h('button', { class: 'btn small', title: 'A festival’s own laurel file, placed in the row at the same height', onclick: () => fileInput.click() }, '+ Official artwork'),
@@ -162,35 +188,44 @@ export function rowMode(ctx) {
         h('button', { class: 'btn small', title: 'Every laurel as its own SVG and PNG, drawn at the same scale so the type matches when placed', onclick: zipAll }, 'ZIP of separate files'), fileInput),
       pasteBox);
   }
+  let rowDrag = null;
   function table(row) {
     const order = row.order === 'prestige' ? new Map([...row.items].sort((a, b) => prestige(b) - prestige(a)).map((it, i) => [it.id, i + 1])) : null;
     const tb = h('tbody');
     row.items.forEach((it, i) => {
-      const upd = (k, v, rebuild = false) => { const r = R(); r.items[i] = { ...r.items[i], [k]: v }; setRow(r, rebuild); };
+      const upd = (k, v, rebuild = false) => { const r = R(); r.items[i] = { ...r.items[i], [k]: v }; if (['status', 'festival', 'award', 'year'].includes(k)) delete r.items[i].example; setRow(r, rebuild || (isExample(it) && !isExample(r.items[i]))); };
       const inp = (k, ph, w) => h('input', { type: 'text', value: it[k] || '', placeholder: ph, 'data-k': k, style: w ? `width:${w}` : '', list: k === 'status' ? 'row-statuses' : null, oninput: (e) => upd(k, e.target.value) });
-      const tr = h('tr', { class: 'item' + (it.show === false ? ' off' : ''), draggable: 'true' },
+      const tr = h('tr', { class: 'item' + (it.show === false ? ' off' : '') + (isExample(it) ? ' example' : ''), draggable: 'true', title: isExample(it) ? 'An example: type over it to make it yours. Examples never go into a file.' : null },
         h('td', { class: 'handle', title: order ? `Prestige order: ${order.get(it.id)}. Drag to set your own order` : 'Drag to reorder' }, '⋮⋮'),
         it.src
           ? [h('td', { colspan: 2 }, h('div', { class: 'art' }, h('img', { src: ctx.ASSETS[it.src] || '', alt: '' }), h('span', {}, ctx.ASSETS[it.src] ? (it.name || 'Official artwork') : 'Upload it again: artwork stays on the device it was added on'))),
              h('td', {}, inp('festival', 'Which festival? (for the rules check)')), h('td', {}, inp('year', 'Year', '64px'))]
           : [h('td', {}, inp('status', 'Status')), h('td', {}, inp('festival', 'Festival')), h('td', {}, inp('award', 'Award (if it won)')), h('td', {}, inp('year', 'Year', '64px'))],
         h('td', {}, h('label', { title: 'Lead laurel: first in the row, and on top when tiered' }, h('input', { type: 'checkbox', checked: !!it.lead, onchange: (e) => upd('lead', e.target.checked, true) }), ' lead')),
-        h('td', {}, h('input', { type: 'checkbox', title: 'Show', checked: it.show !== false, onchange: (e) => upd('show', e.target.checked, true) })),
-        h('td', {}, h('button', { class: 'btn small', title: 'Remove', onclick: () => { const r = R(); r.items.splice(i, 1); setRow(r, true); } }, '×')));
-      tr.addEventListener('dragstart', (e) => e.dataTransfer.setData('text/plain', String(i)));
-      tr.addEventListener('dragover', (e) => { e.preventDefault(); tr.classList.add('drag-over'); });
+        h('td', {}, h('input', { type: 'checkbox', title: 'Show in the row', 'aria-label': `Show ${it.festival || 'this laurel'} in the row`, checked: it.show !== false, onchange: (e) => upd('show', e.target.checked, true) })),
+        h('td', {}, h('button', { class: 'btn small', title: 'Remove', 'aria-label': `Remove ${it.festival || 'this laurel'}`, onclick: () => { const r = R(); r.items.splice(i, 1); setRow(r, true); } }, '×')));
+      // only a row's own drag reorders: text dropped from anywhere stays text
+      tr.addEventListener('dragstart', (e) => { if (e.target !== tr) return; rowDrag = it.id; e.dataTransfer.setData('application/x-daphne-row', it.id); e.dataTransfer.effectAllowed = 'move'; });
+      tr.addEventListener('dragend', () => { rowDrag = null; });
+      tr.addEventListener('dragover', (e) => { if (!rowDrag) return; e.preventDefault(); tr.classList.add('drag-over'); });
       tr.addEventListener('dragleave', () => tr.classList.remove('drag-over'));
-      tr.addEventListener('drop', (e) => { e.preventDefault(); tr.classList.remove('drag-over'); const from = +e.dataTransfer.getData('text/plain'); if (from === i) return; const r = R(); const [m] = r.items.splice(from, 1); r.items.splice(i, 0, m); r.order = 'manual'; setRow(r, true); });
+      tr.addEventListener('drop', (e) => {
+        tr.classList.remove('drag-over'); if (!rowDrag) return; e.preventDefault();
+        const r = R(), from = r.items.findIndex((x) => x.id === rowDrag), to = r.items.findIndex((x) => x.id === it.id); rowDrag = null;
+        if (from < 0 || to < 0 || from === to) return;
+        const [m] = r.items.splice(from, 1); r.items.splice(to, 0, m); r.order = 'manual'; setRow(r, true);
+      });
       tb.append(tr);
     });
-    return h('table', { class: 'rowtable' }, h('thead', {}, h('tr', {}, h('th', {}), h('th', {}, 'Status'), h('th', {}, 'Festival'), h('th', {}, 'Award'), h('th', {}, 'Year'), h('th', {}), h('th', {}), h('th', {}))), tb,
+    return h('table', { class: 'rowtable' }, h('thead', {}, h('tr', {}, h('th', {}), h('th', {}, 'Status'), h('th', {}, 'Festival'), h('th', {}, 'Award'), h('th', {}, 'Year'), h('th', {}), h('th', {}, 'Show'), h('th', {}))), tb,
       h('datalist', { id: 'row-statuses' }, STATUSES.map((s) => h('option', { value: s }))));
   }
 
   // ── exports ──
   const withBg = () => (ctx.prefs ? ctx.prefs().bg : true) !== false;
+  const empty = () => { const m = rowEmpty(ctx.doc, ctx.ASSETS); if (m) ctx.toast(m, 6000); return !!m; };
   async function zipAll() {
-    const sc = scene(); if (!sc) return;
+    if (empty()) return; const sc = scene({ real: true }); if (!sc) return;
     ctx.toast('Packing the row…');
     const files = [], pxPerUnit = 1200 / sc.unitH;
     let n = 0;
@@ -206,9 +241,9 @@ export function rowMode(ctx) {
   }
   const exports = {
     zip: zipAll,
-    svg: async () => { const sc = scene({ bg: withBg() }); if (!sc) return; ctx.download(new Blob([await ctx.exportSvgText(sc.svg)], { type: 'image/svg+xml' }), 'laurel-row.svg'); },
-    pdf: async () => { const sc = scene({ bg: withBg() }); if (!sc) return; ctx.download(await ctx.toPdf(sc.svg, ctx.doc, 'Laurel row'), 'laurel-row.pdf'); },
-    png: async () => { const sc = scene({ bg: withBg() }); if (!sc) return; ctx.toast('Rendering the row…'); const w = +((ctx.prefs && ctx.prefs().pngW) || 3000); ctx.download(await ctx.toPng(sc.svg, sc.vb, Math.max(w, 2000), withBg() && !!ctx.doc.canvas.bg), 'laurel-row.png'); },
+    svg: async () => { if (empty()) return; const sc = scene({ bg: withBg(), real: true }); if (!sc) return; ctx.download(new Blob([await ctx.exportSvgText(sc.svg)], { type: 'image/svg+xml' }), 'laurel-row.svg'); },
+    pdf: async () => { if (empty()) return; const sc = scene({ bg: withBg(), real: true }); if (!sc) return; ctx.download(await ctx.toPdf(sc.svg, ctx.doc, 'Laurel row'), 'laurel-row.pdf'); },
+    png: async () => { if (empty()) return; const sc = scene({ bg: withBg(), real: true }); if (!sc) return; ctx.toast('Rendering the row…'); const w = +((ctx.prefs && ctx.prefs().pngW) || 3000); ctx.download(await ctx.toPng(sc.svg, sc.vb, Math.max(w, 2000), withBg() && !!ctx.doc.canvas.bg), 'laurel-row.png'); },
   };
 
   return {

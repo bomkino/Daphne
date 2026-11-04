@@ -2,6 +2,17 @@
 // a selection and mustn't pretend to. The rules come from what festivals publish (research/01 §2); the sources are
 // linked so anyone can check them. This file is open data on purpose: festivals and designers can add to it.
 import { festivalFromText } from './festivals.js';
+import { assetMissing } from './engine.mjs';
+
+// the row's four example laurels: they show what a row looks like and never go into a file, a caption or the accolades
+export const SAMPLE_ROW = [
+  { id: 'r1', status: 'Official Selection', festival: 'Northlight', award: '', year: '2026', example: true },
+  { id: 'r2', status: 'Winner', festival: 'Halcyon Film Festival', award: 'Best Documentary', year: '2026', example: true },
+  { id: 'r3', status: 'World Premiere', festival: 'Atlas Film Festival', award: '', year: '2026', example: true },
+  { id: 'r4', status: 'Nominee', festival: 'Meridian', award: 'Best Editing', year: '2026', example: true },
+];
+// an example: marked so, or one of the samples saved untouched by an older version (before they were marked)
+export const isExample = (it) => !!it.example || SAMPLE_ROW.some((x) => x.id === it.id && ['status', 'festival', 'award', 'year'].every((k) => String(x[k] || '') === String(it[k] || '')));
 
 // Festivals that publish rules about laurels. `aliases` match the festival line (case-insensitive, whole words).
 //   artwork: 'required' (the festival supplies official artwork and requires it), 'supplied' (it supplies artwork and
@@ -44,16 +55,19 @@ export function tierOf(name) {
   return 3;
 }
 
-// what a status is worth on a poster: wins first, then premieres, then selections
+// what a status is worth on a poster: wins first, then premieres, then selections. Qualifiers come first, so
+// "Audience Award Nominee" ranks as a nomination and "Semi-Finalist" below "Finalist". Ranking is for order only:
+// what a status says happened is outcomeOf's job.
 const STATUS_RANK = [
+  [/\b(semi-?finalist|quarter-?finalist)\b/i, 4],
+  [/\b(nominee|nominated|nomination|finalist|shortlist(ed)?)\b/i, 12],
+  [/\b(special mention|honou?rable mention|mention)\b/i, 38],
   [/\b(grand prix|grand prize|golden|palme|winner|won|award|prize|best)\b/i, 50],
-  [/\b(jury|audience|special mention|honou?rable mention|mention)\b/i, 38],
+  [/\b(jury|audience)\b/i, 38],
   [/\bworld premiere\b/i, 32],
   [/\b(international|european|north american|us|u\.s\.|uk|asian|african|latin american|canadian|australian) premiere\b/i, 26],
   [/\bpremiere\b/i, 22],
   [/\b(in competition|competition|official selection|selection|selected|opening night|closing night|centrepiece|centerpiece|gala)\b/i, 16],
-  [/\b(nominee|nominated|finalist)\b/i, 12],
-  [/\b(semi-?finalist|quarter-?finalist)\b/i, 4],
 ];
 export const statusRank = (s) => { for (const [re, v] of STATUS_RANK) if (re.test(s || '')) return v; return s ? 10 : 8; };
 // the status decides; an award name only counts when there's no status ("Best Editing" under "Nominee" isn't a win)
@@ -73,8 +87,14 @@ export function checkLaurel(d) {
   const vis = (d.fields || []).filter((f) => f.show !== false);
   const text = (k) => vis.filter((f) => f.kind === k).map((f) => f.text || '').join(' ');
   const all = vis.map((f) => f.text || '').join(' ');
-  const logo = vis.find((f) => f.kind === 'logo' && f.src);
-  return checkItem({ status: text('status'), festival: text('festival'), award: text('award'), all, logo: !!logo, tint: !!(logo && logo.tint) });
+  const logo = vis.find((f) => f.kind === 'logo' && f.src && !assetMissing(f.src));
+  // a logo uploaded on another device: the artwork goes out without it, so say so before anyone exports
+  const lost = vis.some((f) => f.kind === 'logo' && f.src && assetMissing(f.src));
+  // a line an older layout filled with example words the user never changed: it may say something the film didn't get
+  const examples = vis.filter((f) => f.added && f.text && f.kind !== 'icon').map((f) => `"${f.text}"`);
+  const out = lost ? [{ level: 'rule', check: true, text: 'The festival logo isn’t on this device: uploaded logos stay on the device they were added on. Upload it again in Every line, or the files go out without it.' }] : [];
+  if (examples.length) out.push({ level: 'rule', check: true, text: `${examples.join(' and ')} ${examples.length > 1 ? 'are' : 'is'} example text a layout added. Type what the festival gave you, or hide the line.` });
+  return out.concat(checkItem({ status: text('status'), festival: text('festival'), award: text('award'), all, logo: !!logo, tint: !!(logo && logo.tint) }));
 }
 function checkItem({ status = '', festival = '', award = '', all = '', logo = false, tint = false, row = false }) {
   const out = [], F = festivalOf(festival) || festivalOf(all), place = row ? 'add it to the row with "+ Official artwork"' : 'add it as a logo line';
@@ -107,3 +127,72 @@ export function checkRow(items) {
   return out;
 }
 export const PREMIERE_RE = PREMIERE;
+
+// ── what a laurel says happened, in words: for press releases, IMDb, FilmFreeway, a website ──
+// The status decides, read for its qualifiers before its award words, so "Audience Award Nominee" is a nomination
+// and never a win. An award line with no status is the award itself, said as written. Nothing here strengthens a
+// claim: no status means no selection, and only explicit winner wording becomes "Winner of".
+const NOMINATION = /\b(nominee|nominated|nomination|semi-?finalist|quarter-?finalist|finalist|shortlist(ed)?|long-?list(ed)?|runner-?up|candidate|contender)\b/i;
+const MENTION = /\bmention\b/i;
+const WON = /\b(winner|won|wins|awarded|recipient)\b/i;
+const SELECTED = /\b(official selection|selection|selected|in competition|competition|opening night|closing night|centrepiece|centerpiece|gala|screening)\b/i;
+const HONOR = /\b(award|prize|grand prix|palme|golden|best|trophy|jury|audience)\b/i;
+export function outcomeOf(status, award) {
+  const s = (status || '').trim();
+  if (!s) return award && award.trim() ? 'honor' : 'none';
+  if (MARKET.test(s)) return 'market';
+  if (SUBMITTED.test(s)) return 'submitted';
+  if (NOMINATION.test(s)) return 'nomination';
+  if (MENTION.test(s)) return 'mention';
+  if (WON.test(s)) return 'win';
+  if (/\bpremiere\b/i.test(s)) return 'premiere';
+  if (SELECTED.test(s)) return 'selection';
+  if (HONOR.test(s)) return 'honor';
+  return 'other';
+}
+
+const escHtml = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const has = (a, b) => a.toLowerCase().includes(b.toLowerCase());
+
+// The laurel and the row's shown laurels as text. `d` is the document. Returns { list, lines, sentence, html, count }.
+export function accoladesOf(d) {
+  const t = (k) => d.fields.filter((f) => f.kind === k && f.show !== false && f.text).map((f) => f.text.trim()).join(' ');
+  const items = [];
+  const self = { status: t('status'), festival: t('festival'), award: t('award'), year: (t('year').match(/\d{4}/) || [''])[0] };
+  if (self.festival || self.award) items.push(self);
+  for (const it of (d.row && d.row.items) || []) if (it.show !== false && !isExample(it) && (it.festival || it.award)) items.push({ status: (it.status || '').trim(), festival: (it.festival || '').trim(), award: (it.award || '').trim(), year: String(it.year || '').match(/\d{4}/)?.[0] || '' });
+  const seen = new Set(), list = items.filter((it) => { const k = [it.status, it.festival, it.award, it.year].join('|').toLowerCase(); if (seen.has(k)) return false; seen.add(k); return true; });
+  list.sort((a, b) => prestige(b) - prestige(a));
+  for (const it of list) it.outcome = outcomeOf(it.status, it.award);
+  const at = (it) => [it.festival, it.year].filter(Boolean).join(' ');
+  const line = (it) => [it.status, it.award && !(it.status && has(it.status, it.award)) ? it.award : '', at(it)].filter(Boolean).join(', ');
+  // one accolade as a phrase, in the filmmaker's own words: "Nominee for Best Editing at Raindance 2026"
+  const phrase = (it) => {
+    let w;
+    if (!it.status) w = it.award;
+    else if (!it.award || has(it.status, it.award) || has(it.award, it.status)) w = it.status.length >= (it.award || '').length ? it.status : it.award;
+    else w = /^(nomination|mention|win)$/.test(it.outcome) || it.outcome === 'honor' ? `${it.status} for ${it.award}` : `${it.status}, ${it.award}`;
+    return at(it) ? `${w} at ${at(it)}` : w;
+  };
+  const and = (a) => (a.length < 2 ? a.join('') : a.slice(0, -1).join(', ') + ' and ' + a[a.length - 1]);
+  const some = (a, n = 3) => and(a.slice(0, n)) + (a.length > n ? `, and ${a.length - n} more` : '');
+  const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+  const of = (...k) => list.filter((it) => k.includes(it.outcome));
+  const s = [];
+  const prem = of('premiere')[0];
+  if (prem) s.push(`${phrase(prem)}.`);
+  // a festival counts as a selection only when a laurel there says the film played: selected, premiered, won or honored
+  const fests = [...new Set(of('selection', 'premiere', 'win', 'honor', 'mention').map((it) => it.festival).filter(Boolean))];
+  const sel = of('selection');
+  if (fests.length > 1) s.push(`Selected for ${fests.length} festivals, including ${and(fests.slice(0, 3))}.`);
+  else if (sel.length && !prem) s.push(`${[sel[0].status, at(sel[0])].filter(Boolean).join(', ')}.`);
+  const wins = of('win');
+  // "Grand Jury Prize Winner" won the Grand Jury Prize; a bare "Winner" or "Award Winner" won an award
+  const prize = (w) => { if (w.award) return w.award; const r = w.status.replace(/\b(award[- ])?(winner|won|wins|awarded|recipient)( of)?\b/gi, '').replace(/^[\s,:–—-]+|[\s,:–—-]+$/g, ''); return !r || /^(an? )?award$/i.test(r) ? 'an award' : r; };
+  if (wins.length) s.push(`Winner of ${some(wins.map((w) => prize(w) + (at(w) ? ` at ${at(w)}` : '')))}.`);
+  const honors = of('honor', 'mention');
+  if (honors.length) s.push(cap(`${some(honors.map(phrase))}.`));
+  const noms = of('nomination', 'other');
+  if (noms.length) s.push(cap(`${some(noms.map(phrase))}.`));
+  return { list, lines: list.map(line), sentence: s.join(' '), html: `<ul class="laurels">\n${list.map((it) => `  <li>${escHtml(line(it))}</li>`).join('\n')}\n</ul>`, count: list.length };
+}

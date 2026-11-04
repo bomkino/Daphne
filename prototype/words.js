@@ -1,7 +1,7 @@
 // words.js — the Words tab: the first thing anyone does, made the easiest. What the film got (real statuses, in six
 // languages), which festival (its official name, city and rules from festivals.js), the award, the year, and every line
 // underneath for full control. It edits the same fields the layout engine reads, so nothing here is a separate mode.
-import { searchFestivals, festivalFromText, festivalById, countryName, FOCUS } from './festivals.js';
+import { searchFestivals, festivalFromText, festivalById, countryName, FOCUS, yearOf, cityFor, citiesOf } from './festivals.js';
 import { checkLaurel } from './rules.js';
 import { readEmail } from './email.js';
 
@@ -21,8 +21,6 @@ export const AWARDS = ['Best Film', 'Best Feature Film', 'Best Short Film', 'Bes
 const WANTS_AWARD = /^(winner|award winner|nominee|finalist|grand jury prize)$/i;
 const AWARD_LAYOUTS = ['winner', 'award-detail', 'award-festival-hero', 'star-winner'];
 const roman = (n) => { let s = ''; for (const [v, r] of [[1000, 'M'], [900, 'CM'], [500, 'D'], [400, 'CD'], [100, 'C'], [90, 'XC'], [50, 'L'], [40, 'XL'], [10, 'X'], [9, 'IX'], [5, 'V'], [4, 'IV'], [1, 'I']]) while (n >= v) { s += r; n -= v; } return s; };
-const fromRoman = (s) => { const m = { M: 1000, D: 500, C: 100, L: 50, X: 10, V: 5, I: 1 }; let n = 0; const t = String(s).toUpperCase(); for (let i = 0; i < t.length; i++) { const a = m[t[i]], b = m[t[i + 1]] || 0; if (!a) return null; n += a < b ? -a : a; } return n; };
-const yearOf = (t) => { const s = String(t || '').trim(); if (/^(19|20)\d\d$/.test(s)) return +s; if (/^['’]\d\d$/.test(s)) return 2000 + +s.slice(1); const r = fromRoman(s); return r && r > 1900 && r < 2200 ? r : null; };
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
 export function wordsTab(ui) {
@@ -45,7 +43,8 @@ export function wordsTab(ui) {
   }
   const applyLayoutId = (id) => { const L = ui.layoutById(id); if (L) ui.replaceDoc({ ...ui.applyLayout(ui.doc, L, ui.newId), layoutBy: 'user', userLayoutId: id }); };
 
-  function pickStatus(s) {
+  function pickStatus(s) { ui.batch(() => pickStatusNow(s)); }
+  function pickStatusNow(s) {
     setKind('status', s);
     const hasAward = ui.doc.fields.some((f) => f.kind === 'award' && vis(f) && f.text);
     if (WANTS_AWARD.test(s) && !hasAward) applyLayoutId('winner');
@@ -65,14 +64,17 @@ export function wordsTab(ui) {
   const statusInput = h('input', { type: 'text', value: status, placeholder: 'Or type the exact wording the festival used', list: 'w-statuses', 'aria-label': 'Status', oninput: (e) => setKind('status', e.target.value), onchange: () => ui.rebuild() });
   const q1 = h('section', { class: 'q' },
     h('h3', {}, h('span', { class: 'num' }, '1'), 'What did your film ', h('em', {}, 'get'), '?'),
-    h('div', { class: 'chips' }, STATUS_COMMON.map((s) => chip(s)), h('button', { class: 'chip quiet', 'aria-expanded': String(!!ui.state.moreStatus), onclick: (e) => { ui.state.moreStatus = !ui.state.moreStatus; more.style.display = ui.state.moreStatus ? '' : 'none'; e.currentTarget.textContent = ui.state.moreStatus ? 'Fewer' : 'More, and other languages'; } }, ui.state.moreStatus ? 'Fewer' : 'More, and other languages')),
+    h('div', { class: 'chips' }, STATUS_COMMON.map((s) => chip(s)), h('button', { class: 'chip quiet', 'aria-expanded': String(!!ui.state.moreStatus), onclick: (e) => { ui.state.moreStatus = !ui.state.moreStatus; more.style.display = ui.state.moreStatus ? '' : 'none'; e.currentTarget.textContent = ui.state.moreStatus ? 'Fewer' : 'More, and other languages'; e.currentTarget.setAttribute('aria-expanded', String(!!ui.state.moreStatus)); } }, ui.state.moreStatus ? 'Fewer' : 'More, and other languages')),
     more, statusInput,
     h('datalist', { id: 'w-statuses' }, [...STATUS_COMMON, ...STATUS_MORE, ...Object.values(STATUS_LANG).flat()].map((s) => h('option', { value: s }))));
 
   // ── 2. which festival ──
   const festF = find('festival');
   const fest = festF && vis(festF) ? festF.text || '' : '';
-  const known = (festF && festF.fid && festivalById(festF.fid)) || festivalFromText(fest);
+  // the card follows the name as it reads now: an id from an earlier pick only counts while the text still names it
+  const byId = festF && festF.fid && festivalById(festF.fid), fromText = festivalFromText(fest);
+  const known = byId && (fromText ? fromText.id === byId.id : [byId.name, byId.short].some((n) => n && n.toLowerCase() === fest.trim().toLowerCase())) ? byId : fromText;
+  const yearNow = () => { const y = find('year'); return y && vis(y) ? y.text || '' : ''; };
   const combo = h('div', { class: 'combo' });
   const list = h('div', { class: 'list', role: 'listbox', id: 'fest-list' });
   let results = [], act = -1;
@@ -104,29 +106,32 @@ export function wordsTab(ui) {
     let ff = fs.find((x) => x.kind === 'festival' && vis(x)) || fs.find((x) => x.kind === 'festival');
     if (!ff) { ff = { id: ui.newId(), kind: 'festival', role: fs.some((x) => x.kind === 'award' && x.role === 'hero' && vis(x)) ? 'sub' : 'hero', slot: 'inside', show: true }; fs.splice(fs.findIndex((x) => x.kind === 'status') + 1, 0, ff); }
     Object.assign(ff, { text: f.name, fid: f.id, show: true }); delete ff.added;
-    const loc = fs.find((x) => x.kind === 'location');
-    if (loc) { loc.text = f.city.split(',')[0]; delete loc.added; }
+    const loc = fs.find((x) => x.kind === 'location'), city = cityFor(f, yearNow());
+    if (loc && city) { loc.text = city; delete loc.added; }
     ui.change('fields', fs, true);
-    ui.toast(`${f.name}: name${loc ? ' and city' : ''} filled in`);
+    ui.toast(`${f.name}: name${loc && city ? ' and city' : ''} filled in`);
   }
   combo.append(input, list);
 
   let card = null;
   if (known) {
     const f = known, usingShort = f.short && fest.trim().toLowerCase() === f.short.toLowerCase();
-    const loc = find('location'), locOn = loc && vis(loc) && loc.text;
+    const loc = find('location'), locOn = loc && vis(loc) && loc.text, city = cityFor(f, yearNow());
+    // a festival that moved: say where this edition was, and notice a city line from another year
+    const cityNote = f.moved && locOn && citiesOf(f).includes(loc.text.trim()) && city && loc.text.trim() !== city ? `For ${yearNow()}, ${f.short || f.name} is held in ${city}; your city line says ${loc.text.trim()}.` : f.moved && !city ? 'This festival has moved: set the year, and Daphne offers the city for that edition.' : null;
     const notes = checkLaurel(ui.doc).filter((n) => n.level === 'rule' || /current name|renamed|since/.test(n.text));
     const acts = [];
     if (f.short && f.short !== f.name) acts.push(h('button', { class: 'btn small', title: usingShort ? 'Use the full official name' : `Use the short form the festival itself uses${f.id === 'sundance' ? ' (Sundance asks for the full name)' : ''}`, onclick: () => setKind('festival', usingShort ? f.name : f.short, { rebuild: true, extra: { fid: f.id } }) }, usingShort ? 'Full name' : `Short: ${f.short}`));
-    acts.push(h('button', { class: 'btn small' + (locOn ? ' on' : ''), onclick: () => { if (locOn) { const fs = ui.clone(ui.doc.fields); fs.find((x) => x.id === loc.id).show = false; ui.change('fields', fs, true); } else setKind('location', f.city.split(',')[0], { rebuild: true }); } }, locOn ? '✓ City line' : `+ ${f.city.split(',')[0]}`));
+    if (locOn || city) acts.push(h('button', { class: 'btn small' + (locOn ? ' on' : ''), onclick: () => { if (locOn) { const fs = ui.clone(ui.doc.fields); fs.find((x) => x.id === loc.id).show = false; ui.change('fields', fs, true); } else setKind('location', city, { rebuild: true }); } }, locOn ? '✓ City line' : `+ ${city}`));
     if (f.local) acts.push(h('button', { class: 'btn small', title: f.local, onclick: () => { const fs = ui.clone(ui.doc.fields); const at = fs.findIndex((x) => x.kind === 'festival') + 1; fs.splice(at, 0, { id: ui.newId(), kind: 'custom', text: f.local.split(' · ')[0], role: 'sub', slot: 'inside', show: true }); ui.change('fields', fs, true); } }, '+ Own-language name'));
     const secs = f.sections ? h('div', { class: 'group' }, h('div', { class: 'label' }, 'Sections', h('span', { class: 'opt' }, 'add one as a line'), h('span', { class: 'grow' })), h('div', { class: 'chips' }, f.sections.map((s) => h('button', { class: 'chip', onclick: () => setKind('category', s.replace(/ \(Competition\)$/, ''), { rebuild: true }) }, s)))) : null;
     card = h('div', { class: 'fcard' },
-      h('div', { class: 't' }, h('div', {}, h('b', {}, f.name), h('div', { class: 'meta' }, [f.city, countryName(f.country)].join(' · '), f.month ? ` · usually ${MONTHS[f.month]}` : '', f.founded ? ` · since ${f.founded}` : '')),
+      h('div', { class: 't' }, h('div', {}, h('b', {}, f.name), h('div', { class: 'meta' }, [city || f.city.split(',')[0], countryName(f.country)].join(' · '), f.month ? ` · usually ${MONTHS[f.month]}` : '', f.founded ? ` · since ${f.founded}` : '')),
         f.site ? h('a', { class: 'site', href: f.site, target: '_blank', rel: 'noopener', title: 'The festival’s official site' }, 'Official site ↗') : null),
       h('div', { class: 'tags' }, f.focus.map((k) => h('span', { class: 'tag' }, FOCUS[k] || k)), f.tier === 1 ? h('span', { class: 'tag major' }, 'Major') : null),
       f.local ? h('div', { class: 'meta' }, 'In its own language: ', h('i', {}, f.local)) : null,
       f.note ? h('div', { class: 'rules' }, h('div', { class: 'rule tip' }, f.note)) : null,
+      cityNote ? h('div', { class: 'rules' }, h('div', { class: 'rule' }, cityNote)) : null,
       notes.length ? h('div', { class: 'rules' }, notes.map((n) => h('div', { class: 'rule' + (n.level === 'rule' ? '' : ' tip') }, n.text, n.source ? [' ', h('a', { href: n.source.url, target: '_blank', rel: 'noopener', class: 'site' }, 'Source')] : null))) : null,
       h('div', { class: 'acts' }, acts),
       secs,
@@ -143,9 +148,9 @@ export function wordsTab(ui) {
   const q3 = showAward ? h('section', { class: 'q' },
     h('h3', {}, h('span', { class: 'num' }, '3'), 'What was the ', h('em', {}, 'award'), '?'),
     awF && vis(awF)
-      ? h('input', { type: 'text', class: 'bigin' + (awF.added ? ' example' : ''), value: award, placeholder: 'Best Documentary', list: 'w-awards', 'aria-label': 'Award', oninput: (e) => setKind('award', e.target.value), onfocus: (e) => { if (awF.added) e.target.select(); } })
+      ? h('input', { type: 'text', class: 'bigin' + (awF.added && awF.text ? ' example' : ''), value: award, placeholder: 'Best Documentary', list: 'w-awards', 'aria-label': 'Award', oninput: (e) => setKind('award', e.target.value), onfocus: (e) => { if (awF.added) e.target.select(); } })
       : h('button', { class: 'btn', onclick: () => applyLayoutId('winner') }, '+ Add the award line'),
-    awF && awF.added ? h('div', { class: 'hint' }, 'Example text: type the award exactly as the festival named it.') : null,
+    awF && awF.added ? h('div', { class: 'hint' }, awF.text ? 'Example text a layout added: type the award exactly as the festival named it.' : 'Type the award exactly as the festival named it.') : null,
     h('datalist', { id: 'w-awards' }, AWARDS.map((s) => h('option', { value: s })))) : null;
 
   // ── 4. the year ──
@@ -185,23 +190,24 @@ export function wordsTab(ui) {
     st.emailPick = st.emailPick || {};
     const keys = Object.keys(KLABEL).filter((k) => r[k]);
     found.append(h('div', { class: 'foundlist' }, keys.map((k) => {
-      const on = st.emailPick[k] ?? !OPTIONAL.includes(k);
-      return h('label', { class: 'frow' }, h('input', { type: 'checkbox', checked: on, onchange: (e) => { st.emailPick[k] = e.target.checked; } }), h('span', { class: 'k' }, KLABEL[k]), h('span', { class: 'v' }, r[k]));
+      const unsure = k === 'status' && r.unsure, on = st.emailPick[k] ?? (!OPTIONAL.includes(k) && !unsure);
+      return h('label', { class: 'frow' }, h('input', { type: 'checkbox', checked: on, onchange: (e) => { st.emailPick[k] = e.target.checked; } }), h('span', { class: 'k' }, KLABEL[k]), h('span', { class: 'v' }, r[k], unsure ? h('small', {}, ' · the email says more than one thing: check it') : null));
     })),
       h('div', { class: 'acts' }, h('button', { class: 'btn small primary', onclick: () => applyEmail(r) }, 'Use these'), h('button', { class: 'btn small ghost', onclick: () => { st.emailText = ''; st.emailOpen = false; st.emailPick = null; ui.rebuild(); } }, 'Clear')),
       h('div', { class: 'hint' }, 'Read in your browser; nothing is sent anywhere. Check each line against the email.'));
   }
-  function applyEmail(r) {
+  function applyEmail(r) { ui.batch(() => applyEmailNow(r)); }
+  function applyEmailNow(r) {
     const chosen = { ...(st.emailPick || {}) }, pick = (k) => !!r[k] && (chosen[k] ?? !OPTIONAL.includes(k));
     if (pick('award') && !ui.doc.fields.some((f) => f.kind === 'award' && vis(f))) applyLayoutId('winner');
-    if (pick('festival')) setKind('festival', r.festival, { extra: r.fid ? { fid: r.fid } : {} });
+    if (pick('festival')) setKind('festival', r.festival, { extra: { fid: r.fid || null } });
     if (pick('year')) setKind('year', r.year);
     if (pick('award')) setKind('award', r.award);
     if (pick('category')) setKind('category', r.category);
     if (pick('edition')) { const fs = ui.clone(ui.doc.fields), at = Math.max(0, fs.findIndex((x) => x.kind === 'status' && vis(x)) + 1); if (!fs.some((x) => x.kind === 'edition' && vis(x))) { fs.splice(at, 0, { id: ui.newId(), kind: 'edition', text: r.edition, role: 'eyebrow', slot: 'inside', show: true }); ui.change('fields', fs); } else setKind('edition', r.edition); }
-    if (pick('film')) { try { const p = JSON.parse(localStorage.getItem('daphne.studio') || '{}'); p.social = { ...(p.social || {}), title: r.film }; localStorage.setItem('daphne.studio', JSON.stringify(p)); } catch (e) { /* a convenience */ } }
+    if (pick('film')) ui.change('film', { ...(ui.doc.film || {}), title: r.film });
     st.emailOpen = false; st.emailText = ''; st.emailPick = null;
-    if (pick('status')) pickStatus(r.status); else ui.rebuild();
+    if (pick('status')) pickStatusNow(r.status); else ui.rebuild();
     ui.toast(pick('film') ? 'Filled in from the email. The film’s title is ready for your social card.' : 'Filled in from the email: check each line');
   }
   const emailArea = h('textarea', { rows: 5, class: 'emailin', placeholder: 'Paste the email the festival sent you. Daphne picks out the status, the festival, the year, the award and the section.', 'aria-label': 'The festival’s email', oninput: (e) => { st.emailText = e.target.value; st.emailPick = null; showFound(); } }, st.emailText || '');

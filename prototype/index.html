@@ -72,6 +72,9 @@
   /* just above the phone layout, the bar is a little too wide for its row: Share link keeps its icon and drops its word */
   @media (max-width: 960px) { .top-actions .btn.ghost .lbl { display: none; } }
   .top-actions { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+  .savestate { font-size: 12px; font-weight: 600; color: #ffb4a2; border: 1px solid currentColor; border-radius: 999px; padding: 3px 9px; white-space: nowrap; }
+  .savestate[hidden] { display: none; }
+  .top-actions .icon-btn:disabled { opacity: .35; cursor: default; }
   .modes { display: flex; gap: 2px; background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 3px; }
   .modes button { background: none; border: 0; border-radius: 7px; padding: 6px 12px; cursor: pointer; color: var(--mute); font-weight: 600; transition: color .15s, background .15s; }
   .modes button:hover { color: var(--text); }
@@ -208,10 +211,16 @@
   .field.sel { border-color: #b8e59a99; box-shadow: 0 0 0 3px #b8e59a14; }
   .field.drag-over { border-style: dashed; border-color: var(--leaf); }
   .field .handle { cursor: grab; color: var(--faint); user-select: none; padding-top: 6px; font-size: 11px; letter-spacing: -2px; }
+  .stage-empty { margin: auto; max-width: 420px; padding: 24px; display: grid; gap: 12px; justify-items: center; text-align: center; color: var(--mute); font-size: 13.5px; line-height: 1.5; }
+  .stage-empty p { margin: 0; }
+  tr.example input { font-style: italic; color: var(--mute); }
+  .row-examples { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .row-examples > span { flex: 1 1 260px; }
   .field .logo-in { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; font-size: 11.5px; color: var(--mute); }
   .field .logo-in .logo-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .field .meta { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 5px; margin-top: 6px; }
-  .field .meta select { padding: 3px 22px 3px 7px; font-size: 11.5px; background-position: calc(100% - 11px) 50%, calc(100% - 7px) 50%; }
+  /* V06: each select is as wide as its longest choice and they wrap rather than cut a label short */
+  .field .meta { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px; }
+  .field .meta select { flex: 1 1 auto; width: auto; min-width: 0; padding: 3px 22px 3px 7px; font-size: 11.5px; background-position: calc(100% - 11px) 50%, calc(100% - 7px) 50%; }
   .field .flags { display: flex; gap: 12px; margin-top: 6px; color: var(--mute); font-size: 11.5px; align-items: center; flex-wrap: wrap; }
   .field .flags label { display: inline-flex; gap: 5px; align-items: center; cursor: pointer; }
   .field .tools { display: grid; gap: 4px; }
@@ -242,13 +251,14 @@
   .paint .stop { display: grid; grid-template-columns: 30px 1fr 24px; gap: 7px; align-items: center; }
   .paint .lbl { font-size: 12.5px; color: var(--text); flex: 1; font-weight: 600; }
   .paint .sw { width: 18px; height: 18px; border-radius: 5px; flex: none; box-shadow: 0 0 0 1px #ffffff22 inset; }
+  .paint .sw.inherit { outline: 1px dashed #ffffff8c; outline-offset: 2px; } /* inherited: the paint it gets, marked as borrowed */
   .role { display: grid; gap: 8px; background: var(--bg2); border: 1px solid var(--line); border-radius: 12px; padding: 11px; }
   .role > b { font-size: 12.5px; display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
   .role > b small { color: var(--faint); font-weight: 500; font-size: 11px; }
   .fontbtn { width: 100%; text-align: left; background: var(--panel2); border: 1px solid var(--line2); border-radius: 9px; padding: 7px 10px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 17px; line-height: 1.2; }
   .fontbtn:hover { border-color: #3d604d; }
   .fontbtn small { font: 500 11px var(--sans); color: var(--faint); }
-  .fontpop { position: fixed; z-index: 60; width: 330px; max-height: min(520px, 70vh); background: #16302a; border: 1px solid var(--line2); border-radius: 14px; box-shadow: 0 30px 80px #000d; display: grid; grid-template-rows: auto 1fr; overflow: hidden; }
+  .fontpop { position: fixed; z-index: 60; width: min(330px, calc(100vw - 16px)); max-height: min(520px, 70vh); background: #16302a; border: 1px solid var(--line2); border-radius: 14px; box-shadow: 0 30px 80px #000d; display: grid; grid-template-rows: auto 1fr; overflow: hidden; }
   .fontpop .fhead { padding: 10px; border-bottom: 1px solid var(--line); display: grid; gap: 8px; }
   .fontpop .flist { overflow-y: auto; padding: 4px 6px 8px; }
   .fontpop .fcat { font: 600 11.5px/1.3 var(--sans); letter-spacing: .01em; color: var(--faint); padding: 10px 8px 4px; }
@@ -280,6 +290,23 @@
   .stage.wide > svg { width: 100%; height: auto; }
   .stage.poster { background: #000; position: relative; max-width: 100%; }
   .stage.previewing { box-shadow: 0 40px 100px #000b, 0 0 0 2px var(--leaf); }
+  /* placing words (L03): the strip floats over the top of the stage; the glow, guides and grid are stage-only aids */
+  .placebar { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); z-index: 5; display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 6px; max-width: calc(100% - 24px); width: max-content; padding: 6px 8px; border-radius: 12px; background: #0b1b13ee; border: 1px solid var(--line2); backdrop-filter: blur(10px); box-shadow: 0 14px 40px #0008; font-size: 12px; }
+  .placebar[hidden] { display: none; }
+  .stagebar .gridtoggle { display: contents; }
+  .placebar .what { color: var(--text); padding: 0 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 16em; }
+  .placebar .btn.icon { min-width: 30px; padding-left: 0; padding-right: 0; justify-content: center; }
+  .placebar .hint { color: var(--faint); font-size: 11px; padding: 0 4px; }
+  main.light .placebar { background: #fffffff0; border-color: #0000001a; box-shadow: 0 14px 40px #0002; }
+  .stage svg .picked { filter: drop-shadow(0 0 1.5px #b8e59a) drop-shadow(0 0 5px #b8e59aaa); }
+  .stage svg .grid line, .stage svg .guides line { pointer-events: none; }
+  .stage svg .grid line { stroke: #b8e59a; stroke-opacity: .16; stroke-width: 1; }
+  .stage svg .grid line.axis { stroke-opacity: .42; }
+  .stage svg .guides line { stroke: #ff5fa2; stroke-width: 1; stroke-dasharray: 4 3; }
+  main.light .stage svg .grid line { stroke: #12291E; }
+  /* C07: while a look is previewed, advice about the laurel in use steps back, so nothing describes the wrong laurel */
+  .stagearea:has(.stage.previewing) .report, .stagearea:has(.stage.previewing) .small-sizes, .stagearea:has(.stage.previewing) .placebar { visibility: hidden; }
+  main:has(.stage.previewing) #notes { opacity: .3; transition: opacity .15s; }
   .peek { position: absolute; top: 14px; left: 50%; transform: translateX(-50%); background: #000c; color: var(--leaf); border: 1px solid #b8e59a66; border-radius: 999px; padding: 4px 12px; font-size: 11.5px; font-weight: 700; pointer-events: none; letter-spacing: .02em; z-index: 4; }
   .stagebar { position: absolute; left: 0; right: 0; bottom: 0; display: flex; gap: 8px; align-items: center; padding: 10px 14px; pointer-events: none; color: var(--mute); font-size: 12px; }
   .stagebar > * { pointer-events: auto; }
@@ -291,7 +318,21 @@
   .bd { width: 14px; height: 14px; border-radius: 50%; display: inline-block; vertical-align: -3px; box-shadow: 0 0 0 1px #ffffff30 inset; }
   .small-sizes { position: absolute; right: 16px; top: 16px; display: grid; gap: 8px; background: #0b1b13ee; border: 1px solid var(--line2); border-radius: 14px; padding: 12px; backdrop-filter: blur(10px); box-shadow: 0 20px 50px #000a; z-index: 3; max-width: calc(100% - 32px); }
   .small-sizes .ss-row { display: flex; flex-direction: column; gap: 12px; align-items: flex-end; }
-  .stagearea:has(.small-sizes) > .stagewrap { padding-right: min(400px, 40%); } /* the laurel moves aside instead of hiding under the panel */
+  /* V01: the proofs take real room. Beside the laurel when both fit (the stage gives up the panel's real width),
+     otherwise along the bottom (the stage gives up its height); a proof wider than the room scrolls inside the panel */
+  .stagearea.ss-side > .stagewrap { padding-right: calc(var(--ssw, 360px) + 32px); }
+  .stagearea.ss-below > .stagewrap { padding-bottom: calc(var(--ssh, 200px) + 32px); }
+  .stagearea.ss-below .small-sizes { top: auto; bottom: 16px; left: 16px; right: 16px; max-height: 60%; overflow: auto; contain: inline-size; }
+  .stagearea.ss-below .stage svg { max-height: max(160px, calc(100vh - 252px - var(--ssh, 200px))); }
+  .stagearea.ss-below .small-sizes .ss-row { flex-direction: row; flex-wrap: nowrap; align-items: flex-end; overflow-x: auto; justify-content: safe center; }
+  .stagearea.ss-below .small-sizes figure { max-width: none; flex: none; }
+  .stagearea.ss-below .small-sizes .pair { flex-wrap: nowrap; }
+  .small-sizes { grid-template-columns: minmax(0, 1fr); }
+  .small-sizes .ss-row { min-width: 0; }
+  .small-sizes figure { max-width: 100%; min-width: 0; grid-template-columns: minmax(0, 1fr); }
+  .small-sizes .pair { min-width: 0; }
+  .small-sizes .pair { flex-wrap: wrap; justify-content: center; max-width: 100%; }
+  .small-sizes .pair > div { max-width: 100%; overflow-x: auto; justify-items: start; }
   .small-sizes figure { margin: 0; display: grid; gap: 5px; justify-items: center; }
   .small-sizes figcaption { font: 500 10.5px var(--data); color: var(--faint); }
   .small-sizes img { display: block; image-rendering: auto; }
@@ -321,6 +362,10 @@
   .bottom { min-height: 0; }
   .modepanel { display: none; border-top: 1px solid var(--line); padding: 12px 16px; gap: 10px; max-height: 42vh; overflow: auto; background: var(--panel); }
   .modepanel.on { display: grid; }
+  /* A10: a label sits 6 px from its select or slider, centered on it, as in Poster */
+  .modepanel label:has(> select), .modepanel label:has(> input[type=range]) { display: inline-flex; align-items: center; gap: 6px; }
+  .modepanel.on { grid-template-columns: minmax(0, 1fr); }
+  .rowscroll { overflow-x: auto; min-width: 0; }
   .rowtable { width: 100%; border-collapse: separate; border-spacing: 0 4px; font-size: 12px; }
   .rowtable th { text-align: left; color: var(--mute); font: 600 11.5px/1.3 var(--sans); letter-spacing: .01em; padding: 0 4px; }
   .rowtable td { padding: 0 3px; vertical-align: middle; }
@@ -386,6 +431,7 @@
   .studio .opts .go .btn { padding: 11px 14px; font-size: 14px; }
   .studio .alt { background: var(--bg2); border: 1px solid var(--line2); border-radius: 10px; padding: 10px 11px; font-size: 12.5px; color: #e3eadf; line-height: 1.5; }
   .studio code, .studio pre { font: 11.5px/1.5 ui-monospace, Menlo, monospace; }
+  .studio .prose { background: var(--bg2); border: 1px solid var(--line2); border-radius: 10px; padding: 10px 12px; white-space: pre-line; overflow-wrap: anywhere; max-height: 200px; overflow: auto; margin: 0; color: #dfe7da; font-size: 13.5px; line-height: 1.5; }
   .studio pre { background: var(--bg2); border: 1px solid var(--line2); border-radius: 10px; padding: 10px; white-space: pre-wrap; word-break: break-all; max-height: 160px; overflow: auto; margin: 0; color: #cbd6c7; }
   .studio .opts > * { min-width: 0; }
   .studio .opts { overflow-x: hidden; }
@@ -404,7 +450,8 @@
   .studio .preview .frame.dark { background: repeating-conic-gradient(#1d1d22 0 25%, #141418 0 50%) 0 0/16px 16px; }
   .studio .preview .frame.card { background: #000; border-radius: 10px; }
   .studio .preview .frame.footage { background: repeating-conic-gradient(#ffffff0a 0 25%, transparent 0 50%) 0 0/24px 24px, linear-gradient(135deg, #2b3440, #151a21 55%, #322a22); }
-  .studio .preview .frame.bare { background: none; box-shadow: none; border-radius: 0; }
+  .studio .preview .frame.bare { background: none; box-shadow: none; border-radius: 0; max-width: 100%; overflow-x: auto; }
+  .studio .preview .frame.bare svg { max-width: none; } /* an actual-size proof stays actual size; a wide one scrolls */
   .packgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 12px; width: 100%; max-width: 680px; max-height: 62vh; overflow: auto; padding: 4px; }
   .packgrid figure { margin: 0; display: grid; gap: 6px; justify-items: center; }
   .packgrid .pt { width: 100%; aspect-ratio: 1; border-radius: 8px; background: repeating-conic-gradient(#173226 0 25%, #11281d 0 50%) 0 0/12px 12px; display: grid; place-items: center; overflow: hidden; box-shadow: 0 10px 30px #0008, 0 0 0 1px #ffffff10; }
@@ -429,7 +476,7 @@
   .kitgrid { display: flex; gap: 14px; justify-content: center; align-items: end; flex-wrap: wrap; }
   .kitgrid figure { margin: 0; display: grid; gap: 8px; justify-items: center; }
   .kitgrid figcaption { font: 600 11.5px var(--sans); color: var(--mute); }
-  .sigs { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; width: min(640px, 100%); }
+  .sigs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; width: min(640px, 100%); }
   .sig { background: #fff; color: #222; border-radius: 10px; padding: 18px; display: grid; gap: 12px; justify-items: start; box-shadow: 0 20px 60px #000a; font: 13px/1.4 Arial, sans-serif; }
   .sig.dark { background: #1f1f22; color: #e8e8e8; }
   .sig .who { display: grid; } .sig .who b { font-size: 14px; } .sig .lnk { color: #1a73e8; } .sig.dark .lnk { color: #8ab4f8; }
@@ -517,16 +564,21 @@
     .rail { order: 2; flex-direction: row; overflow-x: auto; border-right: 0; border-bottom: 1px solid var(--line); padding: 6px; position: sticky; top: var(--hh, 98px); z-index: 4; }
     .rail button { flex: 1 0 64px; }
     .rail button.on::before { left: 12px; right: 12px; top: auto; bottom: -6px; width: auto; height: 3px; border-radius: 3px 3px 0 0; }
-    .rail .grow, .rail .about { display: none; }
+    .rail .grow { display: none; } /* A08: About stays in the rail, at its end, so the guide is always one tap away */
     aside.panel { order: 3; overflow: visible; border-right: 0; }
     .tabhead { position: static; }
     .stagewrap { padding: 16px 16px 56px; }
     .stage svg { max-height: 52vh; }
+    /* on a phone the strip takes the stage bar's place under the laurel: one row, nothing covered, nothing shifts */
+    .placebar { top: auto; bottom: 8px; flex-wrap: nowrap; gap: 4px; padding: 4px; border-radius: 10px; }
+    .placebar .what, .placebar .hint, .placebar .role { display: none; }
+    .stagearea.placing .stagebar, .stagearea.placing .report { visibility: hidden; }
     .stagearea { flex: none; flex-direction: column; }
     .stagearea > .stagewrap { flex: none; }
-    .small-sizes { position: static; margin: 0 16px 60px; max-width: none; }
+    .small-sizes { position: static; margin: 0 16px 60px; max-width: none; contain: inline-size; }
     .small-sizes .ss-row { flex-direction: row; flex-wrap: wrap; align-items: flex-end; }
-    .stagearea:has(.small-sizes) > .stagewrap { padding-right: 16px; }
+    .stagearea.ss-side > .stagewrap, .stagearea.ss-below > .stagewrap { padding: 16px 16px 56px; }
+    .stagearea.ss-below .small-sizes { max-height: none; overflow: visible; }
     .scrim { padding: 0; }
     .modal { height: 100%; border-radius: 0; }
     .studio { display: block; overflow-y: auto; -webkit-overflow-scrolling: touch; }
@@ -534,16 +586,18 @@
     .studio .dests { display: grid; overflow-x: auto !important; }
     .studio .dests { border-right: 0; border-bottom: 1px solid var(--line); grid-auto-flow: column; grid-auto-columns: 220px; overflow-x: auto; overflow-y: hidden; }
     .studio .dgroup { display: none; }
-    .studio .preview { min-height: 320px; height: 52vh; }
+    .studio .preview { min-height: 320px; height: auto; } /* D45: grows with stacked previews, so nothing overlaps what follows */
     .studio .opts { border-left: 0; }
     /* on a phone the main download stays in reach while the options scroll */
     .studio .opts > .go { position: sticky; bottom: 0; z-index: 2; margin: 0 -18px; padding: 16px 18px calc(12px + env(safe-area-inset-bottom)); background: linear-gradient(180deg, #12291e00, var(--panel) 28%); }
     .studio .opts > .go ~ .go { position: static; margin: 0; padding: 0; background: none; }
     .studio.fixer { grid-template-columns: 1fr; }
     .studio.fixer .opts { border-left: 0; border-top: 1px solid var(--line); }
-    .sigs { grid-template-columns: 1fr; }
+    .sigs { grid-template-columns: minmax(0, 1fr); }
     .report { bottom: 44px; }
   }
+  @media (max-width: 380px) { .placebar .edit, .stagebar .gridtoggle { display: none; } .stagebar { gap: 6px; padding-left: 8px; padding-right: 8px; } .stagebar .segctl button { padding-left: 6px; padding-right: 6px; } } /* the smallest phones: the strip and the stage bar stay one row */
+
 </style>
 </head>
 <body>
@@ -557,6 +611,7 @@
     <button data-mode="motion" role="tab" title="An animated end card: the leaves grow in, then a shimmer">Motion</button>
   </div>
   <div class="top-actions">
+    <span id="savestate" class="savestate" role="status" hidden title="Storage is full or blocked in this browser. Use Share link to keep this laurel.">Not saved</span>
     <button class="icon-btn" id="undo" title="Undo (⌘Z)" aria-label="Undo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg></button>
     <button class="icon-btn" id="redo" title="Redo (⇧⌘Z)" aria-label="Redo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m15 14 5-5-5-5"/><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13"/></svg></button>
     <button class="btn ghost" id="copy-link" aria-label="Copy a share link" title="A link that holds the whole laurel. Nothing is stored on a server."><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></svg><span class="lbl">Share link</span></button>

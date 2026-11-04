@@ -36,7 +36,7 @@ function paletteOf(px, k = 6) {
 
 export function posterMode(ctx) {
   const { h } = ctx;
-  let img = null, imgKey = '', data = null, layer = null, wrap = null, actualBusy = 0, suggestKey = '';
+  let img = null, imgKey = '', data = null, layer = null, wrap = null, actualBusy = 0, gen = 0, suggestKey = '';
   const P = () => ({ ...DEFAULT, ...(ctx.doc.poster || {}) });
   const has = () => !!(P().src && ctx.ASSETS[P().src]);
 
@@ -44,7 +44,8 @@ export function posterMode(ctx) {
   async function load() {
     const src = P().src; if (!src || !ctx.ASSETS[src]) { img = null; data = null; imgKey = ''; return; }
     if (imgKey === src && img) return;
-    img = new Image(); img.src = ctx.ASSETS[src]; await img.decode(); imgKey = src;
+    const im = new Image(); im.src = ctx.ASSETS[src]; try { await im.decode(); } catch (e) { return; } // D27: the last good poster stays until the new one is read
+    if (P().src !== src) return; img = im; imgKey = src;
     const s = Math.min(1, 180 / Math.max(img.naturalWidth, img.naturalHeight)), sw = Math.max(1, Math.round(img.naturalWidth * s)), sh = Math.max(1, Math.round(img.naturalHeight * s));
     const c = document.createElement('canvas'); c.width = sw; c.height = sh; const x = c.getContext('2d', { willReadFrequently: true }); x.drawImage(img, 0, 0, sw, sh);
     const px = x.getImageData(0, 0, sw, sh).data;
@@ -170,8 +171,9 @@ export function posterMode(ctx) {
   async function upload(file) {
     if (!file) return;
     if (file.size > 25 * 1024 * 1024) { alert('That image is over 25 MB. Export the poster smaller (about 2000 px tall is plenty) and try again.'); return; }
-    const url = await new Promise((ok, no) => { const r = new FileReader(); r.onload = () => ok(r.result); r.onerror = no; r.readAsDataURL(file); });
-    const im = new Image(); im.src = url; await im.decode();
+    const url = await new Promise((ok) => { const r = new FileReader(); r.onload = () => ok(r.result); r.onerror = () => ok(null); r.readAsDataURL(file); });
+    const im = new Image(); if (url) im.src = url; const ok = url && (await im.decode().then(() => true, () => false));
+    if (!ok) { ctx.toast(has() ? 'Couldn’t read that image, so the poster stays as it was.' : 'Couldn’t read that image. Try a JPG or PNG.', 4200); return; }
     const s = Math.min(1, MAXSIDE / Math.max(im.naturalWidth, im.naturalHeight)), c = document.createElement('canvas');
     c.width = Math.round(im.naturalWidth * s); c.height = Math.round(im.naturalHeight * s);
     c.getContext('2d').drawImage(im, 0, 0, c.width, c.height);
@@ -196,7 +198,7 @@ export function posterMode(ctx) {
         contrastEl = h('span', { class: 'contrast' }),
         h('span', { class: 'grow' }),
         h('label', { title: 'See it the size it will be in a poster row or a listing: 160 px tall, on a standard screen' }, h('input', { type: 'checkbox', checked: !!p.actual, onchange: (e) => { ctx.change('poster.actual', e.target.checked); } }), 'At 160 px'),
-        h('button', { class: 'btn small', title: 'The poster with the laurel on it, as a PNG (for sharing a draft)', onclick: mockup }, 'Mockup PNG'));
+        h('button', { class: 'btn small', title: 'The poster with the laurel on it, as a PNG (for sharing a draft)', onclick: () => mockup().catch((e) => ctx.toast(e.message || 'Couldn’t make the mockup')) }, 'Mockup PNG'));
       ctx.modepanel.append(
         h('div', { class: 'rowtools' }, h('b', { style: 'color:var(--text)' }, 'Colors from your poster'), h('span', { class: 'swatches' }, (data ? data.palette : []).map((sw) => h('i', { style: `background:${sw.c}`, title: sw.c }))), h('span', { class: 'hint' }, 'Each is checked against what’s behind the laurel. Click one to use it.')),
         h('div', { class: 'suggest', id: 'poster-suggest' }));
@@ -239,8 +241,9 @@ export function posterMode(ctx) {
     const c = document.createElement('canvas'); c.width = cw; c.height = chh; const x = c.getContext('2d');
     x.drawImage(img, -ox, -oy, W * k, H * k);
     const lw = Math.max(1, Math.round((b.x1 - b.x0) * W * k)), png = await ctx.toPng(r.svg, r.viewBox, lw, false);
-    if (my !== actualBusy) return;
+    if (my !== actualBusy) return; // D28: a newer drawing, or another mode, has the stage now
     const li = new Image(); li.src = URL.createObjectURL(png); await li.decode();
+    if (my !== actualBusy) return;
     x.drawImage(li, b.x0 * W * k - ox, b.y0 * H * k - oy, lw, 160);
     c.style.width = cw + 'px'; c.style.height = chh + 'px';
     ctx.stage.className = 'stage poster'; ctx.stage.innerHTML = '';
@@ -250,18 +253,21 @@ export function posterMode(ctx) {
   return {
     enter() { load().then(() => { buildBar(); ctx.schedule(); }); buildBar(); },
     refresh() { load().then(() => { buildBar(); ctx.schedule(); }); },
-    leave() { layer = null; wrap = null; },
+    leave() { layer = null; wrap = null; actualBusy++; gen++; },
     async draw(r) {
-      const st = ctx.stage;
+      const st = ctx.stage, g = gen;
       if (!has()) {
         layer = null;
         st.className = 'stage poster'; st.innerHTML = '';
         st.append(h('div', { class: 'poster-empty' }, h('b', {}, 'See the laurel on your poster'), h('div', {}, P().src ? 'This link’s poster stays on the device it was added on. Upload it again to see it here.' : 'Upload the poster or a still. Drag the laurel into place, check the contrast and try colors taken from the artwork.'), h('button', { class: 'btn primary', onclick: () => fileInput.click() }, 'Upload poster'), h('div', { class: 'hint' }, 'JPEG, PNG or WebP. It stays on this device.')));
         return;
       }
-      if (imgKey !== P().src) { await load(); buildBar(); }
-      if (P().actual) { drawActual(r); updateContrast(r); return; }
+      if (imgKey !== P().src) { await load(); if (g !== gen) return; buildBar(); }
+      if (P().actual) { drawActual(r).catch((e) => ctx.toast(e.message || 'Couldn’t draw the actual size')); updateContrast(r); return; }
+      actualBusy++; // a 160 px drawing still on its way must not land on top of this one
       st.className = 'stage poster';
+      // D27: the stage shows the poster the laurel is on, the moment it changes
+      if (wrap && st.contains(wrap)) { const im = wrap.querySelector('img'); if (im.getAttribute('src') !== ctx.ASSETS[P().src]) im.setAttribute('src', ctx.ASSETS[P().src]); }
       if (!wrap || !st.contains(wrap)) {
         st.innerHTML = '';
         wrap = h('div', { class: 'poster-wrap' }, h('img', { src: ctx.ASSETS[P().src], alt: 'Your poster', draggable: 'false' }));

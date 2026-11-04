@@ -1,12 +1,14 @@
 // studio.js — Export. Say where the laurel is going and get exactly the files that place needs.
 // Nothing here changes the laurel: every destination re-dresses a copy of the document (a one-color version, a social
 // card, an end-card frame) and packs it. The settings people pick are remembered on this device.
-import { checkLaurel, statusRank, prestige } from './rules.js';
+import { holdFocus, keepFocus } from './modal.js';
+import { checkLaurel, accoladesOf } from './rules.js';
 import { STATUS_COMMON } from './words.js';
+import { smallestText, caseOf, xmlSafe } from './engine.mjs';
 
 const AWARD_LAYOUTS = ['winner', 'award-detail', 'award-festival-hero', 'star-winner'];
 
-const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const esc = (s) => xmlSafe(String(s ?? '')).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const r2 = (n) => Math.round(n * 100) / 100;
 const hex = (c) => (typeof c === 'string' && /^#[0-9a-f]{6}$/i.test(c) ? c : null);
 const lum = (c) => { const x = hex(c); if (!x) return 0; const [r, g, b] = [1, 3, 5].map((i) => { const v = parseInt(x.slice(i, i + 2), 16) / 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; }); return 0.2126 * r + 0.7152 * g + 0.0722 * b; };
@@ -53,28 +55,16 @@ async function withDpi(blob, dpi) {
   return new Blob([src.subarray(0, 33), chunk, src.subarray(33)], { type: 'image/png' });
 }
 
-// ── what the laurels say, as text: for press releases, IMDb, FilmFreeway, a website ──
-function accolades(ctx) {
-  const d = ctx.doc, t = (k) => d.fields.filter((f) => f.kind === k && f.show !== false && f.text).map((f) => f.text.trim()).join(' ');
-  const items = [];
-  const self = { status: t('status'), festival: t('festival'), award: t('award'), year: (t('year').match(/\d{4}/) || [''])[0] };
-  if (self.festival || self.award) items.push(self);
-  for (const it of (d.row && d.row.items) || []) if (it.festival || it.award) items.push({ status: it.status || '', festival: it.festival || '', award: it.award || '', year: String(it.year || '').match(/\d{4}/)?.[0] || '' });
-  const seen = new Set(), list = items.filter((it) => { const k = [it.status, it.festival, it.award, it.year].join('|').toLowerCase(); if (seen.has(k)) return false; seen.add(k); return true; });
-  list.sort((a, b) => prestige(b) - prestige(a));
-  const line = (it) => [it.status, it.award, [it.festival, it.year].filter(Boolean).join(' ')].filter(Boolean).join(', ');
-  const wins = list.filter((it) => statusRank(it.status || it.award) >= 50), fests = [...new Set(list.map((it) => it.festival).filter(Boolean))];
-  const prem = list.find((it) => /premiere/i.test(it.status));
-  const and = (a) => (a.length < 2 ? a.join('') : a.slice(0, -1).join(', ') + ' and ' + a[a.length - 1]);
-  const s = [];
-  if (prem) s.push(`${prem.status} at ${[prem.festival, prem.year].filter(Boolean).join(' ')}.`);
-  if (fests.length > 1) s.push(`Selected for ${fests.length} festivals, including ${and(fests.slice(0, 3))}.`);
-  else if (fests.length === 1 && !prem) s.push(`${list[0].status || 'Official Selection'}, ${fests[0]}${list[0].year ? ' ' + list[0].year : ''}.`);
-  if (wins.length) s.push(`Winner of ${and(wins.slice(0, 3).map((w) => (w.award || 'an award') + (w.festival ? ` at ${w.festival}${w.year ? ' ' + w.year : ''}` : '')))}${wins.length > 3 ? `, and ${wins.length - 3} more` : ''}.`);
-  return { list, lines: list.map(line), sentence: s.join(' '), html: `<ul class="laurels">\n${list.map((it) => `  <li>${esc(line(it))}</li>`).join('\n')}\n</ul>` };
-}
+// what the laurels say, as text: rules.js accoladesOf keeps it to what the laurels claim
+const accolades = (ctx) => accoladesOf(ctx.doc);
+const NO_SENTENCE = 'No sentence yet: none of these laurels says what the festival gave the film. Add a status (Official Selection, a premiere, Winner) and it writes itself.';
 
 // a first line for the post that goes with the card; the filmmaker makes it theirs
+// for the row: what the shown laurels say, in one breath
+function rowCaption(items, title) {
+  const a = accoladesOf({ fields: [], row: { items } }), film = title || 'Our film';
+  return a.sentence ? `${film}: ${a.sentence}` : `${film} at ${[...new Set(items.map((it) => it.festival).filter(Boolean))].join(', ') || 'festivals'}.`;
+}
 function caption(ctx, title) {
   const d = ctx.doc, t = (k) => d.fields.filter((f) => f.kind === k && f.show !== false && f.text).map((f) => f.text.trim()).join(' ');
   const film = title || 'Our film', st = t('status'), fest = [t('festival'), t('year')].filter(Boolean).join(' ') || 'the festival', aw = t('award');
@@ -102,6 +92,9 @@ export function packVariants(ctx, d, o) {
   const out = [];
   for (const st of o.statuses) { const v = ctx.clone(sel); setText(v, 'status', st); out.push({ label: st, slug: ctx.slug(st), doc: v }); }
   for (const a of o.awards) { const v = ctx.clone(aw); setText(v, 'award', a); setText(v, 'status', o.winner); out.push({ label: a, slug: ctx.slug(a), doc: v, award: true }); }
+  // C03: "Best Film" and "Best-Film" slug alike; each laurel gets its own folder and files (the README maps them back)
+  const used = new Set();
+  for (const v of out) { const b = v.slug || 'laurel'; let s = b, n = 1; while (used.has(s)) s = `${b}-${++n}`; used.add(s); v.slug = s; }
   return out;
 }
 
@@ -125,7 +118,7 @@ const ICONS = {
 const DESTS = [
   { id: 'kit', t: 'Laurel kit', s: 'Everything, in one ZIP', kit: true },
   { g: 'Files' },
-  { id: 'png', t: 'PNG', s: 'Transparent, any size' },
+  { id: 'png', t: 'PNG', s: 'Any size, clear or on your color' },
   { id: 'svg', t: 'SVG', s: 'Vector, for designers and the web' },
   { id: 'pdf', t: 'PDF', s: 'Vector, for printers' },
   { g: 'Where it’s going' },
@@ -153,39 +146,57 @@ function loadPrefs() {
   let p = {}; try { p = JSON.parse(localStorage.getItem('daphne.studio') || '{}'); } catch (e) { /* a convenience */ }
   const o = { ...DEFAULTS, ...p };
   for (const k of ['social', 'video', 'web', 'email', 'kit', 'pack']) o[k] = { ...DEFAULTS[k], ...(p[k] || {}) };
-  o.social.title = o.social.title || ''; return o;
+  delete o.social.title; delete o.social.line; // a film's words belong to its laurel, not to this device (older prefs kept them)
+  return o;
 }
 let photo = null; // a still or poster for the social card: this session only, never stored
 
 export function openStudio(ctx) {
-  const { h } = ctx, P = loadPrefs();
-  const save = () => { try { localStorage.setItem('daphne.studio', JSON.stringify(P)); } catch (e) { /* a convenience */ } };
-  const d0 = () => ctx.doc;
-  const hasRow = () => !!(d0().row && d0().row.items && d0().row.items.length && ctx.rowScene);
+  const { h } = ctx, P = loadPrefs(), d0 = () => ctx.doc;
+  // the film's title and detail line travel with this laurel (its link, its autosave), never to the next one
+  P.social.title = (d0().film && d0().film.title) || ''; P.social.line = (d0().film && d0().film.line) || '';
+  // D35: a festival pack's recipe travels with its laurel, so the link in its README opens the same set on any device
+  const R = d0().pack, strs = (a, ok) => (Array.isArray(a) ? a.filter((x) => typeof x === 'string' && (!ok || ok.includes(x))) : null);
+  if (R && typeof R === 'object') {
+    const st = strs(R.statuses), ws = strs(R.ways, WAYS.map((W) => W.id)), fs = strs(R.fmts, ['svg', 'png', 'pdf']);
+    if (st) P.pack.statuses = st; if (ws) P.pack.ways = ws; if (fs) P.pack.fmts = fs;
+    if (typeof R.awards === 'string') P.pack.awards = R.awards; if (typeof R.winner === 'string') P.pack.winner = R.winner;
+    if (R.pngW > 0 && R.pngW <= 12000) P.pngW = Math.round(R.pngW); if (R.pdfMm > 0 && R.pdfMm <= 2000) P.pdfMm = R.pdfMm;
+  }
+  const keepPack = () => { const K = P.pack; d0().pack = { statuses: [...K.statuses], awards: K.awards, winner: K.winner, ways: [...K.ways], fmts: [...K.fmts], pngW: P.pngW, pdfMm: P.pdfMm }; ctx.settle(); };
+  const save = () => { try { const { title, line, ...social } = P.social; localStorage.setItem('daphne.studio', JSON.stringify({ ...P, social })); } catch (e) { /* a convenience */ } };
+  // J05: the row is always a place to export to; whether it has laurels of its own is one question, asked of the row (rowEmpty)
+  const hasRow = () => !!ctx.rowScene, rowNone = () => (ctx.rowEmpty ? ctx.rowEmpty() : 'Your row is empty.');
+  // the row as it's drawn: its laurels in order, without hidden ones or artwork missing on this device
+  const rowShown = () => { const sc = hasRow() && ctx.rowScene({ bg: false, real: true }); return sc ? sc.parts.map((p) => p.it) : []; };
+  const rowMissing = () => (d0().row && Array.isArray(d0().row.items) ? d0().row.items.filter((it) => it.show !== false && it.src && !ctx.ASSETS[it.src]) : []);
+  const rowLine = (it) => (it.src && !it.status && !it.award ? `the official laurel of ${[it.festival, it.year].filter(Boolean).join(' ') || 'a festival'}` : [it.status, it.award, [it.festival, it.year].filter(Boolean).join(' ')].filter(Boolean).join(', '));
+  const rowAlt = () => { const its = rowShown(); return its.length ? `Festival laurels: ${its.map(rowLine).join('; ')}.` : ctx.altText(d0()); };
+  const showsRow = (what) => what === 'row' && rowShown().length > 0;
   const base = () => ctx.fileName();
   const docOf = (way) => colorway(d0(), way, ctx.clone);
   const cache = new Map();
-  const rendered = (way) => { if (!cache.has(way)) cache.set(way, ctx.render(docOf(way))); return cache.get(way); }; // the laurel doesn't change while Export is open
+  const rendered = (way) => { const k = way + (ctx.fontEpoch || 0); if (!cache.has(k)) cache.set(k, ctx.render(docOf(way))); return cache.get(k); }; // the laurel doesn't change while Export is open; a font arriving does (D14)
   const bgOn = () => P.way === 'color' && !!d0().canvas.bg && P.bg !== false;
-  const smallest = (r) => Math.min(...r.report.lines.filter((l) => !l.icon).map((l) => l.size), Infinity);
-  const prevFocus = document.activeElement;
+  const smallest = (r) => smallestText(r.svg); // every word that's drawn, in any slot; Infinity when there are none
 
   // ── shell ──
   const dests = h('nav', { class: 'dests', 'aria-label': 'Where it’s going' });
   const preview = h('div', { class: 'preview', 'aria-live': 'polite' });
   const opts = h('div', { class: 'opts' });
-  const close = () => { scrim.remove(); window.removeEventListener('keydown', onKey, true); if (prevFocus && prevFocus.focus) prevFocus.focus(); };
-  const onKey = (e) => { if (e.key === 'Escape') { e.stopPropagation(); close(); } };
+  let release = () => {};
+  const close = () => { scrim.remove(); release(); };
   const modeNote = ctx.mode === 'motion' ? 'Video files (MP4, PNG sequence, animated SVG) are in the Motion panel under the stage.' : ctx.mode === 'poster' ? 'The poster mockup downloads from the Poster panel under the stage.' : '';
   const modal = h('div', { class: 'modal', role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': 'studio-title' },
     h('header', {}, h('div', {}, h('h2', { id: 'studio-title' }, 'Export'), h('p', {}, modeNote || 'Pick where it’s going. Daphne makes the right files for it.')),
       h('button', { class: 'btn ghost x', 'aria-label': 'Close', onclick: close }, '✕')),
     h('div', { class: 'studio' }, dests, preview, opts));
-  const scrim = h('div', { class: 'scrim', onmousedown: (e) => { if (e.target === scrim) close(); } }, modal);
+  const scrim = h('div', { class: 'scrim export-scrim', onmousedown: (e) => { if (e.target === scrim) close(); } }, modal);
   document.body.append(scrim);
-  window.addEventListener('keydown', onKey, true);
+  release = holdFocus(scrim, close);
 
-  function buildDests() {
+  function buildDests() { keepFocus(dests, buildDestsNow); }
+  function buildDestsNow() {
     dests.innerHTML = '';
     for (const D of DESTS) {
       if (D.g) { dests.append(h('div', { class: 'dgroup' }, D.g)); continue; }
@@ -200,9 +211,16 @@ export function openStudio(ctx) {
   const chips = (items, cur, on) => h('div', { class: 'chips' }, items.map(([v, l]) => h('button', { class: 'chip' + (v === cur ? ' on' : ''), onclick: () => on(v) }, l)));
   const label = (t, ...kids) => h('div', { class: 'olabel' }, h('span', {}, t), ...kids);
   const toggle = (text, on, set) => h('label', { class: 'switch' }, h('input', { type: 'checkbox', checked: !!on, onchange: (e) => set(e.target.checked) }), text);
-  const set = (k, v, o = {}) => { const path = k.split('.'); let t = P; while (path.length > 1) t = t[path.shift()]; t[path[0]] = v; save(); if (o.opts !== false) show(); else drawPreview(); };
+  const set = (k, v, o = {}) => {
+    const path = k.split('.'); let t = P; while (path.length > 1) t = t[path.shift()]; t[path[0]] = v; save();
+    if (k === 'social.title' || k === 'social.line') { const d = d0(); d.film = { ...(d.film || {}), [k.slice(7)]: v }; if (!d.film.title && !d.film.line) delete d.film; ctx.settle(); }
+    if (k.startsWith('pack.')) keepPack();
+    if (o.opts !== false) show(); else drawPreview();
+  };
   const copy = async (text, what = 'Copied') => { try { await navigator.clipboard.writeText(text); ctx.toast(what); } catch (e) { window.prompt('Copy this', text); } };
-  const run = (label, fn, cls = 'btn primary') => { const b = h('button', { class: cls, onclick: async () => { if (b.disabled) return; const was = b.textContent; b.disabled = true; b.textContent = 'Making…'; try { await fn((s) => (b.textContent = s)); } catch (e) { console.error(e); ctx.toast('That didn’t work: ' + (e.message || e)); } finally { b.disabled = false; b.textContent = was; } } }, label); return b; };
+  // D29: one download at a time; a job keeps the settings it started with, even if the panel is rebuilt meanwhile
+  let job = null;
+  const run = (label, fn, cls = 'btn primary') => { const b = h('button', { class: cls, onclick: async () => { if (b.disabled) return; if (job) { ctx.toast('One download at a time: the last one is still being made.'); return; } const was = b.textContent; b.disabled = true; b.textContent = 'Making…'; job = b; try { await fn((s) => (b.textContent = s)); } catch (e) { console.error(e); ctx.toast('That didn’t work: ' + (e.message || e)); } finally { job = null; b.disabled = false; b.textContent = was; } } }, label); return b; };
   function ways(cur = P.way, on = (v) => set('way', v)) {
     return h('div', { class: 'ways', role: 'radiogroup', 'aria-label': 'Colorway' }, WAYS.map((W) => {
       const r = rendered(W.id), sw = h('div', { class: 'sw ' + (W.id === 'black' ? 'light' : 'dark'), html: (W.id === 'color' ? r.svg : stripBg(r.svg)).replace(/width="[^"]+" height="[^"]+"/, '') });
@@ -210,7 +228,7 @@ export function openStudio(ctx) {
     }));
   }
   const bgToggle = () => (P.way === 'color' && d0().canvas.bg ? toggle('Keep the background color', P.bg !== false, (v) => set('bg', v)) : null);
-  const altBlock = () => { const a = ctx.altText(d0()); return h('div', { class: 'oblock' }, label('Alt text', h('button', { class: 'btn small ghost', onclick: () => copy(a, 'Alt text copied') }, 'Copy')), h('div', { class: 'alt' }, a), h('div', { class: 'hint' }, 'Paste it wherever the image goes: it’s what screen readers say.')); };
+  const altBlock = (a = ctx.altText(d0())) => { return h('div', { class: 'oblock' }, label('Alt text', h('button', { class: 'btn small ghost', onclick: () => copy(a, 'Alt text copied') }, 'Copy')), h('div', { class: 'alt' }, a), h('div', { class: 'hint' }, 'Paste it wherever the image goes: it’s what screen readers say.')); };
   // the studio that made Daphne, said once, where a deck is already on the filmmaker's mind
   const pitchdog = () => h('aside', { class: 'pd-tie', 'aria-labelledby': 'pd-tie-title' },
     h('p', { class: 'pd-eyebrow' }, 'Made by pitch.dog'),
@@ -222,7 +240,9 @@ export function openStudio(ctx) {
       h('a', { class: 'btn ghost', href: 'mailto:hello@pitch.dog?subject=A%20deck%20for%20my%20film' }, 'Email us')),
     h('p', { class: 'pd-note' }, 'No pressure, no strings. Daphne stays free either way.'));
   function rulesBlock() {
-    const notes = checkLaurel(d0()).filter((n) => n.level === 'rule');
+    const notes = checkLaurel(d0()).filter((n) => n.level === 'rule'), gone = rowMissing();
+    const rowOut = P.dest === 'row' || (P.dest === 'social' && P.social.what === 'row') || (P.dest === 'video' && P.video.what === 'row');
+    if (rowOut && gone.length) notes.unshift({ level: 'rule', text: `${gone.length === 1 ? 'One official artwork' : gone.length + ' official artworks'} in your row (${gone.map((it) => it.festival || 'untitled').join(', ')}) ${gone.length === 1 ? 'isn’t' : 'aren’t'} on this device, so the row goes out without ${gone.length === 1 ? 'it' : 'them'}. Add ${gone.length === 1 ? 'it' : 'them'} again in Row.` });
     if (!notes.length) return null;
     return h('div', { class: 'oblock' }, notes.map((n) => h('div', { class: 'note rule' }, h('span', {}, n.text, n.source ? [' ', h('a', { href: n.source.url, target: '_blank', rel: 'noopener' }, 'Source')] : null))));
   }
@@ -237,7 +257,7 @@ export function openStudio(ctx) {
 
   // ── composed pictures: the social card and the end-card frame ──
   function scene(what) {
-    if (what === 'row' && hasRow()) { const sc = ctx.rowScene({ bg: false }); if (sc) return { svg: sc.svg, vb: sc.vb, row: true }; }
+    if (what === 'row' && hasRow()) { const sc = ctx.rowScene({ bg: false, base: docOf(P.way), real: true }); if (sc) return { svg: sc.svg, vb: sc.vb, row: true }; }
     const r = rendered(P.way); return { svg: P.way === 'color' ? r.svg : stripBg(r.svg), vb: r.viewBox, r };
   }
   function socialSvg() {
@@ -247,7 +267,7 @@ export function openStudio(ctx) {
     const tp = hex(d.text.paint), ink = P.way === 'color' && tp && contrast(tp, bg) > 3 ? tp : dark ? '#ffffff' : '#141414';
     const hero = d.roles.hero, sub = d.roles.sub, story = S.fmt === '9:16', wide = S.fmt === '16:9';
     const top = H * (story ? 0.15 : 0.08), bot = H * (story ? 0.8 : 0.92), maxW = W * 0.84;
-    const cased = (s, r) => (r.case === 'upper' ? s.toUpperCase() : r.case === 'lower' ? s.toLowerCase() : s);
+    const cased = (s, r) => caseOf(s, r.case); // the laurel's own casing, Title Case included
     const title = cased(S.title.trim(), hero), line = cased(S.line.trim(), sub);
     let tS = Math.min(W, H) * (wide ? 0.07 : 0.088), lines = [];
     const width = (s, size) => ctx.measure(s, hero.font, hero.weight, hero.italic, size) + Math.max(0, s.length - 1) * hero.track * size;
@@ -265,7 +285,7 @@ export function openStudio(ctx) {
     const n = nest(sc.svg, (W - lwid) / 2, y0, lwid, lh);
     let y = y0 + lh + gap, txt = '';
     lines.forEach((l, i) => { y += i ? tS * 1.08 : tS * 0.78; txt += `<text x="${W / 2}" y="${r2(y)}" text-anchor="middle" font-family="${esc(hero.font)}" font-weight="${hero.weight}"${hero.italic ? ' font-style="italic"' : ''} font-size="${r2(tS)}" letter-spacing="${r2(hero.track * tS)}" fill="${ink}">${esc(l)}</text>`; });
-    if (line) { y += (lines.length ? tS * 0.55 : 0) + lS * 0.8; txt += `<text x="${W / 2}" y="${r2(y)}" text-anchor="middle" font-family="${esc(sub.font)}" font-weight="${sub.weight}" font-size="${r2(lS)}" letter-spacing="${r2(0.16 * lS)}" fill="${ink}" opacity="0.86">${esc(line)}</text>`; }
+    if (line) { y += (lines.length ? tS * 0.55 : 0) + lS * 0.8; txt += `<text x="${W / 2}" y="${r2(y)}" text-anchor="middle" font-family="${esc(sub.font)}" font-weight="${sub.weight}"${sub.italic ? ' font-style="italic"' : ''} font-size="${r2(lS)}" letter-spacing="${r2(0.16 * lS)}" fill="${ink}" opacity="0.86">${esc(line)}</text>`; }
     const ph = S.bg === 'photo' && photo ? `<image href="${photo.url}" x="0" y="0" width="${W}" height="${H}" preserveAspectRatio="xMidYMid slice"/><rect width="${W}" height="${H}" fill="#000" opacity="${S.dim}"/>` : '';
     return { svg: root(W, H, `<rect width="${W}" height="${H}" fill="${bg}"/>${ph}${n.el}${txt}`), W, H, bg, light: !dark };
   }
@@ -289,11 +309,21 @@ export function openStudio(ctx) {
   const composedPng = async (c, dpi) => { const b = await ctx.toPng(c.svg, [0, 0, c.W, c.H], c.W, true, d0(), c.H); return dpi ? withDpi(b, dpi) : b; };
 
   // ── the preview ──
+  // V02, D45: a preview keeps its own shape (width set, height from the ratio) and is fitted again whenever the
+  // preview area changes size. On a phone the area grows with what's in it, so the fit uses a fixed share of the
+  // screen instead of the area's own height. Actual-size proofs (Email) keep their exact height.
+  const narrow = matchMedia('(max-width: 860px)'), fits = [];
+  const area = () => ({ w: preview.clientWidth - 64, h: narrow.matches ? Math.max(220, innerHeight * 0.52 - 96) : preview.clientHeight - 96 });
+  const refit = () => { for (const f of fits) if (preview.contains(f.el)) f(); };
+  new ResizeObserver(() => requestAnimationFrame(refit)).observe(preview);
   function frameOf(svg, cls = '', maxW, maxH) {
     const vb = (/viewBox="([^"]+)"/.exec(svg) || [, '0 0 100 100'])[1].split(/[\s,]+/).map(Number);
     const el = h('div', { class: 'frame ' + cls, html: svg.replace(/width="[^"]+" height="[^"]+"/, '') });
-    const s = el.querySelector('svg');
-    requestAnimationFrame(() => { const bw = maxW || preview.clientWidth - 64, bh = maxH || preview.clientHeight - 96, k = Math.min(bw / vb[2], bh / vb[3]); s.style.width = Math.max(40, vb[2] * k) + 'px'; s.style.height = Math.max(40, vb[3] * k) + 'px'; });
+    const s = el.querySelector('svg'), val = (v, d) => (typeof v === 'function' ? v() : v || d);
+    s.style.aspectRatio = `${vb[2]} / ${vb[3]}`; s.style.height = 'auto';
+    const fit = () => { const A = area(), bw = val(maxW, A.w), bh = val(maxH, A.h), k = Math.min(bw / vb[2], bh / vb[3]); s.style.width = Math.max(40, vb[2] * k) + 'px'; };
+    fit.el = el; fits.push(fit); if (fits.length > 40) fits.splice(0, fits.length - 40);
+    requestAnimationFrame(fit);
     return el;
   }
   const wayCls = (way) => (way === 'black' ? 'light' : way === 'white' ? 'dark' : '');
@@ -303,9 +333,15 @@ export function openStudio(ctx) {
     const pv = h('div', { class: 'pv' }), cap = (t) => h('div', { class: 'cap' }, t);
     const D = P.dest;
     if (D === 'kit') {
-      const ws = P.kit.ways.length ? P.kit.ways : ['color'], bw = Math.max(120, (preview.clientWidth - 90) / ws.length - 14);
-      pv.append(h('div', { class: 'kitgrid' }, ws.map((w) => { const r = rendered(w); return h('figure', {}, frameOf(w === 'color' && d0().canvas.bg ? r.svg : stripBg(r.svg), wayCls(w), bw, preview.clientHeight * 0.5), h('figcaption', {}, WAYS.find((x) => x.id === w).label)); })),
-        cap(`${ws.length * P.kit.fmts.length + 1} files: ${P.kit.fmts.map((f) => f.toUpperCase()).join(', ')} in ${ws.length === 1 ? 'one colorway' : ws.length + ' colorways'}, with a README holding the alt text, the fonts and the sizes that stay readable.`));
+      const K = kitPlan(), ws = K.ways.length ? K.ways : ['color'], bw = () => Math.max(120, (preview.clientWidth - 90) / (narrow.matches ? 1 : ws.length) - 14);
+      pv.append(h('div', { class: 'kitgrid' }, ws.map((w) => { const r = rendered(w); return h('figure', {}, frameOf(w === 'color' && d0().canvas.bg ? r.svg : stripBg(r.svg), wayCls(w), bw, () => area().h * (narrow.matches ? 0.6 : 0.5)), h('figcaption', {}, WAYS.find((x) => x.id === w).label)); })),
+        cap(!K.ready ? 'Pick at least one colorway and one format.' : `${K.plan.length + 1} files: ${K.fmts.map((f) => f.toUpperCase()).join(', ')} in ${K.ways.length === 1 ? 'one colorway' : K.ways.length + ' colorways'}${K.plan.some((f) => /-on-background\.png$/.test(f.name)) ? ', a PNG on your background color' : ''}, and a README holding the alt text, the fonts and the sizes that stay readable.`));
+    } else if ((D === 'social' && P.social.what === 'row') || (D === 'video' && P.video.what === 'row') || D === 'row') {
+      const none = rowNone();
+      if (none) pv.append(h('div', { class: 'stage-empty' }, h('p', {}, none)));
+      else if (D === 'social') { const c = socialSvg(); pv.append(frameOf(c.svg, 'card'), cap(`${c.W} × ${c.H} px · ${SOCIAL[P.social.fmt][2]} · your row`)); }
+      else if (D === 'video') { const c = videoSvg(); pv.append(frameOf(c.svg, P.video.bg === 'black' ? 'card' : 'footage'), cap(`${c.W} × ${c.H} px PNG · your row`)); }
+      else { const sc = ctx.rowScene({ bg: true, real: true }); if (sc) pv.append(frameOf(sc.svg, ''), cap(`${sc.parts.length} laurel${sc.parts.length > 1 ? 's' : ''}, drawn at one scale so the type matches.`)); }
     } else if (D === 'social') {
       const c = socialSvg(); pv.append(frameOf(c.svg, 'card'), cap(`${c.W} × ${c.H} px · ${SOCIAL[P.social.fmt][2]}`));
     } else if (D === 'video') {
@@ -318,28 +354,30 @@ export function openStudio(ctx) {
       pv.append(h('div', { class: 'sigs' }, sig(false), sig(true)), cap('How it sits in a light and a dark inbox, at the size it’s shown.'));
     } else if (D === 'words') {
       const a = accolades(ctx);
-      pv.append(h('div', { class: 'wordsheet' }, a.list.length ? [h('h4', {}, 'Laurels'), h('ul', {}, a.lines.map((l) => h('li', {}, l))), a.sentence ? [h('h4', {}, 'In a sentence'), h('p', {}, a.sentence)] : null] : h('p', {}, 'Fill in the festival on the Words tab, or add laurels to the row, and the text writes itself.')));
+      pv.append(h('div', { class: 'wordsheet' }, a.list.length ? [h('h4', {}, 'Laurels'), h('ul', {}, a.lines.map((l) => h('li', {}, l))), [h('h4', {}, 'In a sentence'), h('p', {}, a.sentence || NO_SENTENCE)]] : h('p', {}, 'Fill in the festival on the Words tab, or add laurels to the row, and the text writes itself.')));
     } else if (D === 'pack') {
       const vs = packList();
       pv.append(h('div', { class: 'packgrid' }, vs.slice(0, 24).map((v) => { const r = ctx.render(colorway(v.doc, 'color', ctx.clone)); return h('figure', {}, h('div', { class: 'pt', html: (d0().canvas.bg ? r.svg : stripBg(r.svg)).replace(/width="[^"]+" height="[^"]+"/, '') }), h('figcaption', {}, v.label)); })),
-        cap(vs.length ? `${vs.length} laurels × ${P.pack.ways.length || 1} colorways × ${P.pack.fmts.length || 1} formats = ${vs.length * (P.pack.ways.length || 1) * (P.pack.fmts.length || 1)} files, plus guidelines to send your filmmakers.` : 'Pick the statuses and awards your festival gives.'));
-    } else if (D === 'row') {
-      const sc = ctx.rowScene({ bg: true }); if (sc) pv.append(frameOf(sc.svg, ''), cap(`${d0().row.items.length} laurels, drawn at one scale so the type matches.`));
+        cap(!vs.length ? 'Pick the statuses and awards your festival gives.' : !P.pack.ways.length || !P.pack.fmts.length ? 'Pick at least one colorway and one format.' : `${vs.length} laurels × ${P.pack.ways.length} colorway${P.pack.ways.length > 1 ? 's' : ''} × ${P.pack.fmts.length} format${P.pack.fmts.length > 1 ? 's' : ''} = ${vs.length * P.pack.ways.length * P.pack.fmts.length} files, plus a README and guidelines to send your filmmakers.`));
     } else {
       pv.append(laurelPreview());
       const r = rendered(P.way), vb = r.viewBox, sm = smallest(r);
       if (D === 'png') { const w = P.pngW, hh = Math.round(w * vb[3] / vb[2]); pv.append(cap(`${w} × ${hh} px${bgOn() ? '' : ', transparent'}`)); }
-      if (D === 'print') { const wi = printIn(), pt = isFinite(sm) ? sm * wi * 72 / vb[2] : 99; pv.append(cap(`${fmtLen(wi)} × ${fmtLen(wi * vb[3] / vb[2])} · smallest words ${pt.toFixed(1)} pt`)); }
-      if (D === 'web') pv.append(cap(`Shown ${P.web.w} px wide on the page; sharp at any size, on any screen.`));
+      if (D === 'print') { const wi = printIn(); pv.append(cap(`${fmtLen(wi)} × ${fmtLen(wi * vb[3] / vb[2])}${isFinite(sm) ? ` · smallest words ${(sm * wi * 72 / vb[2]).toFixed(1)} pt` : ' · no words to size'}`)); }
+      if (D === 'web') pv.append(cap(`Enlarged to fit here. On your page it shows ${P.web.w} px wide, sharp at any size, on any screen.`)); // A12: the preview is fitted, the setting is the page's
     }
     preview.append(pv);
   }
-  const printIn = () => (P.unit === 'mm' ? P.printW / 25.4 : P.printW);
+  // D02: the printed width is one physical length (inches, unrounded); the unit only changes how it's shown
+  const printIn = () => (P.printInch > 0 ? P.printInch : P.unit === 'mm' ? P.printW / 25.4 : P.printW);
+  const setPrint = (v, unit = P.unit) => { P.printInch = unit === 'mm' ? v / 25.4 : v; set('printW', unit === P.unit ? v : P.unit === 'mm' ? Math.round(v * 25.4) : v); };
+  const setUnit = (u) => { if (u === P.unit) return; const inch = printIn(); P.printInch = inch; P.printW = u === 'mm' ? Math.round(inch * 25.4) : r2(inch); set('unit', u); };
   const fmtLen = (inch) => (P.unit === 'mm' ? `${Math.round(inch * 25.4)} mm` : `${r2(inch)} in`);
   const emailBg = () => { const e = P.email.bg; if (e === 'auto') return P.way === 'color' ? hex(d0().canvas.bg) : null; return e === 'white' ? '#ffffff' : e === 'dark' ? '#1b1b1f' : null; };
 
   // ── the options for each destination ──
-  function drawOpts() {
+  function drawOpts() { keepFocus(opts, drawOptsNow); }
+  function drawOptsNow() {
     opts.innerHTML = '';
     const put = (...k) => opts.append(...k.flat(Infinity).filter((x) => x != null && x !== false));
     const D = DESTS.find((x) => x.id === P.dest) || DESTS[0];
@@ -361,15 +399,17 @@ export function openStudio(ctx) {
     const rb = rulesBlock(); if (rb && !['words'].includes(D.id)) put(rb);
     const r = rendered(P.way), vb = r.viewBox, sm = smallest(r);
     const go = (...b) => h('div', { class: 'go' }, ...b);
+    // a download that shows the row is offered only when the row has laurels of its own; otherwise it says what to do
+    const rowGate = (what, b) => { const none = what === 'row' && rowNone(); if (none) b.disabled = true; return go(b, none ? h('div', { class: 'hint' }, none) : null); };
 
     if (D.id === 'kit') {
       put(label('Colorways'), h('div', { class: 'checks' }, WAYS.map((W) => h('label', {}, h('input', { type: 'checkbox', checked: P.kit.ways.includes(W.id), onchange: (e) => { P.kit.ways = WAYS.map((x) => x.id).filter((id) => (id === W.id ? e.target.checked : P.kit.ways.includes(id))); save(); show(); } }), W.label, h('small', {}, W.note)))),
         label('Formats'), h('div', { class: 'checks' }, [['svg', 'SVG', 'vector'], ['png', 'PNG', `${P.pngW} px wide`], ['pdf', 'PDF', `${P.pdfMm} mm wide`]].map(([f, l, n]) => h('label', {}, h('input', { type: 'checkbox', checked: P.kit.fmts.includes(f), onchange: (e) => { P.kit.fmts = ['svg', 'png', 'pdf'].filter((id) => (id === f ? e.target.checked : P.kit.fmts.includes(id))); save(); show(); } }), l, h('small', {}, n)))),
-        go(run('Download the laurel kit', makeKit)), altBlock());
+        (() => { const K = kitPlan(), b = run('Download the laurel kit', makeKit); b.disabled = !K.ready; return go(b, K.ready ? null : h('div', { class: 'hint' }, 'Pick at least one colorway and one format.')); })(), altBlock());
     } else if (D.id === 'png') {
       put(label('Colorway'), ways(), bgToggle(), label('Width'), chips([[1000, '1000'], [2000, '2000'], [3000, '3000'], [5000, '5000 px']], P.pngW, (v) => { set('pngW', v); remember('pngW', v); }),
         info(isFinite(sm) ? `Smallest words ${Math.round(sm * P.pngW / vb[2])} px tall` : null),
-        go(run('Download PNG', async () => ctx.download(await pngOf(P.way, P.pngW), base() + suffix(P.way) + '.png'))), altBlock());
+        go(run('Download PNG', async () => ctx.download(await pngOf(P.way, P.pngW), base() + suffix(P.way) + '.png')), h('div', { class: 'hint gostate' }, bgOn() ? `Background included: ${hex(d0().canvas.bg) || 'your color'}` : 'Transparent background')), altBlock());
     } else if (D.id === 'svg') {
       put(label('Colorway'), ways(), bgToggle(), label('Text'), seg([['outlined', 'Drawn as shapes'], ['live', 'Live, editable text']], P.svgText, (v) => set('svgText', v), 'Text in the SVG'),
         h('div', { class: 'hint' }, P.svgText === 'live' ? 'Editable in Illustrator or Figma if the fonts are installed. They’re all free on Google Fonts.' : 'Looks the same everywhere, with no fonts needed. Best for print and handing to others.'),
@@ -381,42 +421,43 @@ export function openStudio(ctx) {
         fx && P.way === 'color' ? h('div', { class: 'note' }, 'Soft effects (glow, shadow, grain, foil) don’t exist in PDF and are left out. Use the PNG if you need them.') : null,
         go(run('Download PDF', async () => ctx.download(await pdfOf(P.way, P.pdfMm), base() + suffix(P.way) + '.pdf'))));
     } else if (D.id === 'print') {
-      const wi = printIn(), pt = isFinite(sm) ? sm * wi * 72 / vb[2] : 99, minIn = isFinite(sm) ? 6 * vb[2] / (72 * sm) : 0, px = Math.round(wi * 300);
-      const inp = h('input', { type: 'number', min: P.unit === 'mm' ? 10 : 0.4, max: P.unit === 'mm' ? 1000 : 40, step: P.unit === 'mm' ? 1 : 0.05, value: P.printW, 'aria-label': 'Printed width', onchange: (e) => set('printW', Math.max(+e.target.min, +e.target.value || 1)) });
+      const wi = printIn(), pt = sm * wi * 72 / vb[2], minIn = 6 * vb[2] / (72 * sm), px = Math.round(wi * 300);
+      const inp = h('input', { type: 'number', min: P.unit === 'mm' ? 10 : 0.4, max: P.unit === 'mm' ? 1000 : 40, step: P.unit === 'mm' ? 1 : 0.05, value: P.printW, 'aria-label': 'Printed width', onchange: (e) => setPrint(Math.max(+e.target.min, Math.min(+e.target.max, +e.target.value || 1))) });
       put(label('Colorway'), ways(), bgToggle(),
-        label('Printed width'), h('div', { class: 'inrow' }, inp, seg([['in', 'in'], ['mm', 'mm']], P.unit, (u) => { P.printW = u === 'mm' ? Math.round(printIn() * 25.4) : r2(P.printW / 25.4); set('unit', u); }, 'Unit')),
-        h('div', { class: 'chips' }, PRINT_SIZES.map(([n, w]) => h('button', { class: 'chip', onclick: () => set('printW', P.unit === 'mm' ? Math.round(w * 25.4) : w) }, n, h('small', {}, P.unit === 'mm' ? Math.round(w * 25.4) + ' mm' : w + ' in')))),
+        label('Printed width'), h('div', { class: 'inrow' }, inp, seg([['in', 'in'], ['mm', 'mm']], P.unit, setUnit, 'Unit')),
+        h('div', { class: 'chips' }, PRINT_SIZES.map(([n, w]) => h('button', { class: 'chip', onclick: () => setPrint(w, 'in') }, n, h('small', {}, P.unit === 'mm' ? Math.round(w * 25.4) + ' mm' : w + ' in')))),
         info(`${fmtLen(wi)} × ${fmtLen(wi * vb[3] / vb[2])}`, `${px} × ${Math.round(px * vb[3] / vb[2])} px at 300 dpi`),
-        pt < 6 ? h('div', { class: 'note rule' }, `The smallest words print at ${pt.toFixed(1)} pt. Below about 6 pt they blur on most presses: print it at least ${fmtLen(minIn)} wide, or drop a line.`) : h('div', { class: 'note' }, `The smallest words print at ${pt.toFixed(1)} pt: comfortably readable.`),
+        !isFinite(sm) ? h('div', { class: 'note' }, 'There are no words in this laurel to size: it’s all artwork. Check the logo’s own small details at this width.') : pt < 6 ? h('div', { class: 'note rule' }, `The smallest words print at ${pt.toFixed(1)} pt. Below about 6 pt they blur on most presses: print it at least ${fmtLen(minIn)} wide, or drop a line.`) : h('div', { class: 'note' }, `The smallest words print at ${pt.toFixed(1)} pt: comfortably readable.`),
         go(run('Download PDF at this size', async () => ctx.download(await pdfOf(P.way, wi * 25.4), `${base()}${suffix(P.way)}-${P.unit === 'mm' ? Math.round(P.printW) + 'mm' : r2(P.printW) + 'in'}.pdf`)),
           run('Download PNG at 300 dpi', async () => ctx.download(await withDpi(await pngOf(P.way, px), 300), `${base()}${suffix(P.way)}-${px}px-300dpi.png`), 'btn')),
         h('div', { class: 'hint' }, 'Hand the PDF to your printer or designer: it’s vector, the exact size, with the text outlined. It’s in RGB, which most printers convert for you; for a one-ink job, send the Black version and ask for it on the black plate only.'));
     } else if (D.id === 'social') {
       const S = P.social, file = h('input', { type: 'file', accept: 'image/*', hidden: true, onchange: async (e) => { const fl = e.target.files[0]; if (!fl) return; if (fl.size > 12e6) { ctx.toast('That image is over 12 MB: try a smaller one'); return; } photo = { url: await new Promise((ok) => { const fr = new FileReader(); fr.onload = () => ok(fr.result); fr.readAsDataURL(fl); }), name: fl.name }; set('social.bg', 'photo'); } });
-      const title = h('input', { type: 'text', value: S.title, placeholder: 'Your film’s title', 'aria-label': 'Film title', oninput: (e) => set('social.title', e.target.value, { opts: false }) });
+      // the caption and alt text follow what the card shows, and the title as it's typed
+      const capNow = () => (showsRow(S.what) ? rowCaption(rowShown(), S.title.trim()) : caption(ctx, S.title.trim())), capEl = h('div', { class: 'alt' }, capNow());
+      const title = h('input', { type: 'text', value: S.title, placeholder: 'Your film’s title', 'aria-label': 'Film title', oninput: (e) => { set('social.title', e.target.value, { opts: false }); capEl.textContent = capNow(); } });
       const line = h('input', { type: 'text', value: S.line, placeholder: 'e.g. Screening June 12 · Park City', 'aria-label': 'Detail line', oninput: (e) => set('social.line', e.target.value, { opts: false }) });
-      const cap = caption(ctx, S.title.trim());
       put(label('Format'), h('div', { class: 'fmtgrid' }, Object.entries(SOCIAL).map(([k, v]) => h('button', { class: 'chip' + (k === S.fmt ? ' on' : ''), onclick: () => set('social.fmt', k) }, v[2], h('small', {}, k)))),
-        hasRow() ? seg([['laurel', 'This laurel'], ['row', `The row (${d0().row.items.length})`]], S.what, (v) => set('social.what', v), 'What to show') : null,
+        hasRow() ? seg([['laurel', 'This laurel'], ['row', `The row (${rowShown().length})`]], S.what, (v) => set('social.what', v), 'What to show') : null,
         label('Words'), title, line,
         label('Background'), chips([['laurel', 'The laurel’s'], ['dark', 'Dark'], ['light', 'Light'], ['custom', 'Color'], ['photo', photo ? 'Photo' : 'Photo…']], S.bg, (v) => { if (v === 'photo' && !photo) file.click(); else set('social.bg', v); }), file,
         S.bg === 'custom' ? h('div', { class: 'inrow' }, h('input', { type: 'color', value: hex(S.color) || '#0b0b0d', 'aria-label': 'Background color', oninput: (e) => set('social.color', e.target.value, { opts: false }) }), h('span', { class: 'hint' }, 'Any color')) : null,
         S.bg === 'photo' && photo ? h('div', { class: 'row' }, h('label', {}, 'Darken'), h('input', { type: 'range', 'aria-label': 'Darken the photo', min: 0, max: 0.85, step: 0.05, value: S.dim, oninput: (e) => set('social.dim', +e.target.value, { opts: false }) }), h('button', { class: 'btn small ghost', onclick: () => file.click() }, 'Change')) : null,
         h('div', { class: 'row' }, h('label', {}, 'Laurel size'), h('input', { type: 'range', 'aria-label': 'Laurel size', min: 0.5, max: 1.25, step: 0.05, value: S.size, oninput: (e) => set('social.size', +e.target.value, { opts: false }) }), h('span', {})),
         label('Colorway'), ways(),
-        go(run('Download the card', async () => { const c = socialSvg(); ctx.download(await composedPng(c), `${base()}-${S.fmt.replace(':', 'x')}.png`); })),
-        h('div', { class: 'oblock' }, label('A first line for the post', h('button', { class: 'btn small ghost', onclick: () => copy(cap, 'Caption copied') }, 'Copy')), h('div', { class: 'alt' }, cap), h('div', { class: 'hint' }, 'A starting point: make it yours. Tag the festival; they often share. Many festivals ask films to wait for the line-up announcement before posting.')),
-        altBlock());
+        rowGate(S.what, run('Download the card', async () => { const c = socialSvg(); ctx.download(await composedPng(c), `${base()}${showsRow(S.what) ? '-row' : ''}-${S.fmt.replace(':', 'x')}.png`); })),
+        h('div', { class: 'oblock' }, label('A first line for the post', h('button', { class: 'btn small ghost', onclick: () => copy(capNow(), 'Caption copied') }, 'Copy')), capEl, h('div', { class: 'hint' }, 'A starting point: make it yours. Tag the festival; they often share. Many festivals ask films to wait for the line-up announcement before posting.')),
+        altBlock(showsRow(S.what) ? rowAlt() : undefined));
     } else if (D.id === 'video') {
       const V = P.video;
       put(label('Frame'), seg([[1080, 'HD 1920 × 1080'], [2160, '4K 3840 × 2160']], V.res, (v) => set('video.res', v), 'Resolution'),
-        hasRow() ? seg([['laurel', 'This laurel'], ['row', `The row (${d0().row.items.length})`]], V.what, (v) => set('video.what', v), 'What to show') : null,
+        hasRow() ? seg([['laurel', 'This laurel'], ['row', `The row (${rowShown().length})`]], V.what, (v) => set('video.what', v), 'What to show') : null,
         label('Placement'), seg([['center', 'Center'], ['third', 'Lower third'], ['corner', 'Corner']], V.pos, (v) => set('video.pos', v), 'Placement'),
         h('div', { class: 'row' }, h('label', {}, 'Height'), h('input', { type: 'range', 'aria-label': 'Laurel height', min: 0.12, max: 0.7, step: 0.01, value: V.size, oninput: (e) => set('video.size', +e.target.value, { opts: false }) }), h('span', {})),
         label('Background'), seg([['none', 'Transparent'], ['black', 'Black']], V.bg, (v) => set('video.bg', v), 'Background'),
         label('Colorway'), ways(),
-        go(run('Download the frame', async () => { const c = videoSvg(); ctx.download(await composedPng(c), `${base()}-endcard-${c.W}x${c.H}.png`); })),
-        h('div', { class: 'hint' }, 'For animated laurels (a reveal, a shimmer), use Motion in the top bar: it makes MP4s and PNG sequences.'));
+        rowGate(V.what, run('Download the frame', async () => { const c = videoSvg(); ctx.download(await composedPng(c), `${base()}${showsRow(V.what) ? '-row' : ''}-endcard-${c.W}x${c.H}.png`); })),
+        h('div', { class: 'hint' }, 'For animated laurels (a reveal, a shimmer), use Motion in the top bar: it makes MP4s and PNG sequences.'), altBlock(showsRow(V.what) ? rowAlt() : undefined));
     } else if (D.id === 'web') {
       const ar = vb[3] / vb[2], wpx = P.web.w, hpx = Math.round(wpx * ar), alt = ctx.altText(d0());
       const html = `<img src="/images/${base()}${suffix(P.way)}.svg" alt="${esc(alt)}" width="${wpx}" height="${hpx}" loading="lazy">`;
@@ -446,44 +487,53 @@ export function openStudio(ctx) {
       const a = accolades(ctx), forms = { list: ['List', a.lines.join('\n')], sentence: ['Sentence', a.sentence], html: ['HTML', a.html] };
       const cur = forms[P.words] ? P.words : 'list';
       put(seg(Object.entries(forms).map(([k, v]) => [k, v[0]]), cur, (v) => set('words', v), 'Format'),
-        h('pre', {}, forms[cur][1] || 'Nothing yet: fill in the festival first.'),
-        go(h('button', { class: 'btn primary', onclick: () => copy(forms[cur][1], 'Copied') }, 'Copy')),
-        h('div', { class: 'hint' }, a.list.length > 1 ? 'Ordered by what carries furthest: wins, then premieres, then selections.' : 'Add laurels to the row (Row, in the top bar) and they all appear here, in order.'),
+        // A05: the list and the sentence wrap like prose; only the HTML is code. Nothing to copy means no Copy
+        h(cur === 'html' ? 'pre' : 'div', { class: cur === 'html' ? '' : 'prose' }, forms[cur][1] || (a.list.length ? NO_SENTENCE : 'Nothing yet: fill in the festival first.')),
+        go(h('button', { class: 'btn primary', disabled: !forms[cur][1], onclick: () => forms[cur][1] && copy(forms[cur][1], `${forms[cur][0]} copied`) }, `Copy ${forms[cur][0] === 'HTML' ? 'HTML' : forms[cur][0].toLowerCase()}`)),
+        h('div', { class: 'hint' }, a.list.length > 1 ? `${a.count} laurels, ordered by what carries furthest: wins, then premieres, then selections. Laurels hidden in the row are left out.` : 'Add laurels to the row (Row, in the top bar) and they all appear here, in order.'),
         altBlock());
     } else if (D.id === 'pack') {
       const K = P.pack, n = packList().length;
-      const tick = (list, key, all) => h('div', { class: 'checks' }, all.map(([v, l, note]) => h('label', {}, h('input', { type: 'checkbox', checked: list.includes(v), onchange: (e) => { K[key] = all.map((x) => x[0]).filter((x) => (x === v ? e.target.checked : K[key].includes(x))); save(); show(); } }), l, note ? h('small', {}, note) : null)));
+      const tick = (list, key, all) => h('div', { class: 'checks' }, all.map(([v, l, note]) => h('label', {}, h('input', { type: 'checkbox', checked: list.includes(v), onchange: (e) => { K[key] = all.map((x) => x[0]).filter((x) => (x === v ? e.target.checked : K[key].includes(x))); save(); keepPack(); show(); } }), l, note ? h('small', {}, note) : null)));
       put(h('div', { class: 'hint' }, 'The festival’s name, year and look come from your laurel: set them on the Words and Looks tabs first.'),
         label('Statuses'), tick(K.statuses, 'statuses', STATUS_COMMON.filter((x) => x !== 'Winner').map((x) => [x, x])),
         label('Awards', h('small', {}, 'one per line')), h('textarea', { rows: 5, 'aria-label': 'Awards, one per line', placeholder: 'Best Feature Film\nBest Short Film\nAudience Award', style: 'font-family:var(--sans);font-size:12.5px', oninput: (e) => set('pack.awards', e.target.value, { opts: false }) }, K.awards),
         h('div', { class: 'inrow' }, h('span', { class: 'hint', style: 'flex:none' }, 'Over each award:'), h('input', { type: 'text', value: K.winner, list: 'pk-winner', 'aria-label': 'Line over each award', oninput: (e) => set('pack.winner', e.target.value, { opts: false }) }), h('datalist', { id: 'pk-winner' }, ['Winner', 'Award Winner', 'Jury Award', ''].map((x) => h('option', { value: x })))),
         label('Colorways'), tick(K.ways, 'ways', WAYS.map((W) => [W.id, W.label])),
         label('Formats'), tick(K.fmts, 'fmts', [['svg', 'SVG', 'vector'], ['png', 'PNG', `${P.pngW} px wide`], ['pdf', 'PDF', `${P.pdfMm} mm wide`]]),
-        go(run(`Download the festival pack${n ? ` (${n} laurels)` : ''}`, makePack)),
+        (() => { const ok = n && P.pack.ways.length && P.pack.fmts.length, b = run(`Download the festival pack${n ? ` (${n} laurels)` : ''}`, makePack); b.disabled = !ok; return go(b, ok ? null : h('div', { class: 'hint' }, n ? 'Pick at least one colorway and one format.' : 'Pick the statuses and awards your festival gives.')); })(),
         h('div', { class: 'hint' }, 'Comes with a guidelines file to edit and send with the laurels: what each one may be used for, sizes, and who to ask.'));
     } else if (D.id === 'row') {
       const X = ctx.modes.row && ctx.modes.row.exports;
-      put(go(run('ZIP of separate files', async () => X.zip()), run('One PNG of the row', async () => X.png(), 'btn'), run('One SVG of the row', async () => X.svg(), 'btn'), run('One PDF of the row', async () => X.pdf(), 'btn')),
+      const none = rowNone(), bs = [run('ZIP of separate files', async () => X.zip()), run('One PNG of the row', async () => X.png(), 'btn'), run('One SVG of the row', async () => X.svg(), 'btn'), run('One PDF of the row', async () => X.pdf(), 'btn')];
+      if (none) bs.forEach((b) => (b.disabled = true));
+      put(go(...bs, none ? h('div', { class: 'hint' }, none) : null),
         h('div', { class: 'hint' }, 'The separate files are all drawn at the same scale, so the type matches when you place them at 100%.'));
     }
   }
 
   // ── the laurel kit: every chosen format in every chosen colorway, with a README that answers the questions ──
-  async function makeKit(say) {
-    const ways = P.kit.ways.length ? P.kit.ways : ['color'], fmts = P.kit.fmts.length ? P.kit.fmts : ['svg', 'png'];
-    const b = base(), files = [], total = ways.length * fmts.length + (ways.includes('color') && d0().canvas.bg && fmts.includes('png') ? 1 : 0);
-    let n = 0; const tick = () => say(`Making ${++n} of ${total}…`);
+  // the kit's files, planned once: the preview counts them, the button makes them, in the same order
+  function kitPlan() {
+    const ways = WAYS.map((W) => W.id).filter((w) => P.kit.ways.includes(w)), fmts = ['svg', 'png', 'pdf'].filter((f) => P.kit.fmts.includes(f)), b = base(), plan = [], pngW = P.pngW, pdfMm = P.pdfMm;
     for (const w of ways) {
       const dir = `${b}/${w}/`, name = `${b}-${w}`;
-      if (fmts.includes('svg')) { tick(); files.push({ name: dir + name + '.svg', data: await svgOf(w, { bg: false, text: 'outlined' }) }); }
+      if (fmts.includes('svg')) plan.push({ name: dir + name + '.svg', make: () => svgOf(w, { bg: false, text: 'outlined' }) });
       if (fmts.includes('png')) {
-        tick(); files.push({ name: dir + name + '.png', data: await pngOf(w, P.pngW, { bg: false }) });
-        if (w === 'color' && d0().canvas.bg) { tick(); files.push({ name: dir + name + '-on-background.png', data: await pngOf(w, P.pngW, { bg: true }) }); }
+        plan.push({ name: dir + name + '.png', make: () => pngOf(w, pngW, { bg: false }) });
+        if (w === 'color' && d0().canvas.bg) plan.push({ name: dir + name + '-on-background.png', make: () => pngOf(w, pngW, { bg: true }) });
       }
-      if (fmts.includes('pdf')) { tick(); const r = rendered(w); files.push({ name: dir + name + '.pdf', data: await ctx.toPdf(stripBg(r.svg), docOf(w), 'Laurel', P.pdfMm) }); }
+      if (fmts.includes('pdf')) plan.push({ name: dir + name + '.pdf', make: () => { const r = rendered(w); return ctx.toPdf(stripBg(r.svg), docOf(w), 'Laurel', pdfMm); } });
     }
+    return { ways, fmts, b, plan, pngW, pdfMm, ready: ways.length > 0 && fmts.length > 0 };
+  }
+  async function makeKit(say) {
+    const { ways, fmts, b, plan, ready, pngW, pdfMm } = kitPlan();
+    if (!ready) { ctx.toast('Pick at least one colorway and one format'); return; }
+    const files = [];
+    for (const [i, f] of plan.entries()) { say(`Making ${i + 1} of ${plan.length}…`); files.push({ name: f.name, data: await f.make() }); }
     say('Packing…');
-    files.push({ name: `${b}/README.txt`, data: readme(ways, fmts, ctx.shareLink ? await ctx.shareLink() : location.href) });
+    files.push({ name: `${b}/README.txt`, data: readme(ways, fmts, ctx.shareLink ? await ctx.shareLink() : location.href, { pngW, pdfMm }) });
     ctx.download(await ctx.zip(files), `${b}-laurel-kit.zip`);
     ctx.toast('Laurel kit downloaded');
   }
@@ -493,25 +543,27 @@ export function openStudio(ctx) {
   }
   async function makePack(say) {
     const vs = packList(); if (!vs.length) { ctx.toast('Pick at least one status or award'); return; }
-    const ways = P.pack.ways.length ? P.pack.ways : ['color'], fmts = P.pack.fmts.length ? P.pack.fmts : ['svg', 'png'];
+    const ways = WAYS.map((W) => W.id).filter((w) => P.pack.ways.includes(w)), fmts = ['svg', 'png', 'pdf'].filter((f) => P.pack.fmts.includes(f)), pngW = P.pngW, pdfMm = P.pdfMm; // D29: this job's sizes, and its link
+    keepPack(); const link = ctx.shareLink ? await ctx.shareLink() : location.href; // the README's link carries this recipe
+    if (!ways.length || !fmts.length) { ctx.toast('Pick at least one colorway and one format'); return; }
     const t = (k) => d0().fields.filter((f) => f.kind === k && f.show !== false && f.text).map((f) => f.text.trim()).join(' ');
     const fest = t('festival') || 'festival', year = (t('year').match(/\d{4}/) || [''])[0], stem = ctx.slug([year, fest].filter(Boolean).join(' ')) || 'festival', rootDir = stem + '-laurels/';
-    const files = [], total = vs.length * ways.length * fmts.length; let n = 0;
+    const files = [], total = vs.length * ways.length * fmts.length; let n = 0, minPx = 0, minIn = 0; // readable sizes for the variant that needs the most room
     for (const v of vs) for (const w of ways) {
-      const dv = colorway(v.doc, w, ctx.clone), r = ctx.render(dv), name = `${rootDir}${v.slug}/${stem}-${v.slug}-${w}`;
+      const dv = colorway(v.doc, w, ctx.clone), r = ctx.render(dv), name = `${rootDir}${v.slug}/${stem}-${v.slug}-${w}`, sv = smallest(r);
+      if (isFinite(sv)) { minPx = Math.max(minPx, Math.ceil(6 * r.viewBox[3] / sv)); minIn = Math.max(minIn, 6 * r.viewBox[2] / (72 * sv)); }
       if (fmts.includes('svg')) { say(`Making ${++n} of ${total}…`); files.push({ name: name + '.svg', data: await ctx.exportSvgText(stripBg(r.svg), { ...dv, out: { ...(dv.out || {}), svgText: 'outlined' } }) }); }
-      if (fmts.includes('png')) { say(`Making ${++n} of ${total}…`); files.push({ name: name + '.png', data: await ctx.toPng(r.svg, r.viewBox, P.pngW, false, dv) }); }
-      if (fmts.includes('pdf')) { say(`Making ${++n} of ${total}…`); files.push({ name: name + '.pdf', data: await ctx.toPdf(stripBg(r.svg), dv, v.label, P.pdfMm) }); }
+      if (fmts.includes('png')) { say(`Making ${++n} of ${total}…`); files.push({ name: name + '.png', data: await ctx.toPng(r.svg, r.viewBox, pngW, false, dv) }); }
+      if (fmts.includes('pdf')) { say(`Making ${++n} of ${total}…`); files.push({ name: name + '.pdf', data: await ctx.toPdf(stripBg(r.svg), dv, v.label, pdfMm) }); }
     }
     say('Packing…');
-    const r0 = rendered('color'), sm = smallest(r0), vb = r0.viewBox, minPx = isFinite(sm) ? Math.ceil(6 * vb[3] / sm) : 120, minIn = isFinite(sm) ? 6 * vb[2] / (72 * sm) : 1;
     const fonts = [...new Set(Object.values(d0().roles).map((x) => x && x.font).filter(Boolean))];
     const title = [fest, year].filter(Boolean).join(' ');
     files.push({ name: rootDir + 'README.txt', data: [
-      `${title}: laurels for selected films`, '', 'Made with Daphne, the free festival laurel maker by pitch.dog: https://pitch.dog/daphne', `Open this set again to edit it: ${ctx.shareLink ? await ctx.shareLink() : location.href}`, '',
+      `${title}: laurels for selected films`, '', 'Made with Daphne, the free festival laurel maker by pitch.dog: https://pitch.dog/daphne', `Open this set again to edit it (then Export, Festival pack): ${link}`, '',
       'ONE FOLDER PER LAUREL', ...vs.map((v) => `  ${v.slug}/  ${ctx.altText(v.doc)}`), '',
       'IN EACH FOLDER', ...ways.map((w) => `  -${w}  ${{ color: 'as designed', black: 'one color, black, clear background', white: 'one color, white, clear background' }[w]}`),
-      ...fmts.map((f) => `  .${f}  ${{ svg: 'vector, text drawn as shapes (opens anywhere without the fonts)', png: `${P.pngW} px wide, clear background`, pdf: `vector, ${P.pdfMm} mm wide, for print` }[f]}`), '',
+      ...fmts.map((f) => `  .${f}  ${{ svg: 'vector, text drawn as shapes (opens anywhere without the fonts)', png: `${pngW} px wide, clear background`, pdf: `vector, ${pdfMm} mm wide, for print` }[f]}`), '',
       'FONTS', `  ${fonts.join(', ')}. From Google Fonts, under open licenses such as the SIL Open Font License: free to use, commercially too.`, '',
       'Send each film only the laurel for what it received, with GUIDELINES.txt.', '',
       'YOURS TO USE', '  Daphne claims no rights in these laurels. What Daphne drew is dedicated to the public domain (CC0 1.0).', '',
@@ -521,7 +573,7 @@ export function openStudio(ctx) {
       `Congratulations, and thank you for being part of ${title}. Please use our laurels like this:`, '',
       '1. Use the laurel for what your film received: Official Selection for a selection, the award laurel only for the award it won. A nomination or a finalist place is not a win.',
       '2. Use the files as they are. Please don’t redraw, re-letter or recolor them. The black and white versions are there for backgrounds where the color one doesn’t read.',
-      `3. Keep it readable: at least ${minPx} px tall on screen, and at least ${r2(minIn)} in (${Math.round(minIn * 25.4)} mm) wide in print.`,
+      minPx ? `3. Keep it readable: at least ${minPx} px tall on screen, and at least ${r2(minIn)} in (${Math.round(minIn * 25.4)} mm) wide in print.` : '3. Keep it readable: large enough that every detail of the artwork holds.',
       '4. Give it room: keep clear space around it of at least a tenth of its width, and don’t crop or overlap it.',
       '5. Alongside other festivals’ laurels, ours can sit at the same size as the rest.',
       '6. Name us as we are written on the laurel, in captions and press releases too.', '',
@@ -530,19 +582,19 @@ export function openStudio(ctx) {
     ctx.download(await ctx.zip(files), `${stem}-laurels.zip`);
     ctx.toast('Festival pack downloaded');
   }
-  function readme(ways, fmts, link) {
+  function readme(ways, fmts, link, Z = { pngW: P.pngW, pdfMm: P.pdfMm }) {
     const d = d0(), r = rendered('color'), vb = r.viewBox, sm = smallest(r), alt = ctx.altText(d);
-    const minPx = isFinite(sm) ? Math.ceil(6 * vb[3] / sm) : 120, minIn = isFinite(sm) ? 6 * vb[2] / (72 * sm) : 1;
+    const minPx = Math.ceil(6 * vb[3] / sm), minIn = 6 * vb[2] / (72 * sm);
     const fonts = [...new Set(Object.values(d.roles).map((x) => x && x.font).filter(Boolean))];
     const notes = checkLaurel(d);
     const W = { color: 'The laurel as you designed it.', black: 'One color, pure black (#000000), clear background. For light posters, one-ink print and festival programs.', white: 'One color, pure white (#FFFFFF), clear background. For dark posters, trailers and over photos.' };
-    const F = { svg: '.svg  Vector. The text is drawn as shapes, so it opens anywhere without the fonts. Best for print and the web.', png: `.png  ${P.pngW} px wide, clear background. For video edits, social posts and slides.`, pdf: `.pdf  Vector, ${P.pdfMm} mm wide. The one to send to printers.` };
+    const F = { svg: '.svg  Vector. The text is drawn as shapes, so it opens anywhere without the fonts. Best for print and the web.', png: `.png  ${Z.pngW} px wide, clear background. For video edits, social posts and slides.`, pdf: `.pdf  Vector, ${Z.pdfMm} mm wide. The one to send to printers.` };
     return [
       alt, '', 'Made with Daphne, the free festival laurel maker by pitch.dog: https://pitch.dog/daphne', `Open this laurel again to edit it: ${link}`, '',
       'WHAT’S HERE', ...ways.map((w) => `  ${w}/  ${W[w]}`), '', 'In each folder:', ...fmts.map((f) => '  ' + F[f]),
       ways.includes('color') && d.canvas.bg && fmts.includes('png') ? '  -on-background.png  The same, on your background color.' : null, '',
       'ALT TEXT', `  ${alt}`, '  Paste it wherever the image goes: it’s what screen readers say.', '',
-      'SIZES THAT STAY READABLE', `  On screen: at least ${minPx} px tall.`, `  In print: at least ${r2(minIn)} in (${Math.round(minIn * 25.4)} mm) wide, so the smallest words are 6 pt.`, '',
+      'SIZES THAT STAY READABLE', ...(isFinite(sm) ? [`  On screen: at least ${minPx} px tall.`, `  In print: at least ${r2(minIn)} in (${Math.round(minIn * 25.4)} mm) wide, so the smallest words are 6 pt.`] : ['  No words to size: the laurel is all artwork. Keep it large enough that its details hold.']), '',
       'FONTS', `  ${fonts.join(', ')}. From Google Fonts, under open licenses such as the SIL Open Font License: free to use, commercially too.`, '',
       notes.length ? 'BEFORE YOU USE IT' : null, ...notes.map((x) => `  - ${x.text}${x.source ? ` (${x.source.url})` : ''}`), notes.length ? '' : null,
       'Some festivals send official laurels and require them. If yours did, use theirs.',

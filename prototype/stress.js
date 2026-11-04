@@ -47,7 +47,16 @@ function check(d, name) {
   // (and the same, letter by letter, against every other line of text: the name block, the ribbon, above and below)
   const others = r.items.filter((it) => !it.slot.startsWith('arc'));
   const orPts = r.report.ornaments.filter((o) => o.pts).flatMap((o) => o.pts);
-  for (const t of svg.querySelectorAll('text[data-part^="arc"]')) { for (let i = 0; i < t.getNumberOfChars(); i++) { const e = t.getExtentOfChar(i), b = [e.x, e.y + e.height * 0.2, e.width, e.height * 0.6]; if (orPts.some((q) => inBox(b, q, -0.3))) { issues.push('arc text runs into a frame line or tendril'); break; } } }
+  // each letter is judged in its own turned box (the middle of its em, along its baseline): an upright box round a turned letter
+  // reaches past its ink, so near the ends of an arc it could report a touch that isn't there, depending on the browser's rounding
+  for (const t of svg.querySelectorAll('text[data-part^="arc"]')) {
+    const probe = t.cloneNode(false); probe.removeAttribute('data-part'); probe.setAttribute('x', 0); probe.setAttribute('y', 0); probe.textContent = 'M'; svg.append(probe);
+    const pe = probe.getExtentOfChar(0), v0 = pe.y + pe.height * 0.2 + 0.3, v1 = pe.y + pe.height * 0.8 - 0.3; probe.remove();
+    for (let i = 0; i < t.getNumberOfChars(); i++) {
+      const p = t.getStartPositionOfChar(i), q = t.getEndPositionOfChar(i), a = (t.getRotationOfChar(i) * Math.PI) / 180, c = Math.cos(a), sn = Math.sin(a), adv = (q.x - p.x) * c + (q.y - p.y) * sn;
+      if (orPts.some(([x, y]) => { const u = (x - p.x) * c + (y - p.y) * sn, v = -(x - p.x) * sn + (y - p.y) * c; return u > 0.3 && u < adv - 0.3 && v > v0 && v < v1; })) { issues.push('arc text runs into a frame line or tendril'); break; }
+    }
+  }
   for (const t of svg.querySelectorAll('text[data-part^="arc"]')) { let hit = null; for (let i = 0; i < t.getNumberOfChars() && !hit; i++) { const e = t.getExtentOfChar(i); hit = others.find((it) => overlap([e.x, e.y + e.height * 0.2, e.width, e.height * 0.6], it.bbox, 1)); } if (hit) issues.push(`arc text runs into the ${hit.slot === 'inside' ? 'text inside' : hit.slot}`); }
   // the curved ribbon vs every other line of text: sample each line's box against the real band
   const bands = [...svg.querySelectorAll('[data-part="ribbon"]')];
@@ -162,18 +171,19 @@ for (let i = 0; i < 180; i++) {
 }
 
 const card = (res) => `<div class="card${res.issues.length ? ' bad' : ''}">${res.r.svg}<p>${res.name} · hero ${res.r.report.hero.toFixed(1)}${res.r.report.wrapped ? ' · wrapped' : ''} · ${res.ms.toFixed(0)} ms · ${res.kb.toFixed(0)} KB</p>${res.issues.length ? `<p class="w">${res.issues.join('<br>')}</p>` : ''}${res.adv.length ? `<p>${res.adv.join('<br>')}</p>` : ''}</div>`;
+window.__cases = { groups, fuzz, bfuzz, check, measure }; // to look at one case closely from the console
 (async () => {
   const fonts = new Set(['Noto Sans', ...FUZZ_FONTS]); PRESETS.forEach((p) => Object.values(p.doc.roles || {}).forEach((r) => r && r.font && fonts.add(r.font)));
   await Promise.all([...fonts].map((f) => loadFont(f, [300, 400, 500, 600, 700, 800, 900])));
   await document.fonts.ready;
-  const out = document.getElementById('out'), table = [], all = { total: 0, bad: 0, adv: 0, ms: 0, maxMs: 0, maxKb: 0, kinds: {} };
+  const out = document.getElementById('out'), table = [], all = { total: 0, bad: 0, adv: 0, ms: 0, maxMs: 0, maxKb: 0, kinds: {}, fails: [] };
   const kind = (x) => x.replace(/“.*”/, '“…”').replace(/[\d.]+ (px|ms|KB)/, 'N $1').replace(/by [\d.]+/, '').trim();
   const run = (title, cases, drawAll, limit = 40) => {
     let bad = 0, adv = 0, ms = 0, shown = 0; const grid = document.createElement('div'); grid.className = 'grid';
     for (const [name, d, fields] of cases) {
       d.fields = clone(fields); const res = check(d, name);
       all.total++; ms += res.ms; all.maxMs = Math.max(all.maxMs, res.ms); all.maxKb = Math.max(all.maxKb, res.kb);
-      if (res.issues.length) { bad++; res.issues.forEach((x) => (all.kinds[kind(x)] = (all.kinds[kind(x)] || 0) + 1)); }
+      if (res.issues.length) { bad++; res.issues.forEach((x) => (all.kinds[kind(x)] = (all.kinds[kind(x)] || 0) + 1)); all.fails.push(`${title} · ${name}: ${res.issues.join('; ')}`); }
       if (res.adv.length) adv++;
       if (drawAll || (res.issues.length && shown++ < limit)) grid.insertAdjacentHTML('beforeend', card(res));
     }

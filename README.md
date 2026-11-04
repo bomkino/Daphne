@@ -52,26 +52,28 @@ Then open http://127.0.0.1:5178/. `serve.py` is a small static server for `proto
 | `prototype/presets.js`, `layouts.js`, `rules.js`, `fonts.js` | Looks, layouts, the festival rules registry and the font list |
 | `prototype/assets/`, `manifest.webmanifest` | Daphne's logo, favicons, app icons, social card and leaf brackets, and the PD fonts (CC0) trimmed to Latin and to the weights the app uses. Copied from the identity in `brand/` |
 | `prototype/vendor/` | harfbuzzjs, jsPDF, svg2pdf.js and mp4-muxer, copied unchanged with their MIT licenses |
+| `tests/` | Unit and browser tests, the headless stress runner and the look baseline (see Tests) |
 | `prototype/stress.html`, `qa*.html`, `perf.html`, `lab.html` | The stress suite, visual QA pages, timing and leaf-craft specimens |
-| `prototype/tools/` | Headless Chrome runners for the stress suite and screenshots, and a feature sheet |
+| `prototype/tools/` | Headless Chrome runners for the stress suite and screenshots, a feature sheet, and every look on one page (`looks.html`) |
 | `spike/` | The engine's first draft, kept for reference |
 
 ## Tests
 
-The stress suite renders 1,702 cases and checks each real SVG for overlaps, clipping and text below a legibility floor. It needs `serve.py` running and Node 22 or later:
+Everything runs headless with Node 22 or later, Python 3 and Playwright (`npm install --no-save playwright && npx playwright install chromium`). The scripts start `serve.py` themselves.
 
 ```
-cd prototype
-node tools/cdp-run.mjs "http://127.0.0.1:5178/stress.html?px=160" "JSON.stringify({ total: __stress.total, bad: __stress.bad })" "!!window.__stress"
+node tests/run.mjs        # unit tests of the engine and rules, and browser tests of the real editor
+node tests/stress.mjs     # the 1,702-case stress suite: overlaps, clipping, text below the legibility floor
+node tests/looks.mjs      # every look rendered and compared with tests/looks-baseline.json
 ```
 
-`cdp-run.mjs` looks for Chrome at its macOS path. Anywhere else, open the same page in any browser, or with Playwright, and read `window.__stress` once it appears.
+`node tests/run.mjs row` runs only the test files whose names contain "row". When a look is meant to change, check it with `node tests/looks.mjs --sheet looks.png`, then accept it with `--update`. The stress suite can also be opened at http://127.0.0.1:5178/stress.html?px=160, and every look at /tools/looks.html. GitHub runs the tests and the stress suite on every push.
 
 ## Publish to pitch.dog
 
 Daphne is served at https://pitch.dog/daphne/ from pitch.dog's website repository, which holds a copy of a build from here. To publish a new version:
 
-1. From a clean checkout of `main`, run `node tools/build-pitchdog.mjs`. It copies the app from `prototype/` into `dist-pitchdog/` without the stress suite, QA pages and tools, adds the canonical link, pitch.dog's page-view analytics (no session replay; the `#l=` laurel link is never sent) and the licenses, and writes `BUILD.json` with the commit. It stops on an inline `<script>`: pitch.dog's Content-Security-Policy runs scripts only from files, so put each page's script in a `.js` file beside it.
+1. From a clean checkout of `main`, run `node tools/build-pitchdog.mjs`. It copies the app from `prototype/` into `dist-pitchdog/` without the stress suite, QA pages and tools, adds the canonical link, pitch.dog's site analytics (page views plus the site's scroll-depth and contact-link events; no session replay; the `#l=` laurel link is never sent) and the licenses, and writes `BUILD.json` with the commit. It stops on an inline `<script>`: pitch.dog's Content-Security-Policy runs scripts only from files, so put each page's script in a `.js` file beside it.
 2. In the website repository, replace `apps/main-site/daphne/` with `dist-pitchdog/`, run its checks and open a pull request. The pull request gets a preview, and merging it puts the new version live.
 
 **https://pitch.dog/daphne/story/ is Daphne's story, told as you scroll** (`prototype/story/`): the brand book's opening, in one line of light, under pitch.dog's bar. The generator links to it from "Why Daphne?" beside the tagline and in About, and the story links back from its top corner, its end card and the chapter after it. `story.js` draws it; `marks.js` is the brand's geometry, written by `node tools/story-marks.mjs` (run it again after a change to `brand/tools/mark.mjs`). It runs under the site's Content-Security-Policy, so it has no inline scripts. The story film (`film/`) plays on this page after the scroll story, from `daphne-story-16x9.mp4` and `daphne-story-9x16.mp4` with their posters; `film.js` gives a phone held upright the upright cut. Keep each file under 25 MiB, the website host's limit per file (`npm run render -- --web` in `film/` makes the encodes).

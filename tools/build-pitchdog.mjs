@@ -3,7 +3,7 @@
 //
 // The app in prototype/ has no build step and works under any base path, so this
 // copies it as it is, minus the test and QA pages, and adds what only pitch.dog
-// needs: the canonical link, pitch.dog's page-view analytics (no session replay)
+// needs: the canonical link, pitch.dog's site analytics (page views, scroll depth, contact links; no session replay)
 // and BUILD.json, which names the commit it came from. It stops on an inline
 // <script>, which pitch.dog's Content-Security-Policy would block.
 //
@@ -40,7 +40,8 @@ function replaceOnce(text, from, to, file = 'index.html') {
   if (at < 0 || text.indexOf(from, at + 1) >= 0) throw new Error(`${file}: expected exactly one ${from}`)
   return text.slice(0, at) + to + text.slice(at + from.length)
 }
-// Page views only: the script drops the URL's #l= laurel link before anything is sent, and replay stays off.
+// A19: the site's own analytics: page views plus its scroll-depth and contact-link events. The script drops the URL's
+// #l= laurel link before anything is sent, and replay stays off.
 const analytics = '<script src="/assets/site-analytics.js" data-analytics-replay="off" defer></script>\n</head>'
 const indexPath = join(out, 'index.html')
 let html = await readFile(indexPath, 'utf8')
@@ -66,6 +67,26 @@ for await (const path of pages(out)) if (inline.test(await readFile(path, 'utf8'
 if (blocked.length) {
   console.error(`Inline <script> in ${blocked.join(', ')}. pitch.dog's Content-Security-Policy blocks inline scripts, so move each one into a .js file next to its page.`)
   process.exit(1)
+}
+
+// D39: one release, one module graph. Every relative import and module script names the commit (?v=), so a browser
+// holding an older cached app.js can never run it with a newer engine.mjs, or the other way round.
+const v = commit.slice(0, 12)
+const tag = (spec) => (spec.includes('?') ? spec : `${spec}?v=${v}`)
+async function* walk(dir) {
+  for (const entry of await readdir(dir, { withFileTypes: true })) {
+    const path = join(dir, entry.name)
+    if (entry.isDirectory()) { if (entry.name !== 'vendor') yield* walk(path) } else yield path
+  }
+}
+for await (const path of walk(out)) {
+  if (/\.m?js$/.test(path)) {
+    const s = await readFile(path, 'utf8')
+    await writeFile(path, s.replace(/(\bfrom\s*|\bimport\s*\(\s*|\bimport\s+)(['"])(\.{1,2}\/[^'"?]+\.m?js)\2/g, (m, a, q, spec) => a + q + tag(spec) + q))
+  } else if (path.endsWith('.html')) {
+    const s = await readFile(path, 'utf8')
+    await writeFile(path, s.replace(/(<script\b[^>]*\bsrc=|<link\b[^>]*\brel=["']modulepreload["'][^>]*\bhref=)(["'])((?!https?:|\/)[^"'?]+\.m?js)\2/g, (m, a, q, spec) => a + q + tag(spec) + q))
+  }
 }
 
 const build = {

@@ -33,7 +33,7 @@ export const FESTIVAL_DB = [
   F('cannes', 'Festival de Cannes', 'Cannes', 'FR', 5, 1, 'all', 'www.festival-cannes.com', { short: 'Cannes', aka: ['Cannes Film Festival', 'Festival International du Film de Cannes'], founded: 1946, sections: ['Competition', 'Un Certain Regard', 'Out of Competition', 'Cannes Premiere', 'Special Screenings', 'Midnight Screenings', 'Short Film Competition', 'La Cinef', 'Cannes Classics'] }),
   F('venice', 'Venice International Film Festival', 'Venice', 'IT', 9, 1, 'all', 'www.labiennale.org', { short: 'Venice', aka: ['Biennale', 'Mostra', 'La Biennale di Venezia', 'Venezia', 'Venice Film Festival'], local: "Mostra Internazionale d'Arte Cinematografica", founded: 1932, sections: ['Venezia (Competition)', 'Orizzonti', 'Orizzonti Extra', 'Out of Competition', 'Venice Classics', 'Venice Immersive', 'Biennale College Cinema'] }),
   F('berlinale', 'Berlinale', 'Berlin', 'DE', 2, 1, 'all', 'www.berlinale.de', { aka: ['Berlin International Film Festival', 'Berlin Film Festival'], local: 'Internationale Filmfestspiele Berlin', founded: 1951, sections: ['Competition', 'Berlinale Special', 'Perspectives', 'Panorama', 'Forum', 'Forum Expanded', 'Generation Kplus', 'Generation 14plus', 'Berlinale Shorts'] }),
-  F('sundance', 'Sundance Film Festival', 'Boulder, Colorado', 'US', 1, 1, 'all indie', 'festival.sundance.org', { aka: ['Sundance'], founded: 1978, note: 'Held in Park City, Utah until 2026; in Boulder from 2027.', sections: ['U.S. Dramatic Competition', 'U.S. Documentary Competition', 'World Cinema Dramatic Competition', 'World Cinema Documentary Competition', 'NEXT', 'Premieres', 'Spotlight', 'Midnight', 'Short Film Program', 'Special Screenings'] }),
+  F('sundance', 'Sundance Film Festival', 'Boulder, Colorado', 'US', 1, 1, 'all indie', 'festival.sundance.org', { aka: ['Sundance'], founded: 1978, note: 'Held in Park City, Utah until 2026; in Boulder from 2027.', moved: [{ until: 2026, city: 'Park City, Utah' }], sections: ['U.S. Dramatic Competition', 'U.S. Documentary Competition', 'World Cinema Dramatic Competition', 'World Cinema Documentary Competition', 'NEXT', 'Premieres', 'Spotlight', 'Midnight', 'Short Film Program', 'Special Screenings'] }),
   F('tiff', 'Toronto International Film Festival', 'Toronto', 'CA', 9, 1, 'all', 'www.tiff.net', { short: 'TIFF', founded: 1976, sections: ['Gala Presentations', 'Special Presentations', 'Platform', 'Discovery', 'Centrepiece', 'Wavelengths', 'Midnight Madness', 'TIFF Docs', 'Primetime', 'Short Cuts', 'Classics'] }),
   F('telluride', 'Telluride Film Festival', 'Telluride, Colorado', 'US', 9, 1, 'all', 'www.telluridefilmfestival.org', { short: 'Telluride', founded: 1974 }),
   F('nyff', 'New York Film Festival', 'New York', 'US', 9, 1, 'all', 'www.filmlinc.org/nyff', { short: 'NYFF', founded: 1963, sections: ['Main Slate', 'Spotlight', 'Currents', 'Revivals'] }),
@@ -166,7 +166,7 @@ export const FESTIVAL_DB = [
   F('yerevan', 'Golden Apricot Yerevan International Film Festival', 'Yerevan', 'AM', 7, 3, 'all', 'www.gaiff.am', { short: 'Golden Apricot' }),
 
   // ── United States ──
-  F('slamdance', 'Slamdance Film Festival', 'Los Angeles', 'US', 2, 2, 'indie', 'slamdance.com', { short: 'Slamdance', founded: 1995, note: 'Held in Park City, Utah until 2024; in Los Angeles since 2025.' }),
+  F('slamdance', 'Slamdance Film Festival', 'Los Angeles', 'US', 2, 2, 'indie', 'slamdance.com', { short: 'Slamdance', founded: 1995, note: 'Held in Park City, Utah until 2024; in Los Angeles since 2025.', moved: [{ until: 2024, city: 'Park City, Utah' }] }),
   F('afifest', 'AFI Fest', 'Los Angeles', 'US', 10, 2, 'all', 'fest.afi.com'),
   F('psiff', 'Palm Springs International Film Festival', 'Palm Springs, California', 'US', 1, 2, 'feature', 'www.psfilmfest.org', { short: 'PSIFF', founded: 1990 }),
   F('psshortfest', 'Palm Springs International ShortFest', 'Palm Springs, California', 'US', 6, 2, 'short', 'www.psfilmfest.org', { short: 'Palm Springs ShortFest', aka: ['ShortFest'], founded: 1995 }),
@@ -349,3 +349,17 @@ export function festivalFromText(text) {
   return best;
 }
 export const festivalById = (id) => FESTIVAL_DB.find((f) => f.id === id) || null;
+
+// a year as people write it on a laurel: 2026, MMXXVI, ’26
+const fromRoman = (s) => { const m = { M: 1000, D: 500, C: 100, L: 50, X: 10, V: 5, I: 1 }; let n = 0; const t = String(s).toUpperCase(); for (let i = 0; i < t.length; i++) { const a = m[t[i]], b = m[t[i + 1]] || 0; if (!a) return null; n += a < b ? -a : a; } return n; };
+export const yearOf = (t) => { const s = String(t || '').trim(); if (/^(19|20)\d\d$/.test(s)) return +s; if (/^['’]\d\d$/.test(s)) return 2000 + +s.slice(1); const r = fromRoman(s); return r && r > 1900 && r < 2200 ? r : null; };
+// where a given edition was held. A few festivals moved (`moved`: the cities they had until a year); for those,
+// a year that can't be read gives null rather than a guess. Returns the city line ("Park City"), not the state.
+export function cityFor(f, year) {
+  if (!f.moved) return f.city.split(',')[0];
+  const y = typeof year === 'number' ? year : yearOf(year);
+  if (!y) return null;
+  const m = f.moved.find((x) => y <= x.until);
+  return (m ? m.city : f.city).split(',')[0];
+}
+export const citiesOf = (f) => [f.city, ...(f.moved || []).map((m) => m.city)].map((c) => c.split(',')[0]);

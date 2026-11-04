@@ -1,10 +1,10 @@
 // app.js — Daphne's editor. Vanilla ES modules, no build step.
 // The shell: a rail of tabs (Words first, because the words are the first thing anyone does), a panel, and the stage.
 // The engine (engine.mjs) turns one JSON document into the laurel; everything here edits that document.
-import { render, DEFAULT_DOC, FORMS, METALS, PROFILES, FAMILIES, FRAMES, FILLABLE_FRAMES, ASSETS, LOGO_SLOTS, merge, clone, applyForm, shuffleBranch, rngOf } from './engine.mjs';
+import { render, DEFAULT_DOC, FORMS, METALS, PROFILES, FAMILIES, FRAMES, FILLABLE_FRAMES, ASSETS, LOGO_SLOTS, merge, clone, applyForm, shuffleBranch, rngOf, assetMissing, sanitizeDoc, parsePath, drawable, forgetWidths } from './engine.mjs';
 import { FONTS, fontInfo, loadFont, embedFontCss, cssUrl, loadPreviewFonts } from './fonts.js';
 import { PRESETS, GROUPS } from './presets.js';
-import { LAYOUTS, LAYOUT_GROUPS, layoutFields, applyLayout } from './layouts.js';
+import { LAYOUTS, LAYOUT_GROUPS, layoutFields, applyLayout, EXAMPLE } from './layouts.js';
 import { checkLaurel } from './rules.js';
 import { outlineSvg, svgToPdf, preloadOutlines } from './outline.js';
 import { posterMode } from './poster.js';
@@ -12,6 +12,7 @@ import { rowMode } from './row.js';
 import { motionMode } from './motion.js';
 import { wordsTab } from './words.js';
 import { openStudio } from './studio.js';
+import { keepFocus } from './modal.js';
 import { zip } from './zip.js';
 
 // ── measurement: real glyph widths from the browser ──
@@ -23,11 +24,14 @@ const KIND_ROLE = { status: 'eyebrow', festival: 'hero', award: 'hero', category
 const KIND_LABEL = { status: 'Status', festival: 'Festival', award: 'Award', category: 'Section', location: 'Place', year: 'Year', edition: 'Edition', custom: 'Own line', icon: 'Ornament', logo: 'Official logo' };
 const KINDS = Object.keys(KIND_ROLE);
 const SLOTS = [['inside', 'Inside'], ['above', 'Above'], ['below', 'Below'], ['arc-top', 'Curved, top'], ['arc-bottom', 'Curved, inside base'], ['arc-under', 'Curved, under'], ['ribbon', 'On a ribbon'], ['badge', 'In a medallion']];
-const ROLES = [['hero', 'Name size'], ['eyebrow', 'Status size'], ['sub', 'Detail size'], ['big', 'Big numeral']];
+const ROLES = [['hero', 'Name size'], ['eyebrow', 'Status size'], ['sub', 'Detail size'], ['big', 'Big numeral'], ['arc', 'Curved size']];
+// L02: ribbon, medallion and curved lines all take the shared curved-text size (Type › Curved and ribbon text)
+const CURVED = ['ribbon', 'badge', 'arc-top', 'arc-bottom', 'arc-under'];
+const ROLE_NAME = { hero: 'The name', eyebrow: 'Status line', sub: 'Details', big: 'Big numeral', arc: 'Curved and ribbon text' }; // as the Type tab names them
 let doc = clone(DEFAULT_DOC);
 let selected = null, uid = 10;
 const undoStack = [], future = [];
-const state = { tab: 'words', looksView: 'looks', group: 'All', backdrop: 'dark', smallSizes: false }; // UI state, not part of the laurel
+const state = { tab: 'words', looksView: 'looks', group: 'All', backdrop: 'dark', smallSizes: false, grid: false }; // UI state, not part of the laurel
 try { Object.assign(state, JSON.parse(localStorage.getItem('daphne.ui') || '{}')); } catch (e) { /* a convenience */ }
 const saveUi = () => { try { localStorage.setItem('daphne.ui', JSON.stringify({ tab: state.tab, looksView: state.looksView, group: state.group, backdrop: state.backdrop })); } catch (e) { /* a convenience */ } };
 
@@ -35,7 +39,7 @@ const saveUi = () => { try { localStorage.setItem('daphne.ui', JSON.stringify({ 
 // layout of their own (ribbon, medallion, big year); leaving one of those returns to the user's layout.
 const layoutById = (id) => LAYOUTS.find((L) => L.id === id);
 const APP_KEYS = ['row', 'poster', 'motion', 'out']; // the app's own state, kept in the document so links and undo carry it
-function applyPreset(p, keepText = true, newId = () => 'f' + ++uid, from = doc) {
+function applyPreset(p, keepText = true, newId = () => 'f' + ++uid, from = doc, o = {}) {
   let fields = clone(from.fields);
   let d = merge(clone(DEFAULT_DOC), { roles: from.roles });
   if (p.doc.form) d = applyForm(d, p.doc.form);
@@ -47,7 +51,7 @@ function applyPreset(p, keepText = true, newId = () => 'f' + ++uid, from = doc) 
   for (const k of Object.keys(d.roles)) if (!(p.doc.roles && p.doc.roles[k] && 'paint' in p.doc.roles[k])) d.roles[k].paint = null;
   if (keepText) {
     const lay = p.layout || (from.layoutBy === 'preset' ? from.userLayoutId || 'year-below' : null);
-    if (lay) fields = layoutFields(fields, layoutById(lay), newId);
+    if (lay) fields = layoutFields(fields, layoutById(lay), newId, o);
     d.fields = fields;
     d.layoutId = lay || from.layoutId; d.userLayoutId = from.userLayoutId;
     d.layoutBy = p.layout ? 'preset' : from.layoutBy === 'preset' ? (from.userLayoutId ? 'user' : null) : from.layoutBy;
@@ -60,19 +64,57 @@ function applyPreset(p, keepText = true, newId = () => 'f' + ++uid, from = doc) 
 const get = (path, o = doc) => path.split('.').reduce((a, k) => (a == null ? a : a[k]), o);
 function set(path, v, o = doc) { const ks = path.split('.'); let a = o; for (const k of ks.slice(0, -1)) { if (a[k] == null || typeof a[k] !== 'object') a[k] = {}; a = a[k]; } a[ks[ks.length - 1]] = v; }
 let lastSnap = JSON.stringify(doc);
+// one user action is one step of history: a batch (a status with its layout, an email import) records its start once
+let batching = 0, batchPushed = false;
+function remember() { if (batching && batchPushed) return; undoStack.push(lastSnap); if (undoStack.length > 200) undoStack.shift(); future.length = 0; if (batching) batchPushed = true; historyButtons(); }
+function batch(fn) { batching++; try { return fn(); } finally { if (--batching === 0) batchPushed = false; } }
+// numbers chosen from a menu are stored as numbers, so history and the renderer agree on them ("-20", not a string)
+function normalize(d) {
+  const num = (o, k) => { if (o && typeof o[k] === 'string' && o[k] !== 'auto' && /^-?\d+(\.\d+)?$/.test(o[k])) o[k] = +o[k]; };
+  num(d.layout, 'dy'); num(d.branch && d.branch.spine, 'gap');
+  return d;
+}
+function historyButtons() { const u = document.getElementById('undo'), r = document.getElementById('redo'); if (u) u.disabled = !undoStack.length; if (r) r.disabled = !future.length; }
 function change(path, v, rebuild = false) {
   if (JSON.stringify(get(path)) === JSON.stringify(v)) { if (rebuild) buildPanel(); return; }
-  undoStack.push(lastSnap); if (undoStack.length > 200) undoStack.shift(); future.length = 0; set(path, v);
+  remember(); set(path, v); normalize(doc);
   if (doc.poster && doc.poster.autoInk && /^(paint\.(branch|inner|ornament)|text\.|roles\.\w+\.paint)/.test(path)) { doc.poster.autoInk = false; delete doc.poster.saved; toast('Auto ink is off: you chose a color'); rebuild = true; }
   if (/^(branch|paint|roles|text|canvas|frame|ribbon|form)/.test(path)) delete doc.presetName; // hand-tuned: no longer exactly the preset
   lastSnap = JSON.stringify(doc); schedule(); if (rebuild) buildPanel(); saveHash(); thumbsDirty = true; if (path === 'fields' || /^(row|poster)/.test(path)) saveAssets();
 }
-function replaceDoc(d, rebuild = true) { undoStack.push(lastSnap); future.length = 0; doc = d; lastSnap = JSON.stringify(doc); schedule(); if (rebuild) buildPanel(); saveHash(); thumbsDirty = true; saveAssets(); refreshMode(); }
+function replaceDoc(d, rebuild = true) { remember(); doc = normalize(d); lastSnap = JSON.stringify(doc); schedule(); if (rebuild) buildPanel(); saveHash(); thumbsDirty = true; saveAssets(); refreshMode(); }
 
 // ── logos: official artwork the user uploads. The image lives in ASSETS (and this browser's storage); the field keeps
 // only its key and aspect ratio, so undo and share links stay small. A shared link's logo has to be uploaded again.
 try { Object.assign(ASSETS, JSON.parse(localStorage.getItem('daphne.assets') || '{}')); } catch (e) { /* storage is a convenience */ }
-const saveAssets = () => { const used = new Set([...doc.fields.filter((f) => f.kind === 'logo').map((f) => f.src), doc.poster && doc.poster.src, ...((doc.row && doc.row.items) || []).map((it) => it.src)].filter(Boolean)); try { localStorage.setItem('daphne.assets', JSON.stringify(Object.fromEntries(Object.entries(ASSETS).filter(([k]) => used.has(k))))); } catch (e) { /* too big for storage: it still works this session */ } };
+// Saved images are only ever added to, never swapped for this tab's view: another tab's upload, or a logo that Undo
+// can bring back, stays. One that no open laurel has used for 30 days is let go; when storage is full, the oldest
+// unused ones go first, and if even the current laurel's images don't fit, the person is told.
+const ASSET_KEY = 'daphne.assets', SEEN_KEY = 'daphne.assets.seen', KEEP_MS = 30 * 864e5, sessionRefs = new Set();
+const refsOf = (d) => [...(d.fields || []).filter((f) => f.kind === 'logo').map((f) => f.src), d.poster && d.poster.src, ...((d.row && d.row.items) || []).map((it) => it.src)].filter((k) => k && /^asset:/.test(k));
+const saveAssets = () => {
+  for (const k of refsOf(doc)) sessionRefs.add(k);
+  let stored = {}, seen = {};
+  try { stored = JSON.parse(localStorage.getItem(ASSET_KEY) || '{}'); seen = JSON.parse(localStorage.getItem(SEEN_KEY) || '{}'); } catch (e) { /* unreadable: start from this tab's */ }
+  const now = Date.now(), out = { ...stored };
+  for (const k of Object.keys(out)) if (!(k in seen)) seen[k] = now; // saved before dates were kept: start the clock today
+  for (const k of sessionRefs) { seen[k] = now; if (ASSETS[k]) out[k] = ASSETS[k]; }
+  for (const k of Object.keys(out)) if (!sessionRefs.has(k) && now - seen[k] > KEEP_MS) { delete out[k]; delete seen[k]; }
+  const cur = new Set(refsOf(doc)), spare = Object.keys(out).filter((k) => !cur.has(k)).sort((x, y) => seen[x] - seen[y]);
+  for (;;) {
+    try { localStorage.setItem(ASSET_KEY, JSON.stringify(out)); localStorage.setItem(SEEN_KEY, JSON.stringify(seen)); return saveState(true, 'images'); }
+    catch (e) { if (!spare.length) return saveState(false, cur.size ? 'images' : 'laurel'); const k = spare.shift(); delete out[k]; delete seen[k]; }
+  }
+};
+// whether this browser is keeping the work: quiet when it is, said once and shown in the bar when it isn't
+const saveFailed = { laurel: false, images: false };
+function saveState(ok, what = 'laurel') {
+  const el = document.getElementById('savestate');
+  if (ok) { saveFailed[what] = false; if (el && !saveFailed.laurel && !saveFailed.images) el.hidden = true; return true; }
+  if (!saveFailed[what]) toast(what === 'images' ? 'This browser has no room to keep your uploaded images: they stay until you close the tab. Keep the files to add them again.' : 'This browser isn’t saving your laurel (storage is full or blocked). Use Share link to keep it.', 6000);
+  saveFailed[what] = true; if (el) el.hidden = false;
+  return false;
+}
 async function readLogo(file) {
   if (file.size > 3 * 1024 * 1024) { toast('That file is over 3 MB: export it smaller (an SVG, or a PNG about 1500 px wide)'); return null; }
   const url = await new Promise((ok, no) => { const r = new FileReader(); r.onload = () => ok(r.result); r.onerror = no; r.readAsDataURL(file); });
@@ -81,28 +123,54 @@ async function readLogo(file) {
     const t = await file.text(), vb = t.match(/viewBox\s*=\s*["']\s*[-\d.e]+[\s,]+[-\d.e]+[\s,]+([\d.e]+)[\s,]+([\d.e]+)/i), w = t.match(/<svg[^>]*\swidth\s*=\s*["']([\d.]+)/i), hh = t.match(/<svg[^>]*\sheight\s*=\s*["']([\d.]+)/i);
     if (vb && +vb[2]) ar = +vb[1] / +vb[2]; else if (w && hh && +hh[1]) ar = +w[1] / +hh[1];
   }
-  if (!ar) ar = await new Promise((ok) => { const im = new Image(); im.onload = () => ok(im.naturalWidth && im.naturalHeight ? im.naturalWidth / im.naturalHeight : 1); im.onerror = () => ok(1); im.src = url; });
-  return addAsset(url, ar, file.name);
+  const seen = await new Promise((ok) => { const im = new Image(); im.onload = () => ok(im.naturalWidth && im.naturalHeight ? im.naturalWidth / im.naturalHeight : 1); im.onerror = () => ok(0); im.src = url; });
+  if (!seen) { toast('Couldn’t read that image. Try an SVG or PNG.'); return null; }
+  return addAsset(url, ar || seen, file.name);
+}
+// D31: a logo lands on the line it was meant for, found by id when it arrives; a newer replacement wins, a removed line gets nothing
+const logoGen = new Map();
+function logoTarget(id) {
+  const g = (logoGen.get(id) || 0) + 1; logoGen.set(id, g);
+  return (a) => {
+    if (!a || logoGen.get(id) !== g) return false;
+    const k = doc.fields.findIndex((x) => x.id === id);
+    if (k < 0) { toast('That line was removed before its logo arrived.'); return false; }
+    const fs = clone(doc.fields); Object.assign(fs[k], a); delete fs[k].added; change('fields', fs, true); return true;
+  };
 }
 function addAsset(url, ar, name) { const key = 'asset:' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); ASSETS[key] = url; return { src: key, ar: Math.round(ar * 1000) / 1000, name }; }
 
 // ── render loop ──
 let raf = 0, last = null, peeking = null;
-const schedule = () => { if (!raf) raf = requestAnimationFrame(draw); };
+// D42: a dense wreath can take a second to draw. While a slider is being dragged and drawings are slow, draw once the
+// hand pauses instead of on every step, so the slider keeps up; the last good drawing stays on screen meanwhile.
+let lastMs = 0, slowTimer = 0, renders = 0;
+const schedule = () => {
+  if (raf) return;
+  if (lastMs > 120 && document.activeElement && document.activeElement.type === 'range') { clearTimeout(slowTimer); slowTimer = setTimeout(() => { if (!raf) raf = requestAnimationFrame(draw); }, 160); return; }
+  raf = requestAnimationFrame(draw);
+};
+const timed = (d) => { const t0 = performance.now(); const r = render(d, { measure, scale: 2 }); lastMs = performance.now() - t0; renders++; return r; };
 async function ensureFonts(d) {
   const need = new Map();
   for (const r of Object.values(d.roles)) { if (!r || !r.font) continue; if (!need.has(r.font)) need.set(r.font, new Set()); need.get(r.font).add(r.weight || 400); }
   await Promise.all([...need].map(([f, ws]) => loadFont(f, [...ws])));
 }
-let fontsReady = Promise.resolve();
+let fontsReady = Promise.resolve(), fontEpoch = 0;
+// D14: a font that finishes loading changes every width measured with its stand-in, so measure again and redraw
+document.fonts.addEventListener('loadingdone', () => { fontEpoch++; forgetWidths(measure); thumbsDirty = true; schedule(); });
 async function draw() {
   raf = 0;
-  const pending = ensureFonts(doc); fontsReady = pending;
-  last = render(doc, { measure, scale: 2 });
+  const pending = ensureFonts(doc), epoch = fontEpoch; fontsReady = pending;
+  // a drawing that came out broken (no size) never replaces the last good one, and says so
+  let r; try { r = timed(doc); } catch (e) { console.error(e); r = null; }
+  if (!r || !r.viewBox.every(Number.isFinite)) { const el = document.getElementById('report'); if (el) el.innerHTML = '<span class="warn">These settings don’t draw a laurel: Undo, or change the last setting.</span>'; return; }
+  last = r;
   if (!peeking) MODES[mode].draw(last);
   showReport(last.report);
   if (mode !== 'row') showNotes(checkLaurel(doc));
-  pending.then(() => { if (fontsReady === pending) { const r2 = render(doc, { measure, scale: 2 }); if (r2.svg !== last.svg) { last = r2; if (!peeking) MODES[mode].draw(last); showReport(last.report); } } });
+  // fonts that arrive while this drawing was made: draw again with their real widths (only when one did arrive; D42)
+  pending.then(() => { if (fontsReady === pending && fontEpoch !== epoch) { const r2 = timed(doc); if (r2.svg !== last.svg) { last = r2; if (!peeking) MODES[mode].draw(last); showReport(last.report); } } });
   if (thumbsDirty) { thumbsDirty = false; clearTimeout(thumbTimer); thumbTimer = setTimeout(drawThumbs, 350); }
   if (state.smallSizes && mode === 'laurel') drawSmallSizes();
 }
@@ -125,45 +193,135 @@ function showNotes(list) {
   const el = document.getElementById('notes');
   el.classList.toggle('on', !!list.length);
   el.innerHTML = '';
-  for (const n of list) el.append(h('div', { class: 'note ' + n.level }, h('span', {}, n.level === 'rule' ? h('b', {}, 'Festival rule. ') : null, n.text, ' ', n.source ? h('a', { href: n.source.url, target: '_blank', rel: 'noopener', title: n.source.label }, 'Source') : null, n.fix && ctx.fixNote ? h('button', { class: 'btn small', onclick: () => ctx.fixNote(n.fix) }, 'Fix') : null)));
+  for (const n of list) el.append(h('div', { class: 'note ' + n.level }, h('span', {}, n.level === 'rule' && !n.check ? h('b', {}, 'Festival rule. ') : null, n.text, ' ', n.source ? h('a', { href: n.source.url, target: '_blank', rel: 'noopener', title: n.source.label }, 'Source') : null, n.fix && ctx.fixNote ? h('button', { class: 'btn small', onclick: () => ctx.fixNote(n.fix) }, 'Fix') : null)));
 }
 
 // drag a line to nudge it (stored as dx/dy on its field); double-click resets
+// ── placement (L03 and wave 5): pick words on the stage, move them by hand or by key, snap them home. The selection,
+// the strip, the guides and the grid live only on the stage: none of it ever reaches a file.
+const SNAP_PX = 7, GRID = 10, NS_SVG = 'http://www.w3.org/2000/svg';
+let guide = null, nudgeMark = null, dragging = false;
+const fieldOf = (id) => doc.fields.find((f) => f.id === id);
+const r1 = (v) => Math.round(v * 10) / 10;
 function decorateStage() {
   const svg = stage.querySelector('svg'); if (!svg) return;
   svg.setAttribute('role', 'img'); svg.setAttribute('aria-label', altText(doc));
+  // the selected words glow; the guide lines and the grid are drawn over the artwork, in the stage only
+  if (selected) for (const el of svg.querySelectorAll('[data-ids]')) if (el.dataset.ids.split(' ').includes(selected)) el.classList.add('picked');
+  const vb = (svg.getAttribute('viewBox') || '0 0 1 1').split(/[\s,]+/).map(Number), line = (x1, y1, x2, y2, cls) => { const l = document.createElementNS(NS_SVG, 'line'); for (const [k, v] of Object.entries({ x1, y1, x2, y2, class: cls, 'vector-effect': 'non-scaling-stroke' })) l.setAttribute(k, v); return l; };
+  if (state.grid) { const g = document.createElementNS(NS_SVG, 'g'); g.setAttribute('class', 'grid'); g.setAttribute('aria-hidden', 'true'); for (let x = Math.ceil(vb[0] / GRID) * GRID; x <= vb[0] + vb[2]; x += GRID) g.append(line(x, vb[1], x, vb[1] + vb[3], x === 0 ? 'axis' : '')); for (let y = Math.ceil(vb[1] / GRID) * GRID; y <= vb[1] + vb[3]; y += GRID) g.append(line(vb[0], y, vb[0] + vb[2], y, '')); svg.append(g); }
+  if (guide) { const g = document.createElementNS(NS_SVG, 'g'); g.setAttribute('class', 'guides'); g.setAttribute('aria-hidden', 'true'); if (guide.x) g.append(line(0, vb[1], 0, vb[1] + vb[3], 'guide')); if (guide.y != null) g.append(line(vb[0], guide.y, vb[0] + vb[2], guide.y, 'guide')); svg.append(g); }
   svg.addEventListener('pointerdown', (e) => {
-    const t = e.target.closest('[data-ids]'); if (!t || !t.dataset.ids) return;
-    const ids = t.dataset.ids.split(' '), f0 = doc.fields.find((f) => f.id === ids[0]); if (!f0) return;
-    selectField(f0.id);
-    const m = svg.getScreenCTM().inverse(), p0 = new DOMPoint(e.clientX, e.clientY).matrixTransform(m), base = { dx: f0.dx || 0, dy: f0.dy || 0 };
-    undoStack.push(lastSnap); future.length = 0;
-    const move = (ev) => { const p = new DOMPoint(ev.clientX, ev.clientY).matrixTransform(m); f0.dx = Math.round((base.dx + p.x - p0.x) * 10) / 10; f0.dy = Math.round((base.dy + p.y - p0.y) * 10) / 10; schedule(); };
-    const up = () => { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); lastSnap = JSON.stringify(doc); saveHash(); };
-    window.addEventListener('pointermove', move); window.addEventListener('pointerup', up);
+    if (dragging || e.button > 0) return; // a second finger (or a right click) doesn’t start a second move
+    const t = e.target.closest('[data-ids]'); if (!t || !t.dataset.ids) { if (selected) pick(null); return; }
+    const ids = t.dataset.ids.split(' '), f0 = fieldOf(ids[0]); if (!f0) return;
+    pick(f0.id);
+    const m = svg.getScreenCTM().inverse(), p0 = new DOMPoint(e.clientX, e.clientY).matrixTransform(m), base = { dx: f0.dx || 0, dy: f0.dy || 0 }, tol = SNAP_PX * Math.abs(m.a);
+    const home = (() => { const b = t.getBBox(); return b.y + b.height / 2 - base.dy; })();
+    // C05: one pointer owns the gesture. Other pointers are ignored; a cancel, a lost window or a document swapped
+    // underneath (Undo, a link) puts the line back, and only a finished move becomes one undo step
+    let moved = false; dragging = true;
+    const mine = (ev) => ev.pointerId === e.pointerId;
+    const move = (ev) => {
+      if (!mine(ev)) return;
+      if (!doc.fields.includes(f0)) return end(false);
+      const p = new DOMPoint(ev.clientX, ev.clientY).matrixTransform(m);
+      if (!moved) { if (Math.hypot(ev.clientX - e.clientX, ev.clientY - e.clientY) < 3) return; moved = true; }
+      let dx = base.dx + p.x - p0.x, dy = base.dy + p.y - p0.y; guide = null;
+      if (!ev.altKey) { // snapping, on unless Alt (Option) is held: to the grid when it shows, then home to the center line and the line's own row
+        if (state.grid) { dx = Math.round(dx / GRID) * GRID; dy = Math.round(dy / GRID) * GRID; }
+        const gx = Math.abs(dx) < tol, gy = Math.abs(dy) < tol; if (gx) dx = 0; if (gy) dy = 0;
+        if (gx || gy) guide = { x: gx, y: gy ? home : null };
+      }
+      f0.dx = r1(dx); f0.dy = r1(dy); schedule();
+    };
+    const end = (keep) => {
+      window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); window.removeEventListener('pointercancel', cancel); window.removeEventListener('blur', lost);
+      dragging = false; guide = null;
+      if (!moved) return;
+      if (keep && doc.fields.includes(f0) && ((f0.dx || 0) !== base.dx || (f0.dy || 0) !== base.dy)) { remember(); lastSnap = JSON.stringify(doc); saveHash(); } // lastSnap still holds the laurel from before the move
+      else { f0.dx = base.dx; f0.dy = base.dy; }
+      schedule(); placed();
+    };
+    const up = (ev) => { if (mine(ev)) end(true); }, cancel = (ev) => { if (mine(ev)) end(false); }, lost = () => end(false);
+    window.addEventListener('pointermove', move); window.addEventListener('pointerup', up); window.addEventListener('pointercancel', cancel); window.addEventListener('blur', lost);
   });
-  svg.addEventListener('dblclick', (e) => { const t = e.target.closest('[data-ids]'); if (!t || !t.dataset.ids) return; const f0 = doc.fields.find((f) => f.id === t.dataset.ids.split(' ')[0]); if (f0) { undoStack.push(lastSnap); f0.dx = 0; f0.dy = 0; lastSnap = JSON.stringify(doc); schedule(); } });
+  svg.addEventListener('dblclick', (e) => { const t = e.target.closest('[data-ids]'); if (!t || !t.dataset.ids) return; const f0 = fieldOf(t.dataset.ids.split(' ')[0]); if (f0) place(f0, 0, 0); });
 }
-function selectField(id) {
+// the arrow keys place words only while the strip is open and the focus is on the page, the stage or the strip
+function placing() {
+  if (!selected || mode !== 'laurel' || !fieldOf(selected)) return false;
+  const a = document.activeElement;
+  return !a || a === document.body || document.getElementById('stagearea').contains(a);
+}
+// one placement change, undoable as one step; arrow keys held down make one step, not dozens
+// (a run of arrow presses on the same words, with nothing else in between, joins the step it started; the first press
+// always starts one, even in the page's first moments)
+function place(f, dx, dy, o = {}) {
+  if ((f.dx || 0) === dx && (f.dy || 0) === dy) return;
+  const now = performance.now(), joins = o.held && nudgeMark && nudgeMark.snap === lastSnap && nudgeMark.id === f.id && now - nudgeMark.t <= 700;
+  if (!joins) remember();
+  f.dx = r1(dx); f.dy = r1(dy); lastSnap = JSON.stringify(doc);
+  nudgeMark = o.held ? { snap: lastSnap, id: f.id, t: now } : null;
+  schedule(); saveHash(); placed();
+}
+// after a move, Reset and Center are there at once, in the strip and on the line's row (L03), focus kept
+function placed() { drawPlacebar(); if (state.tab === 'words' && document.querySelector('.field')) buildPanel(); }
+// select words: the line glows on the stage (no re-render, so a double-click still lands on the same line) and
+// the placing strip opens over the stage
+function pick(id) {
+  selectField(id);
+  const svg = stage.querySelector('svg');
+  if (svg && mode === 'laurel') for (const el of svg.querySelectorAll('[data-ids]')) el.classList.toggle('picked', !!id && el.dataset.ids.split(' ').includes(id));
+  drawPlacebar();
+}
+function selectField(id, force = false) {
   selected = id;
   if (state.tab !== 'words') return;
+  document.querySelectorAll('.field').forEach((el) => el.classList.toggle('sel', !!id && el.dataset.id === id));
+  if (!id) return;
   state.everyOpen = true;
   const det = document.querySelector('#fields')?.closest('details'); if (det && !det.open) det.open = true;
-  document.querySelectorAll('.field').forEach((el) => el.classList.toggle('sel', el.dataset.id === id));
-  const el = document.querySelector(`.field[data-id="${id}"]`); if (el) el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  // L03: on a phone the panel sits under the stage, so following the line there would scroll the laurel away
+  // mid-placement; it follows only when asked (Edit words)
+  const el = document.querySelector(`.field[data-id="${id}"]`);
+  if (el && (force || !matchMedia('(max-width: 860px)').matches)) el.scrollIntoView({ block: force ? 'center' : 'nearest', behavior: 'smooth' });
 }
-
+let placebar = null, placeKey = '';
+function drawPlacebar() {
+  const f = selected && mode === 'laurel' ? fieldOf(selected) : null;
+  const area = document.getElementById('stagearea');
+  area.classList.toggle('placing', !!f);
+  if (!placebar) { placebar = h('div', { class: 'placebar', role: 'toolbar', 'aria-label': 'Place the selected words', hidden: true }); document.getElementById('stagewrap').append(placebar); }
+  if (!f) { placebar.hidden = true; placebar.innerHTML = ''; placeKey = ''; return; }
+  const key = [f.id, f.kind, f.text, f.dx, f.dy].join('|'); if (key === placeKey && !placebar.hidden) return; placeKey = key;
+  keepFocus(placebar, () => {
+    placebar.hidden = false; placebar.innerHTML = '';
+    const dx = f.dx || 0, dy = f.dy || 0, by = (x, y) => (e) => place(f, dx + x * (e.shiftKey ? 10 : 1), dy + y * (e.shiftKey ? 10 : 1));
+    const arrow = (label, x, y, glyph) => h('button', { class: 'btn small icon', 'aria-label': label, title: `${label} (arrow key; Shift moves 10)`, onclick: by(x, y) }, glyph);
+    placebar.append(
+      h('span', { class: 'what' }, h('b', {}, KIND_LABEL[f.kind] || 'Line'), f.text ? ' · ' + (f.text.length > 22 ? f.text.slice(0, 21) + '…' : f.text) : ''),
+      // A07: which Type role styles these words, one click away
+      (() => { const rk = CURVED.includes(f.slot) ? 'arc' : f.role || 'sub'; return h('button', { class: 'btn small ghost role', title: 'Change the font and style of every line in this role', onclick: () => setTab('type') }, 'Type: ', ROLE_NAME[rk] || rk); })(),
+      arrow('Move left', -1, 0, '←'), arrow('Move up', 0, -1, '↑'), arrow('Move down', 0, 1, '↓'), arrow('Move right', 1, 0, '→'),
+      h('button', { class: 'btn small', title: 'Back onto the center line, at its height', disabled: !dx, onclick: () => place(f, 0, dy) }, 'Center'),
+      h('button', { class: 'btn small', title: 'Back where the layout put it (or double-click it)', disabled: !dx && !dy, onclick: () => place(f, 0, 0) }, 'Reset'),
+      h('button', { class: 'btn small ghost edit', onclick: () => { setTab('words'); selectField(f.id, true); } }, 'Edit words'),
+      h('button', { class: 'btn small ghost icon', 'aria-label': 'Done placing', title: 'Done (Esc)', onclick: () => pick(null) }, '✕'),
+      h('span', { class: 'hint' }, 'Snaps to the center; hold Alt (Option) to place freely.'));
+  });
+}
 // the claim in words, for alt text, SVG titles and file metadata: "Winner, Best Documentary, Northlight Film Festival 2026"
 function altText(d = doc) {
   const vis = d.fields.filter((f) => f.show !== false && f.text && f.kind !== 'icon' && f.kind !== 'logo');
   const by = (k) => vis.filter((f) => f.kind === k).map((f) => f.text.trim()).filter(Boolean);
   const parts = [...by('status'), ...by('award'), ...by('category'), [...by('festival'), ...by('edition')].join(' '), [...by('location'), ...by('year')].join(' '), ...by('custom')].filter((s) => s && s.trim());
-  const logo = d.fields.some((f) => f.kind === 'logo' && f.show !== false && f.src);
+  const logo = d.fields.some((f) => f.kind === 'logo' && f.show !== false && f.src && !assetMissing(f.src)); // only a logo that's drawn
   return (parts.join(', ') || 'Festival laurel') + (logo ? ' (with the festival’s logo)' : '') + '.';
 }
 
 // ── UI builders ──
-const h = (tag, attrs = {}, ...kids) => { const el = document.createElement(tag); for (const [k, v] of Object.entries(attrs)) { if (k.startsWith('on') && typeof v === 'function') el.addEventListener(k.slice(2), v); else if (k === 'class') el.className = v; else if (k === 'html') el.innerHTML = v; else if (v === true) el.setAttribute(k, ''); else if (v !== false && v != null) el.setAttribute(k, v); } for (const c of kids.flat(Infinity)) if (c != null && c !== false) el.append(c.nodeType ? c : document.createTextNode(c)); return el; };
+const h = (tag, attrs = {}, ...kids) => { const el = document.createElement(tag); for (const [k, v] of Object.entries(attrs)) { if (k.startsWith('on') && typeof v === 'function') el.addEventListener(k.slice(2), v); else if (k === 'class') el.className = v; else if (k === 'html') el.innerHTML = v; else if (v === true) el.setAttribute(k, ''); else if (v !== false && v != null) el.setAttribute(k, v); } for (const c of kids.flat(Infinity)) if (c != null && c !== false) el.append(c.nodeType ? c : document.createTextNode(c)); if (tag === 'input' && attrs.type === 'range') { fill(el); el.addEventListener('input', () => fill(el)); } return el; }; // V05: every slider's track shows its value
 const fmt = (v, step) => (step >= 1 ? Math.round(v) : (+v).toFixed(step >= 0.1 ? 1 : 2));
 const fill = (inp) => inp.style.setProperty('--p', ((inp.value - inp.min) / (inp.max - inp.min)) * 100 + '%');
 function range(label, path, min, max, step = 1, o = {}) {
@@ -200,7 +358,9 @@ function paintEditor(label, path, o = {}) {
       const next = t === 'none' ? null : t === 'solid' ? base : t === 'metal' ? { type: 'metal', metal: 'gold', angle: 28, scope: o.leaf ? 'leaf' : 'whole' } : { type: t, angle: 0, scope: 'whole', stops: p && p.stops ? p.stops : [[0, '#6e4f1c'], [1, '#f4e3a8']] };
       change(path, next); redraw();
     } }, types.map(([v, l]) => h('option', { value: v, selected: v === typeOf }, l)));
-    box.append(h('div', { class: 'head' }, h('span', { class: 'sw', style: `background:${paintCss(p)}` }), h('span', { class: 'lbl' }, label), sel));
+    // V08: an inherited paint shows the paint it inherits, with a dashed ring; only a real transparency is a checkerboard
+    const inh = p == null, swBg = !inh ? paintCss(p) : o.from === 'clear' ? 'repeating-conic-gradient(#8a948c 0 25%, #d7dcd5 0 50%) 0 0/8px 8px' : o.from === 'auto' ? 'linear-gradient(135deg, #f3f3ee 50%, #141418 50%)' : o.from ? (o.from[0] === '#' ? o.from : paintCss(get(o.from) ?? (o.from2 && get(o.from2)))) : 'transparent';
+    box.append(h('div', { class: 'head' }, h('span', { class: 'sw' + (inh && o.from !== 'clear' ? ' inherit' : ''), title: inh ? o.noneLabel || '' : '', style: `background:${swBg}${inh && o.dim ? ';opacity:.6' : ''}` }), h('span', { class: 'lbl' }, label), sel));
     if (typeOf === 'solid') { const c = typeof p === 'string' ? p : p.color; box.append(h('div', { class: 'head' }, h('input', { type: 'color', 'aria-label': label + ' color', value: /^#[0-9a-f]{6}$/i.test(c) ? c : '#ffffff', oninput: (e) => { change(path, e.target.value); box.querySelector('.sw').style.background = e.target.value; } }), h('input', { type: 'text', value: c, 'aria-label': label + ' hex', onchange: (e) => { change(path, e.target.value); redraw(); } }))); }
     if (typeOf === 'linear' || typeOf === 'radial') {
       const stops = h('div', { class: 'stops' });
@@ -223,6 +383,20 @@ function paintEditor(label, path, o = {}) {
 // a font picker that shows every font in its own face (only the letters of its name are fetched for the preview)
 let fontPop = null;
 function closeFontPop() { if (fontPop) { fontPop.remove(); fontPop = null; } }
+// C04: a new family takes a face it really has, so the preview, the measurements and the outlined files agree: italic
+// only if the family has italics, and its nearest weight. One undo step.
+function setFamily(path, fam) {
+  const info = fontInfo(fam), base = path.replace(/\.font$/, ''), r = get(base);
+  if (!info || base === path || !r) return change(path, fam, true);
+  batch(() => {
+    change(path, fam);
+    if (r.italic && !info.it) change(base + '.italic', false);
+    const w = +r.weight || 400, lo = info.w[0], hi = info.w[info.w.length - 1];
+    const nw = info.v ? Math.min(hi, Math.max(lo, w)) : info.w.reduce((a, b) => (Math.abs(b - w) < Math.abs(a - w) ? b : a));
+    if (nw !== w) change(base + '.weight', nw);
+  });
+  buildPanel();
+}
 function fontPicker(path) {
   const v = get(path), info = fontInfo(v);
   const btn = h('button', { class: 'fontbtn', type: 'button', 'aria-haspopup': 'listbox', style: `font-family:"pv ${v}","${v}",serif`, onclick: (e) => { e.stopPropagation(); openFontPop(btn, path); } }, h('span', {}, v), h('small', {}, info ? info.c : 'Google font'));
@@ -240,7 +414,7 @@ function openFontPop(anchor, path) {
       const fs = FONTS.filter((x) => x.c === c && (!qq || x.f.toLowerCase().includes(qq)));
       if (!fs.length) continue;
       listEl.append(h('div', { class: 'fcat' }, c));
-      for (const x of fs) listEl.append(h('button', { class: 'fopt' + (x.f === cur ? ' on' : ''), role: 'option', style: `font-family:"pv ${x.f}","${x.f}",serif`, onclick: () => { closeFontPop(); change(path, x.f, true); } }, x.f, h('small', {}, x.v ? 'variable' : x.w.length > 1 ? `${x.w.length} weights` : '')));
+      for (const x of fs) listEl.append(h('button', { class: 'fopt' + (x.f === cur ? ' on' : ''), role: 'option', style: `font-family:"pv ${x.f}","${x.f}",serif`, onclick: () => { closeFontPop(); setFamily(path, x.f); } }, x.f, h('small', {}, x.v ? 'variable' : x.w.length > 1 ? `${x.w.length} weights` : '')));
     }
     if (qq && !FONTS.some((x) => x.f.toLowerCase() === qq)) listEl.append(h('div', { class: 'fcat' }, 'Any Google font'), h('button', { class: 'fopt', onclick: () => { closeFontPop(); change(path, q.trim().replace(/\b\w/g, (m) => m.toUpperCase()), true); } }, `Use “${q.trim()}”`, h('small', {}, 'from Google Fonts')));
   };
@@ -248,7 +422,8 @@ function openFontPop(anchor, path) {
   fontPop = h('div', { class: 'fontpop', onclick: (e) => e.stopPropagation() }, h('div', { class: 'fhead' }, search, h('div', { class: 'hint' }, 'All open-license fonts: free to use in anything you make.')), listEl);
   document.body.append(fontPop);
   const r = anchor.getBoundingClientRect(), H = Math.min(520, innerHeight * 0.7);
-  fontPop.style.left = Math.min(innerWidth - 340, r.left) + 'px';
+  const vw = document.documentElement.clientWidth; // D11: inside the screen at any width, 8 px from either edge
+  fontPop.style.left = Math.max(8, Math.min(vw - fontPop.offsetWidth - 8, r.left)) + 'px';
   fontPop.style.top = Math.max(10, Math.min(innerHeight - H - 10, r.bottom + 6)) + 'px';
   fill2(); search.focus();
   const on = listEl.querySelector('.on'); if (on) on.scrollIntoView({ block: 'center' });
@@ -266,46 +441,56 @@ function roleEditor(key, label, note) {
     select('Case', 'roles.' + key + '.case', [['upper', 'UPPERCASE'], ['asis', 'As typed'], ['title', 'Title Case'], ['lower', 'lowercase']]),
     range('Letter spacing', 'roles.' + key + '.track', -0.05, 0.6, 0.01),
     range(key === 'hero' ? 'Size' : 'Size vs name', 'roles.' + key + '.ratio', key === 'hero' ? 0.5 : 0.15, key === 'big' ? 2.4 : 1.2, 0.01),
-    paintEditor('Color', 'roles.' + key + '.paint', { nullable: true, noneLabel: 'Default', leaf: false }));
+    paintEditor('Color', 'roles.' + key + '.paint', { nullable: true, noneLabel: 'Default', leaf: false, from: ['hero', 'big'].includes(key) ? 'text.paint' : 'text.sub', from2: 'text.paint' }));
 }
 
 // ── fields: every line of the laurel ──
+// the medallion takes several lines, joined; its option says who is already in it
+const sharedBadge = (f) => { const o = doc.fields.filter((x) => x.id !== f.id && x.slot === 'badge' && x.show !== false && (x.text || x.kind === 'icon')).map((x) => (x.kind === 'icon' ? 'the star' : x.text)); return o.length ? ` (with ${o.join(', ')})` : ''; };
 function addField(k) {
   const fs = clone(doc.fields);
   const f = { id: 'f' + ++uid, kind: k, text: k === 'logo' ? '' : k === 'icon' ? 'star' : k === 'year' ? String(new Date().getFullYear()) : '', role: KIND_ROLE[k], slot: 'inside', show: true };
-  if (k !== 'logo' && k !== 'icon' && k !== 'year') { f.text = { status: 'Official Selection', festival: 'Festival name', award: 'Best Documentary', category: 'Section', location: 'City', edition: '10th Edition', custom: 'Your line' }[k]; f.added = true; }
+  if (k !== 'logo' && k !== 'icon' && k !== 'year') f.added = true; // arrives empty: the example is only a placeholder
   fs.push(f); selected = f.id; state.everyOpen = true;
   change('fields', fs, true);
   setTimeout(() => { const el = document.querySelector(`.field[data-id="${f.id}"] input[type=text]`); if (el) { el.focus(); el.select(); } }, 30);
 }
+// the line being dragged to a new place: set only by a line's own drag, so text dropped from anywhere never moves one
+let lineDrag = null;
 function fieldRow(f, i) {
   const el = h('div', { class: 'field' + (selected === f.id ? ' sel' : '') + (f.show === false ? ' off' : ''), 'data-id': f.id, draggable: 'true' });
-  el.addEventListener('dragstart', (e) => { e.dataTransfer.setData('text/plain', String(i)); el.style.opacity = 0.5; });
-  el.addEventListener('dragend', () => (el.style.opacity = 1));
-  el.addEventListener('dragover', (e) => { e.preventDefault(); el.classList.add('drag-over'); });
+  el.addEventListener('dragstart', (e) => { if (e.target !== el) return; lineDrag = f.id; e.dataTransfer.setData('application/x-daphne-line', f.id); e.dataTransfer.effectAllowed = 'move'; el.style.opacity = 0.5; });
+  el.addEventListener('dragend', () => { lineDrag = null; el.style.opacity = 1; });
+  el.addEventListener('dragover', (e) => { if (!lineDrag) return; e.preventDefault(); el.classList.add('drag-over'); });
   el.addEventListener('dragleave', () => el.classList.remove('drag-over'));
-  el.addEventListener('drop', (e) => { e.preventDefault(); el.classList.remove('drag-over'); const from = +e.dataTransfer.getData('text/plain'); if (from === i) return; const fs = clone(doc.fields); const [m] = fs.splice(from, 1); fs.splice(i, 0, m); change('fields', fs, true); });
-  const upd = (k, v, rebuild = false) => { const fs = clone(doc.fields); fs[i][k] = v; if (k === 'text') delete fs[i].added; if (k === 'kind' && v === 'logo' && !LOGO_SLOTS.includes(fs[i].slot || 'inside')) fs[i].slot = 'inside'; change('fields', fs, rebuild); };
+  el.addEventListener('drop', (e) => {
+    el.classList.remove('drag-over'); if (!lineDrag) return; e.preventDefault();
+    const from = doc.fields.findIndex((x) => x.id === lineDrag), to = doc.fields.findIndex((x) => x.id === f.id); lineDrag = null;
+    if (from < 0 || to < 0 || from === to) return;
+    const fs = clone(doc.fields); const [m] = fs.splice(from, 1); fs.splice(to, 0, m); change('fields', fs, true);
+  });
+  const upd = (k, v, rebuild = false) => { const fs = clone(doc.fields); fs[i][k] = v; if (k === 'text') { delete fs[i].added; if (fs[i].kind === 'festival') delete fs[i].fid; } if (k === 'kind' && v === 'logo' && !LOGO_SLOTS.includes(fs[i].slot || 'inside')) fs[i].slot = 'inside'; change('fields', fs, rebuild); };
   const logoInput = () => {
-    const file = h('input', { type: 'file', accept: 'image/svg+xml,image/png,image/webp,image/jpeg', style: 'display:none', onchange: async (e) => { const fl = e.target.files[0]; const a = fl && (await readLogo(fl)); if (a) { const fs = clone(doc.fields); Object.assign(fs[i], a); delete fs[i].added; change('fields', fs, true); } } });
+    const file = h('input', { type: 'file', accept: 'image/svg+xml,image/png,image/webp,image/jpeg', style: 'display:none', onchange: async (e) => { const fl = e.target.files[0]; e.target.value = ''; if (!fl) return; const put = logoTarget(f.id); put(await readLogo(fl).catch(() => null)); } });
     const has = !!(f.src && ASSETS[f.src]);
     return h('div', { class: 'logo-in' }, file,
       h('button', { class: 'btn small', onclick: () => file.click() }, has ? 'Replace logo' : 'Upload logo'),
-      h('button', { class: 'btn small', title: 'A festival file on white or black? Make it transparent and recolor it first', onclick: () => ctx.openFixer && ctx.openFixer((a) => { const fs = clone(doc.fields); Object.assign(fs[i], a); delete fs[i].added; change('fields', fs, true); }) }, 'Clean up a file…'),
+      h('button', { class: 'btn small', title: 'A festival file on white or black? Make it transparent and recolor it first', onclick: () => ctx.openFixer && ctx.openFixer((a) => logoTarget(f.id)(a)) }, 'Clean up a file…'),
       h('span', { class: 'logo-name' }, has ? f.name || 'Logo' : f.src ? 'Upload it again: logos stay on the device they were added on' : 'The festival’s official artwork, SVG or PNG'),
       h('label', { title: 'Color the logo with this line’s paint (best for one-color artwork). Many festivals ask for their artwork unchanged: check their rules first.' }, h('input', { type: 'checkbox', checked: !!f.tint, onchange: (e) => upd('tint', e.target.checked) }), ' tint'));
   };
   const textInput = f.kind === 'logo' ? logoInput() : f.kind === 'icon'
     ? h('select', { 'aria-label': 'Ornament', onchange: (e) => upd('text', e.target.value) }, [['star', '★ Star'], ['stars', '★★★ Three stars'], ['crown', '♛ Crown'], ['dot', '• Dot'], ['diamond', '◆ Diamond'], ['rule', '— Rule']].map(([x, l]) => h('option', { value: x, selected: x === f.text }, l)))
-    : h('input', { type: 'text', class: f.added ? 'example' : '', title: f.added ? 'Example text: type over it' : '', value: f.text, placeholder: KIND_LABEL[f.kind], 'aria-label': KIND_LABEL[f.kind] + ' text', oninput: (e) => { e.target.classList.remove('example'); upd('text', e.target.value); }, onfocus: (e) => { if (f.added) e.target.select(); } });
+    : h('input', { type: 'text', class: f.added && f.text ? 'example' : '', title: f.added && f.text ? 'Example text: type over it' : '', value: f.text, placeholder: f.added && EXAMPLE[f.kind] && f.kind !== 'icon' ? 'e.g. ' + EXAMPLE[f.kind] : KIND_LABEL[f.kind], 'aria-label': KIND_LABEL[f.kind] + ' text', oninput: (e) => { e.target.classList.remove('example'); upd('text', e.target.value); }, onfocus: (e) => { if (f.added) e.target.select(); } });
   el.append(
     h('div', { class: 'handle', title: 'Drag to reorder' }, '⋮⋮'),
     h('div', {},
       textInput,
       h('div', { class: 'meta' },
         h('select', { title: 'What it is', 'aria-label': 'What it is', onchange: (e) => upd('kind', e.target.value, true) }, KINDS.map((k) => h('option', { value: k, selected: k === f.kind }, KIND_LABEL[k]))),
-        h('select', { title: 'How big', 'aria-label': 'Size', onchange: (e) => upd('role', e.target.value) }, ROLES.map(([k, l]) => h('option', { value: k, selected: k === f.role }, l))),
-        h('select', { title: 'Where it sits', 'aria-label': 'Where it sits', onchange: (e) => upd('slot', e.target.value) }, (f.kind === 'logo' ? SLOTS.filter(([k]) => LOGO_SLOTS.includes(k)) : SLOTS).map(([k, l]) => h('option', { value: k, selected: k === (f.slot || 'inside') }, l)))),
+        CURVED.includes(f.slot) ? h('select', { title: 'Curved, ribbon and medallion words share one size: change it under Type › Curved and ribbon text', 'aria-label': 'Size', disabled: true }, h('option', { value: 'arc', selected: true }, 'Curved size'))
+          : h('select', { title: 'How big', 'aria-label': 'Size', onchange: (e) => upd('role', e.target.value) }, ROLES.map(([k, l]) => h('option', { value: k, selected: k === f.role }, l))),
+        h('select', { title: 'Where it sits', 'aria-label': 'Where it sits', onchange: (e) => upd('slot', e.target.value) }, (f.kind === 'logo' ? SLOTS.filter(([k]) => LOGO_SLOTS.includes(k)) : SLOTS).map(([k, l]) => h('option', { value: k, selected: k === (f.slot || 'inside') }, k === 'badge' ? l + sharedBadge(f) : l)))),
       h('div', { class: 'flags' },
         h('label', {}, h('input', { type: 'checkbox', checked: f.show !== false, onchange: (e) => upd('show', e.target.checked, true) }), 'Show'),
         f.kind === 'logo' ? null : h('label', { title: 'Join onto the line above (e.g. TRIBECA 2026)' }, h('input', { type: 'checkbox', checked: !!f.join, onchange: (e) => upd('join', e.target.checked) }), 'Join line above'),
@@ -333,7 +518,8 @@ if (state.tab === 'colour') state.tab = 'color';
 if (![...TABS.map((t) => t[0]), 'about'].includes(state.tab)) state.tab = 'words';
 if (state.group !== 'All' && !GROUPS.includes(state.group)) state.group = 'All';
 const railEl = document.getElementById('rail');
-function buildRail() {
+function buildRail() { keepFocus(railEl, buildRailNow); }
+function buildRailNow() {
   railEl.innerHTML = '';
   const btn = ([k, l], cls = '') => { const b = h('button', { class: (state.tab === k ? 'on ' : '') + cls, role: 'tab', 'aria-selected': String(state.tab === k), title: l, onclick: () => setTab(k) }); b.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON[k]}</svg>`; b.append(h('span', {}, l)); return b; };
   railEl.append(...TABS.map((t) => btn(t)), h('div', { class: 'grow' }), btn(['about', 'About'], 'about'));
@@ -344,7 +530,7 @@ const sectionsEl = document.getElementById('sections');
 let thumbsDirty = true, thumbTimer = 0;
 const head = (title, sub, ...actions) => h('div', { class: 'tabhead' }, h('h2', {}, title), sub ? h('p', {}, sub) : null, actions.length ? h('div', { class: 'actions' }, ...actions) : null);
 const ui = {
-  get doc() { return doc; }, state, h, clone, change, replaceDoc, schedule, toast, layoutById, applyLayout, LAYOUTS, fieldRow, addField, selectField,
+  get doc() { return doc; }, state, h, clone, change, replaceDoc, batch, schedule, toast, layoutById, applyLayout, LAYOUTS, fieldRow, addField, selectField,
   newId: () => 'f' + ++uid, rebuild: () => buildPanel(),
   openFixer: (cb, o) => ctx.openFixer && ctx.openFixer(cb, o),
   addLogo: (a) => { const fs = clone(doc.fields); fs.push({ id: 'f' + ++uid, kind: 'logo', text: '', role: 'hero', slot: 'inside', show: true, ...a }); change('fields', fs, true); },
@@ -360,7 +546,8 @@ function intro() {
     h('p', {}, 'Paste the festival’s email or type what it gave you, pick a look, then Export for your poster, trailer and socials. Free, with no account and no watermark. ', h('a', { href: '#', onclick: (e) => { e.preventDefault(); setTab('about'); setTimeout(() => document.getElementById('guide')?.scrollIntoView({ block: 'start' }), 50); } }, 'New to laurels? Six things to know.')),
     h('button', { class: 'btn ghost small x', 'aria-label': 'Close the introduction', onclick: () => { markSeen(); buildPanel(); } }, '✕'));
 }
-function buildPanel() {
+function buildPanel() { keepFocus(sectionsEl, buildPanelNow); }
+function buildPanelNow() {
   const scroll = document.getElementById('panel').scrollTop;
   sectionsEl.innerHTML = '';
   const T = state.tab;
@@ -372,7 +559,6 @@ function buildPanel() {
   else if (T === 'canvas') sectionsEl.append(...canvasTab());
   else if (T === 'about') sectionsEl.append(...aboutTab());
   // the wrapper selects coerce numbers for dy/gap
-  sectionsEl.querySelectorAll('select').forEach((s) => s.addEventListener('change', () => { const v = get('layout.dy'); if (typeof v === 'string' && v !== 'auto') set('layout.dy', +v); const g = get('branch.spine.gap'); if (typeof g === 'string' && g !== 'auto') set('branch.spine.gap', +g); }));
   document.getElementById('panel').scrollTop = scroll;
   thumbsDirty = true; schedule();
 }
@@ -380,31 +566,40 @@ function buildPanel() {
 // ── Looks: presets and layouts, previewed on the stage as you hover ──
 function looksTab() {
   const shuffles = [h('button', { class: 'btn primary small', title: 'A new look from curated pools. Keeps your words.', onclick: () => shuffle('all') }, '✦ Surprise me'), h('button', { class: 'btn small', onclick: () => shuffle('wreath') }, 'Wreath'), h('button', { class: 'btn small', onclick: () => shuffle('color') }, 'Color'), h('button', { class: 'btn small', onclick: () => shuffle('type') }, 'Type')];
-  const top = head('Looks', 'Hover to preview on the stage, click to use. Your words stay.', ...shuffles);
+  // A02: the hint names what this pointer and this view can do: hover previews only on the laurel, with a mouse
+  const canPeek = mode === 'laurel' && matchMedia('(any-hover: hover)').matches;
+  const top = head('Looks', canPeek ? 'Hover to preview on the stage, click to use. Your words stay.' : 'Tap a look to use it; Undo takes it back. Your words stay.', ...shuffles);
   const view = segctl([['looks', `Looks · ${PRESETS.length}`], ['layouts', `Layouts · ${LAYOUTS.length}`]], state.looksView, (v) => { state.looksView = v; saveUi(); buildPanel(); });
   const pane = h('div', { class: 'pane' }, view);
   if (state.looksView === 'looks') {
     const groups = ['All', ...GROUPS];
     pane.append(h('div', { class: 'filter' }, groups.map((g) => h('button', { class: 'chip' + (state.group === g ? ' on' : ''), onclick: () => { state.group = g; saveUi(); buildPanel(); } }, g))));
     const list = PRESETS.filter((p) => state.group === 'All' || p.group === state.group);
-    const tile = (p) => h('button', { class: 'preset' + (doc.presetName === p.name ? ' on' : ''), title: p.name, onclick: () => { endPeek(); replaceDoc(applyPreset(p)); toast(`${p.name}: your words kept`); }, onpointerenter: (e) => { if (e.pointerType === 'mouse') peek(() => applyPreset(p, true, tmpId)); }, onpointerleave: endPeek, onfocus: (e) => { if (e.target.matches(':focus-visible')) peek(() => applyPreset(p, true, tmpId)); }, onblur: endPeek },
+    const tile = (p) => h('button', { class: 'preset' + (doc.presetName === p.name ? ' on' : ''), title: p.name, onclick: () => { endPeek(); replaceDoc(applyPreset(p)); if (!askFor(p, 'look')) toast(`${p.name}: your words kept`); }, onpointerenter: (e) => { if (e.pointerType === 'mouse') peek(() => applyPreset(p, true, tmpId)); }, onpointerleave: endPeek, onfocus: (e) => { if (e.target.matches(':focus-visible')) peek(() => applyPreset(p, true, tmpId)); }, onblur: endPeek },
       h('div', { class: 'thumb', 'data-i': PRESETS.indexOf(p) }), h('span', {}, p.name));
     if (state.group === 'All') for (const g of GROUPS) { const ps = list.filter((p) => p.group === g); pane.append(h('div', { class: 'label' }, g, h('span', { class: 'opt' }, String(ps.length)), h('span', { class: 'grow' })), h('div', { class: 'presets', id: 'presets-' + GROUPS.indexOf(g) }, ps.map(tile))); }
     else pane.append(h('div', { class: 'presets' }, list.map(tile)));
   } else {
     // the layout lit up is the one the words are actually in (so hand edits that land on a layout light it too)
-    const sig = (x) => `${x.role || 'eyebrow'}:${x.slot || 'inside'}:${x.join ? 1 : 0}`, vis = doc.fields.filter((f) => f.show !== false && (f.text || f.kind === 'icon' || (f.kind === 'logo' && f.src)));
+    const sig = (x) => `${x.role || 'eyebrow'}:${x.slot || 'inside'}:${x.join ? 1 : 0}`, vis = doc.fields.filter((f) => f.show !== false && (f.text || f.added || f.kind === 'icon' || (f.kind === 'logo' && f.src)));
     const fits = (ln, f) => ln.kind.split('|').includes(f.kind) || (f.kind === 'logo' && ln.role === 'hero');
-    const activeId = (LAYOUTS.find((L) => L.lines.length === vis.length && L.lines.every((ln, i) => fits(ln, vis[i]) && sig(ln) === sig(vis[i]))) || {}).id;
+    const shown = (L) => (L.lines.some((ln) => ln.kind === 'status') ? vis : vis.filter((f) => !(f.kind === 'status' && f.role === 'eyebrow')));
+    const activeId = (LAYOUTS.find((L) => { const v = shown(L); return L.lines.length === v.length && L.lines.every((ln, i) => fits(ln, v[i]) && sig(ln) === sig(v[i])); }) || {}).id;
     const apply = (L, d = doc, idf = () => 'f' + ++uid) => ({ ...applyLayout(d, L, idf), layoutBy: 'user', userLayoutId: L.id });
-    const tile = (L) => h('button', { class: 'preset' + (activeId === L.id ? ' on' : ''), title: L.note, onclick: () => { endPeek(); replaceDoc(apply(L)); }, onpointerenter: (e) => { if (e.pointerType === 'mouse') peek(() => apply(L, clone(doc), tmpId)); }, onpointerleave: endPeek, onfocus: (e) => { if (e.target.matches(':focus-visible')) peek(() => apply(L, clone(doc), tmpId)); }, onblur: endPeek },
+    const tile = (L) => h('button', { class: 'preset' + (activeId === L.id ? ' on' : ''), title: L.note, onclick: () => { endPeek(); replaceDoc(apply(L)); askFor(L); }, onpointerenter: (e) => { if (e.pointerType === 'mouse') peek(() => apply(L, clone(doc), tmpId)); }, onpointerleave: endPeek, onfocus: (e) => { if (e.target.matches(':focus-visible')) peek(() => apply(L, clone(doc), tmpId)); }, onblur: endPeek },
       h('div', { class: 'thumb', 'data-l': LAYOUTS.indexOf(L) }), h('span', {}, L.name), h('small', {}, L.note));
-    pane.append(h('div', { class: 'hint' }, 'Layouts move your words and keep the look. Lines a layout leaves out are hidden, not deleted; new lines arrive as examples to type over.'));
+    pane.append(h('div', { class: 'hint' }, 'Layouts move your words and keep the look. Lines a layout leaves out are hidden, not deleted; new lines arrive empty, for you to fill in.'));
     for (const g of LAYOUT_GROUPS) pane.append(h('div', { class: 'label' }, g, h('span', { class: 'grow' })), h('div', { class: 'presets' }, LAYOUTS.filter((L) => L.group === g).map(tile)));
   }
   return [top, pane];
 }
 let tmpK = 0; const tmpId = () => 'tmp' + tmpK++;
+// a layout that adds a line asks for its words, rather than writing a fact the film may not have
+function askFor(L, what = 'layout') {
+  const need = [...new Set(doc.fields.filter((f) => f.added && !f.text && f.show !== false && f.kind !== 'icon').map((f) => KIND_LABEL[f.kind].toLowerCase()))];
+  if (need.length) toast(`The ${L.name} ${what} has a line for the ${need.join(' and the ')}: type ${need.length > 1 ? 'them' : 'it'} on the Words tab.`, 4200);
+  return need.length > 0;
+}
 // preview a look on the stage without changing anything
 let peekTimer = 0;
 function peek(make) {
@@ -439,8 +634,8 @@ function wreathTab() {
         fixed || FK === 'rules' ? select('Ornament', 'frame.orn', [['star', 'Star'], ['dot', 'Dot'], ['diamond', 'Diamond'], ['none', 'None']]) : null,
         fixed ? [range('Size', 'frame.size', 0.6, 1.6, 0.01, { def: 1 }), range('Band for text', 'frame.band', 0.16, 0.4, 0.01, { def: 0.27 })] : null,
         FK === 'box' ? range('Corner radius', 'frame.radius', 0, 1, 0.01, { def: 0.25 }) : null,
-        paintEditor('Frame color', 'frame.paint', { nullable: true, noneLabel: 'Same as leaves' }),
-        get('frame.filled') && FILLABLE_FRAMES.includes(FK) ? paintEditor('Text on the frame', 'frame.ink', { nullable: true, noneLabel: 'Auto (always readable)', leaf: false }) : null,
+        paintEditor('Frame color', 'frame.paint', { nullable: true, noneLabel: 'Same as leaves', from: 'paint.branch' }),
+        get('frame.filled') && FILLABLE_FRAMES.includes(FK) ? paintEditor('Text on the frame', 'frame.ink', { nullable: true, noneLabel: 'Auto (always readable)', leaf: false, from: 'auto' }) : null,
         h('div', { class: 'hint' }, fixed ? 'Seals carry curved text in their band: put the status on "Curved, top" and the year on "Curved, under" (or pick the Seal layout).' : 'The frame is sized round your words.'))
         : h('div', { class: 'hint' }, 'Text only. Pick a frame for a seal, a medal, a ticket or a film strip.'));
     return [top, pane];
@@ -454,7 +649,7 @@ function wreathTab() {
     fold('Leaves', `${family} · ${get(LF + 'n')} a side`, true,
       select('Family', LF + 'family', opt(Object.keys(FAMILIES)), { rebuild: true }),
       ['simple', 'twig', 'trefoil'].includes(family) ? select('Shape', LF + 'profile', opt(Object.keys(PROFILES).filter((k) => k !== 'rachis'))) : null,
-      family === 'custom' ? h('div', { class: 'row wide' }, h('label', {}, 'Your shape'), h('textarea', { placeholder: 'Paste any SVG path (d="…"): a leaf, a star, a film frame. Base on the left, tip on the right.', onchange: (e) => change(LF + 'path', e.target.value) }, get(LF + 'path') || '')) : null,
+      family === 'custom' ? h('div', { class: 'row wide' }, h('label', {}, 'Your shape'), h('textarea', { placeholder: 'Paste any SVG path (d="…"): a leaf, a star, a film frame. Base on the left, tip on the right.', onchange: (e) => setShape(e.target, LF) }, get(LF + 'path') || '')) : null,
       select('Style', LF + 'style', [['solid', 'Solid'], ['slit', 'Slit (hairline midrib)'], ['carved', 'Carved veins'], ['inline', 'Inline (engraved outline)'], ['engraved', 'Engraved (outline + veins)'], ['hatch', 'Hatched (etching)'], ['split', 'Split two-tone']]),
       range('Fold shading', LF + 'fold', 0, 0.6, 0.01), select('Shaded half', LF + 'foldSide', [[1, 'Lower half'], [-1, 'Upper half']], { num: true }),
       range('Line weight', LF + 'ring', 0.06, 0.3, 0.01),
@@ -471,7 +666,7 @@ function wreathTab() {
     fold('Mixed wreath', doc.branch.right ? 'on' : 'off', false,
       h('div', { class: 'hint' }, 'A different branch on the right: oak and palm, laurel and olive.'),
       h('div', { class: 'seg' },
-        h('button', { class: 'btn small' + (doc.branch.right ? ' on' : ''), onclick: () => { if (doc.branch.right) { const b = clone(doc.branch); delete b.right; change('branch', b, true); } else { const s = shuffleBranch(Date.now() % 100000); change('branch.right', { leaf: s.leaf, orn: { tip: s.orn.tip } }, true); } } }, doc.branch.right ? 'Same both sides' : 'Different right side'),
+        h('button', { class: 'btn small' + (doc.branch.right ? ' on' : ''), role: 'switch', 'aria-checked': String(!!doc.branch.right), title: 'A switch: on draws the right branch with its own leaves', onclick: () => { if (doc.branch.right) { const b = clone(doc.branch); delete b.right; change('branch', b, true); } else { const s = shuffleBranch(Date.now() % 100000); change('branch.right', { leaf: s.leaf, orn: { tip: s.orn.tip } }, true); } } }, doc.branch.right ? '✓ Different right side' : 'Different right side'), // V07: the lit state names what's on, not the next action
         doc.branch.right ? h('button', { class: 'btn small', onclick: () => { const s = shuffleBranch(Date.now() % 100000); change('branch.right', { leaf: s.leaf, orn: { tip: s.orn.tip } }, true); } }, 'Shuffle right side') : null)));
   return [top, pane];
 }
@@ -485,20 +680,22 @@ function colorTab() {
     h('div', { class: 'group' }, h('div', { class: 'label' }, 'Palettes', h('span', { class: 'grow' })), pal),
     fold('Leaves', null, true,
       paintEditor('Leaves', 'paint.branch', { leaf: true }),
-      paintEditor('Inner leaves', 'paint.inner', { nullable: true, noneLabel: 'Same, dimmed', leaf: true }),
+      paintEditor('Inner leaves', 'paint.inner', { nullable: true, noneLabel: 'Same, dimmed', leaf: true, from: 'paint.branch', dim: true }),
       range('Inner dimming', 'paint.depth', 0, 0.9, 0.01),
-      paintEditor('Fold shade', 'paint.shade', { nullable: true, noneLabel: 'Black', leaf: false }),
-      paintEditor('Berries & flowers', 'paint.ornament', { nullable: true, noneLabel: 'Same as leaves' }),
-      select('Draw', 'paint.mode', [['fill', 'Filled'], ['outline', 'Outline'], ['both', 'Filled + outline']]),
-      range('Outline width', 'paint.stroke.w', 0.2, 4, 0.05),
-      paintEditor('Outline color', 'paint.stroke.paint', { nullable: true, noneLabel: 'Same as leaves' })),
+      paintEditor('Fold shade', 'paint.shade', { nullable: true, noneLabel: 'Black', leaf: false, from: '#000000' }),
+      paintEditor('Berries & flowers', 'paint.ornament', { nullable: true, noneLabel: 'Same as leaves', from: 'paint.branch' }),
+      select('Draw', 'paint.mode', [['fill', 'Filled'], ['outline', 'Outline'], ['both', 'Filled + outline']], { rebuild: true }),
+      // A15: the outline's width and color show only when there is an outline; their values wait for its return
+      ...((doc.paint.mode || 'fill') === 'fill' ? [h('p', { class: 'hint' }, 'Outline width and color appear when Draw is Outline or Filled + outline.')] : [
+        range('Outline width', 'paint.stroke.w', 0.2, 4, 0.05),
+        paintEditor('Outline color', 'paint.stroke.paint', { nullable: true, noneLabel: 'Same as leaves', from: 'paint.branch' })])),
     fold('Text', null, true,
       paintEditor('Main text', 'text.paint', { leaf: false }),
-      paintEditor('Small text', 'text.sub', { nullable: true, noneLabel: 'Same as main', leaf: false })),
+      paintEditor('Small text', 'text.sub', { nullable: true, noneLabel: 'Same as main', leaf: false, from: 'text.paint' })),
     fold('Ribbon, badge and background', null, false,
-      paintEditor('Ribbon & badge', 'ribbon.paint', { nullable: true, noneLabel: 'Same as leaves' }),
-      paintEditor('Text on ribbon', 'ribbon.text', { nullable: true, noneLabel: 'Auto (always readable)', leaf: false }),
-      paintEditor('Background', 'canvas.bg', { nullable: true, noneLabel: 'Transparent', leaf: false })),
+      paintEditor('Ribbon & badge', 'ribbon.paint', { nullable: true, noneLabel: 'Same as leaves', from: 'paint.branch' }),
+      paintEditor('Text on ribbon', 'ribbon.text', { nullable: true, noneLabel: 'Auto (always readable)', leaf: false, from: 'auto' }),
+      paintEditor('Background', 'canvas.bg', { nullable: true, noneLabel: 'Transparent', leaf: false, from: 'clear' })),
     fold('Effects', ['shadow', 'glow', 'misreg', 'foil', 'press', 'grain'].filter(fx).length + ' on', false,
       h('div', { class: 'hint' }, 'Foil: stamped metal catching the light. Letterpress: pressed into the paper. Misprint: a second ink off register. Grain: worn ink.'),
       toggle('Foil', 'paint.effects.foil', { rebuild: true, on: { strength: 0.75, crinkle: 0.5, size: 1.6, light: 235 }, off: null }),
@@ -525,7 +722,7 @@ function canvasTab() {
   return [top, h('div', { class: 'pane' },
     select('Shape', 'canvas.aspect', [[0, 'Fit the laurel'], [1, 'Square 1:1'], [0.8, 'Portrait 4:5'], [0.5625, 'Story 9:16'], [1.7778, 'Wide 16:9'], [0.6667, 'Poster 2:3']], { num: true }),
     range('Padding', 'canvas.pad', 0, 80, 1),
-    paintEditor('Background', 'canvas.bg', { nullable: true, noneLabel: 'Transparent', leaf: false }),
+    paintEditor('Background', 'canvas.bg', { nullable: true, noneLabel: 'Transparent', leaf: false, from: 'clear' }),
     h('div', { class: 'group' }, h('div', { class: 'label' }, 'Smallest use', h('span', { class: 'grow' })),
       h('div', { class: 'hint' }, 'How small will people see it? Daphne keeps the small lines readable at that size: 6 px or more.'),
       h('div', { class: 'chips' }, [[0, 'No floor'], [600, 'Big · 600 px'], [300, 'Medium · 300 px'], [160, 'Poster row · 160 px'], [100, 'Tiny · 100 px']].map(([v, l]) => h('button', { class: 'chip' + (get(L + 'targetPx') === v ? ' on' : ''), onclick: () => change(L + 'targetPx', v, true) }, l)))),
@@ -536,7 +733,7 @@ function canvasTab() {
       select('Wrapping', L + 'wrap', [['auto', 'Smart'], ['off', 'Never wrap']])),
     fold('Outside text', 'arcs, ribbon, medallion', false,
       range('Arc top radius', L + 'arcTopR', 0.6, 1.6, 0.01), range('Arc base radius', L + 'arcBottomR', 0.3, 1.2, 0.01), range('Arc under radius', L + 'arcUnderR', 0.9, 1.6, 0.01, { def: 1.04 }), range('Ribbon position', L + 'ribbonY', 0.3, 1.1, 0.01), range('Ribbon width', L + 'ribbonW', 0.5, 2, 0.01), range('Medallion size', L + 'badgeR', 0.4, 2, 0.01), range('Outside gap', L + 'outerGap', 0, 30, 0.5), range('Flank fill', L + 'flankFill', 0.3, 0.9, 0.01, { def: 0.56 })),
-    h('div', { class: 'seg' }, h('button', { class: 'btn small', onclick: () => { if (confirm('Start over with the default laurel? (Undo brings this one back.)')) replaceDoc(applyPreset(PRESETS[0], true, undefined, merge(clone(DEFAULT_DOC), { row: doc.row }))); } }, 'Start over')))];
+    h('div', { class: 'seg' }, h('button', { class: 'btn small', onclick: () => { if (confirm('Start this laurel over from the default? Your Row of laurels stays as it is, and Undo brings this one back.')) replaceDoc(applyPreset(PRESETS[0], true, undefined, merge(clone(DEFAULT_DOC), { row: doc.row }))); } }, 'Start over')))];
 }
 
 // ── About ──
@@ -562,7 +759,7 @@ function aboutTab() {
 function drawThumb(el) {
   delete el.dataset.dirty;
   let k = 0; const tmp = () => 'tmp' + k++;
-  const d = el.dataset.l != null ? applyLayout(clone(doc), LAYOUTS[+el.dataset.l], tmp) : applyPreset(PRESETS[+el.dataset.i], true, tmp);
+  const d = el.dataset.l != null ? applyLayout(clone(doc), LAYOUTS[+el.dataset.l], tmp, { examples: true }) : applyPreset(PRESETS[+el.dataset.i], true, tmp, doc, { examples: true });
   d.canvas.aspect = 1; d.canvas.pad = 10;
   el.innerHTML = render(d, { measure, scale: 1 }).svg; // draw now, sharpen when the fonts arrive
   ensureFonts(d).then(() => { el.innerHTML = render(d, { measure, scale: 1 }).svg; });
@@ -635,27 +832,66 @@ function shuffle(part) {
 }
 
 // ── undo / redo ──
-function undo() { if (!undoStack.length) return; future.push(JSON.stringify(doc)); doc = JSON.parse(undoStack.pop()); lastSnap = JSON.stringify(doc); buildPanel(); refreshMode(); schedule(); saveHash(); }
-function redo() { if (!future.length) return; undoStack.push(JSON.stringify(doc)); doc = JSON.parse(future.pop()); lastSnap = JSON.stringify(doc); buildPanel(); refreshMode(); schedule(); saveHash(); }
+function undo() { if (!undoStack.length) return; future.push(JSON.stringify(doc)); doc = normalize(JSON.parse(undoStack.pop())); lastSnap = JSON.stringify(doc); buildPanel(); refreshMode(); schedule(); saveHash(); historyButtons(); }
+function redo() { if (!future.length) return; undoStack.push(JSON.stringify(doc)); doc = normalize(JSON.parse(future.pop())); lastSnap = JSON.stringify(doc); buildPanel(); refreshMode(); schedule(); saveHash(); historyButtons(); }
 const refreshMode = () => { if (MODES[mode] && MODES[mode].refresh) MODES[mode].refresh(); };
 document.getElementById('undo').onclick = undo; document.getElementById('redo').onclick = redo;
 window.addEventListener('keydown', (e) => {
   const typing = /input|textarea|select/i.test(document.activeElement.tagName) && document.activeElement.type !== 'checkbox' && document.activeElement.type !== 'range';
-  const mod = e.metaKey || e.ctrlKey;
+  const mod = e.metaKey || e.ctrlKey, dialog = document.querySelector('.scrim'); // D06: an open dialog owns the keyboard
+  if (dialog) { if (mod && e.key.toLowerCase() === 'e') e.preventDefault(); return; }
   if (mod && e.key.toLowerCase() === 'z' && !typing) { e.preventDefault(); e.shiftKey ? redo() : undo(); }
   else if (mod && e.key.toLowerCase() === 'e') { e.preventDefault(); openExport(); }
-  else if (!mod && !typing && e.key.toLowerCase() === 's' && !document.querySelector('.scrim')) shuffle('all');
-  else if (e.key === 'Escape') { closeFontPop(); endPeek(); }
+  else if (!mod && !typing && e.key.toLowerCase() === 's') shuffle('all');
+  else if (!mod && e.key.startsWith('Arrow') && placing()) { // arrows move the picked words, Shift by ten
+    const f = fieldOf(selected), n = e.shiftKey ? 10 : 1, [x, y] = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[e.key] || [0, 0];
+    if (x || y) { e.preventDefault(); place(f, (f.dx || 0) + x * n, (f.dy || 0) + y * n, { held: true }); }
+  }
+  else if (e.key === 'Escape') { closeFontPop(); endPeek(); if (selected && mode === 'laurel' && !typing) pick(null); }
 });
 
 // ── share link and autosave: the whole document, deflated into the URL hash. No server, no account. ──
 const b64u = (buf) => { const b = new Uint8Array(buf); let s = ''; for (let i = 0; i < b.length; i += 0x8000) s += String.fromCharCode.apply(null, b.subarray(i, i + 0x8000)); return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); };
 const unb64u = (s) => Uint8Array.from(atob(s.replace(/-/g, '+').replace(/_/g, '/')), (c) => c.charCodeAt(0));
 async function pack(o) { const cs = new CompressionStream('deflate-raw'); const w = cs.writable.getWriter(); w.write(new TextEncoder().encode(JSON.stringify(o))); w.close(); return b64u(await new Response(cs.readable).arrayBuffer()); }
-async function unpack(s) { const ds = new DecompressionStream('deflate-raw'); const w = ds.writable.getWriter(); w.write(unb64u(s)); w.close(); return JSON.parse(await new Response(ds.readable).text()); }
+// a link's laurel, checked before it's used: bounded in size, and through sanitizeDoc
+async function unpack(s) {
+  const ds = new DecompressionStream('deflate-raw'), w = ds.writable.getWriter(); w.write(unb64u(s)).catch(() => null); w.close().catch(() => null);
+  const rd = ds.readable.getReader(), parts = []; let n = 0;
+  for (;;) { const { done, value } = await rd.read(); if (done) break; n += value.length; if (n > 4e6) { rd.cancel().catch(() => null); throw new Error('too big to be a laurel'); } parts.push(value); }
+  const all = new Uint8Array(n); let o = 0; for (const x of parts) { all.set(x, o); o += x.length; }
+  return sanitizeDoc(JSON.parse(new TextDecoder().decode(all)));
+}
+const bumpUid = (d) => { for (const f of d.fields || []) { const n = +String(f.id).replace(/\D/g, ''); if (n >= uid) uid = n + 1; } };
 let hashTimer = 0;
-function saveHash() { clearTimeout(hashTimer); hashTimer = setTimeout(async () => { try { const p = await pack(doc); window.history.replaceState(null, '', '#l=' + p); try { localStorage.setItem('daphne.autosave', p); } catch (e) { /* storage is a convenience */ } } catch (e) { /* hash is a convenience */ } }, 500); }
-document.getElementById('copy-link').onclick = async () => { const url = location.href.split('#')[0] + '#l=' + (await pack(doc)); try { await navigator.clipboard.writeText(url); toast('Link copied: it holds the whole laurel'); } catch { prompt('Copy this link', url); } };
+// The link and the autosave follow the laurel half a second after an edit. Each save carries a number, and one that
+// finishes after a newer one started is dropped, so an older laurel never overwrites a newer one. If the page is
+// closed before a save finishes, the laurel is kept as plain JSON and picked up next time.
+let saveRev = 0, lastPacked = null;
+function saveHash() {
+  clearTimeout(hashTimer); const my = ++saveRev;
+  hashTimer = setTimeout(async () => {
+    hashTimer = 0;
+    let p; try { p = await pack(doc); } catch (e) { return; }
+    if (my !== saveRev) return; // a newer save is on its way
+    try { window.history.replaceState(null, '', '#l=' + p); } catch (e) { /* the link is a convenience */ }
+    lastPacked = p;
+    try { localStorage.setItem('daphne.autosave', p); localStorage.removeItem('daphne.pending'); saveState(true); } catch (e) { saveState(false); }
+  }, 500);
+}
+function flushSave() {
+  if (!hashTimer) return;
+  try { localStorage.setItem('daphne.pending', JSON.stringify({ from: lastPacked, doc })); } catch (e) { /* nothing more can be done as the page closes */ }
+}
+addEventListener('pagehide', flushSave);
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') flushSave(); });
+document.getElementById('copy-link').onclick = async () => { const url = location.href.split('#')[0] + '#l=' + (await pack(doc)); try { await navigator.clipboard.writeText(url); toast(JSON.stringify([doc.fields, doc.row && doc.row.items, doc.poster]).includes('"asset:') ? 'Link copied: it holds the words and the look. Uploaded logos and artwork stay on this device.' : 'Link copied: it holds the whole laurel', 3600); } catch { prompt('Copy this link', url); } };
+// D26: a pasted shape is kept only when it can be drawn; a whole <path d="…"> is trimmed to its d
+function setShape(el, LF) {
+  const v = el.value.trim(), m = /\bd\s*=\s*["']([^"']*)["']/.exec(v), d = (m ? m[1] : v).trim();
+  if (d && !drawable(parsePath(d))) { toast('That shape couldn’t be read, so the last one stays. Paste the d="…" of one SVG path.', 4200); el.value = get(LF + 'path') || ''; return; }
+  el.value = d; change(LF + 'path', d);
+}
 function toast(msg, ms = 2200) { const t = h('div', { class: 'toast', role: 'status' }, msg); document.getElementById('toasts').append(t); setTimeout(() => { t.style.transition = 'opacity .3s'; t.style.opacity = 0; setTimeout(() => t.remove(), 320); }, ms); }
 
 // ── export ──
@@ -679,7 +915,7 @@ const stamp = (svg, d = doc) => svg.replace(/^<svg([^>]*)>/, (m, a) => `<svg${a.
 async function exportSvgText(svg, d = doc) {
   if ((d.out && d.out.svgText) !== 'live') {
     try { const r = await outlineSvg(svg); if (r.notes.length) toast(`Drawn in ${r.notes.join(', ')} where the font has no glyphs`); return stamp(r.svg, d); }
-    catch (e) { console.warn(e); toast('Couldn’t fetch the fonts to outline the text: saved with live text'); }
+    catch (e) { console.warn(e); toast(`${e.message || 'Couldn’t fetch the fonts to outline the text'}. Saved with live text instead.`); }
   }
   return stamp(await svgWithFonts(svg, false, d), d);
 }
@@ -697,25 +933,25 @@ async function toPng(svgText, vb, width, withBg, d = doc, height) {
 }
 async function toPdf(svg, d = doc, title = 'Laurel', mm) {
   let outl;
-  try { outl = (await outlineSvg(svg)).svg; } catch (e) { toast('Couldn’t fetch the fonts for the PDF: check your connection'); throw e; }
+  try { outl = (await outlineSvg(svg)).svg; } catch (e) { toast(`${e.message || 'Couldn’t fetch the fonts'}, so no PDF was made. Check your connection and try again.`); throw e; }
   return svgToPdf(stamp(outl, d), mm || (d.out && d.out.pdfMm) || 100, { title: altText(d).replace(/\.$/, '') || title, subject: 'Festival laurel. Not affiliated with or endorsed by any festival.' });
 }
-function openExport() { endPeek(); markSeen(); openStudio(ctx); }
+function openExport() { if (document.querySelector('.scrim')) return; endPeek(); markSeen(); openStudio(ctx); }
 document.getElementById('open-export').onclick = openExport;
 
 // ── views: the laurel, on the poster, a row, motion ──
 const modebar = document.getElementById('modebar'), modepanel = document.getElementById('modepanel');
 const ctx = {
-  get doc() { return doc; }, change, replaceDoc, schedule, clone, merge, h, toast, download, measure, render: (d, scale = 1) => render(d, { measure, scale }),
+  get doc() { return doc; }, get fontEpoch() { return fontEpoch; }, change, replaceDoc, schedule, clone, merge, h, fill, toast, download, measure, render: (d, scale = 1) => render(d, { measure, scale }),
   ensureFonts, svgWithFonts, exportSvgText, toPng, toPdf, fileName, slug, stamp, altText, ASSETS, saveAssets, addAsset, readLogo, stage, modebar, modepanel, showNotes, layoutFields, layoutById, LAYOUTS, PRESETS, applyPreset, zip,
-  pushUndo: () => { undoStack.push(lastSnap); future.length = 0; }, settle: () => { lastSnap = JSON.stringify(doc); saveHash(); }, rebuild: () => buildPanel(), get last() { return last; }, get mode() { return mode; }, get modes() { return MODES; },
+  pushUndo: () => remember(), batch, logoTarget, settle: () => { lastSnap = JSON.stringify(doc); saveHash(); }, rebuild: () => buildPanel(), get last() { return last; }, get mode() { return mode; }, get modes() { return MODES; },
   prefs: () => ({ pngW: (doc.out && doc.out.pngW) || 3000, bg: !(doc.out && doc.out.pngBg === false) }),
   fixNote: null, openFixer: null, shareLink: async () => location.href.split('#')[0] + '#l=' + (await pack(doc)),
   // size an SVG to the stage, keeping its shape (no letterboxing)
   fit: (svg, vb) => { stage.classList.add('fitted'); const sw2 = document.getElementById('stagewrap'), k = Math.min((sw2.clientWidth - 56) / vb[2], (sw2.clientHeight - 92) / vb[3]); Object.assign(svg.style, { width: Math.max(1, vb[2] * k) + 'px', height: Math.max(1, vb[3] * k) + 'px', maxWidth: 'none', maxHeight: 'none' }); },
 };
 const MODES = {
-  laurel: { draw: (r) => { stage.className = 'stage'; stage.innerHTML = r.svg; decorateStage(); }, enter() {} },
+  laurel: { draw: (r) => { stage.className = 'stage'; stage.innerHTML = r.svg; decorateStage(); drawPlacebar(); }, enter() {} },
   poster: posterMode(ctx), row: rowMode(ctx), motion: motionMode(ctx),
 };
 let mode = 'laurel';
@@ -728,7 +964,7 @@ function setMode(m) {
   modebar.innerHTML = ''; modepanel.innerHTML = '';
   if (MODES[m].enter) MODES[m].enter();
   modebar.classList.toggle('on', !!modebar.childElementCount); modepanel.classList.toggle('on', !!modepanel.childElementCount);
-  showNotes([]); buildStagebar(); schedule();
+  showNotes([]); buildStagebar(); drawPlacebar(); if (state.tab === 'looks') buildPanel(); schedule();
   try { sessionStorage.setItem('daphne.mode', m); } catch (e) { /* a convenience */ }
 }
 document.querySelectorAll('#modes button').forEach((b) => (b.onclick = () => setMode(b.dataset.mode)));
@@ -738,11 +974,14 @@ const stagebar = document.getElementById('stagebar');
 function buildStagebar() {
   stagebar.innerHTML = '';
   mainEl.classList.toggle('light', state.backdrop === 'light'); mainEl.classList.toggle('check', state.backdrop === 'check');
-  if (mode !== 'laurel') { document.querySelector('.small-sizes')?.remove(); return; }
+  // A06: the backdrop is a preview setting for the Row too (pale artwork on Light needs a way back to Dark)
+  const backdrop = () => segctl([['dark', h('span', {}, h('i', { class: 'bd', style: 'background:#12291E' }), ' Dark')], ['light', h('span', {}, h('i', { class: 'bd', style: 'background:#F3F6EF' }), ' Light')], ['check', h('span', {}, h('i', { class: 'bd', style: 'background:repeating-conic-gradient(#999 0 25%,#ddd 0 50%) 0 0/7px 7px' }), ' Clear')]], state.backdrop, (v) => { state.backdrop = v; saveUi(); buildStagebar(); });
+  if (mode !== 'laurel') { document.querySelector('.small-sizes')?.remove(); placeSmallSizes(); if (mode === 'row') stagebar.append(backdrop()); return; }
   stagebar.append(
-    segctl([['dark', h('span', {}, h('i', { class: 'bd', style: 'background:#12291E' }), ' Dark')], ['light', h('span', {}, h('i', { class: 'bd', style: 'background:#F3F6EF' }), ' Light')], ['check', h('span', {}, h('i', { class: 'bd', style: 'background:repeating-conic-gradient(#999 0 25%,#ddd 0 50%) 0 0/7px 7px' }), ' Clear')]], state.backdrop, (v) => { state.backdrop = v; saveUi(); buildStagebar(); }),
+    backdrop(),
     h('span', { class: 'grow' }),
-    segctl([[true, state.smallSizes ? '✓ Small sizes' : 'Small sizes']], state.smallSizes ? true : null, () => { state.smallSizes = !state.smallSizes; buildStagebar(); if (state.smallSizes) drawSmallSizes(); else document.querySelector('.small-sizes')?.remove(); }));
+    h('span', { class: 'gridtoggle' }, segctl([[true, state.grid ? '✓ Grid' : 'Grid']], state.grid ? true : null, () => { state.grid = !state.grid; buildStagebar(); schedule(); })),
+    segctl([[true, state.smallSizes ? '✓ Small sizes' : 'Small sizes']], state.smallSizes ? true : null, () => { state.smallSizes = !state.smallSizes; buildStagebar(); if (state.smallSizes) drawSmallSizes(); else { document.querySelector('.small-sizes')?.remove(); placeSmallSizes(); } }));
 }
 // the laurel at 160, 100 and 64 px tall, on dark and light: how a poster row, a listing and a thumbnail show it
 function drawSmallSizes() {
@@ -750,10 +989,26 @@ function drawSmallSizes() {
   let box = document.querySelector('.small-sizes');
   if (!box) { box = h('div', { class: 'small-sizes', 'aria-label': 'The laurel at small sizes' }); document.getElementById('stagearea').append(box); }
   const svg = last.svg.replace(/<rect data-bg="1"[^>]*\/>/, ''), vb = last.viewBox, ar = vb[2] / vb[3];
-  const fig = (px) => { const w = Math.round(px * ar); const mk = (bg) => h('div', { style: `background:${bg}`, html: svg.replace(/width="[^"]+" height="[^"]+"/, `width="${w}" height="${px}"`) }); return h('figure', {}, h('div', { class: 'pair' }, mk('#0a0a0a'), mk('#f2efe8')), h('figcaption', {}, `${px} px`)); };
+  const fig = (px) => { const w = Math.round(px * ar); const mk = (bg) => h('div', { style: `background:${bg}`, html: svg.replace(/width="[^"]+" height="[^"]+"/, `width="${w}" height="${px}"`) }); return h('figure', { 'data-px': px }, h('div', { class: 'pair' }, mk('#0a0a0a'), mk('#f2efe8')), h('figcaption', {}, `${px} px tall`)); };
   box.innerHTML = '';
-  box.append(h('div', { class: 'hint', style: 'font-size:11px' }, 'Real size on a standard screen: a poster row, a festival listing, a thumbnail.'), h('div', { class: 'ss-row' }, fig(160), fig(100), fig(64)));
+  box.append(h('div', { class: 'hint', style: 'font-size:11px' }, 'Real size on a standard screen (artwork height in CSS pixels): a poster row, a festival listing, a thumbnail.'), h('div', { class: 'ss-row' }, fig(160), fig(100), fig(64)));
+  box.dataset.w = 2 * (Math.round(160 * ar) + 12) + 6 + 26; // the panel's natural width: the 160 px pair, side by side
+  placeSmallSizes();
 }
+// V01: beside the laurel when there's room for both, else along the bottom; a phone stacks it under the stage
+function placeSmallSizes() {
+  const area = document.getElementById('stagearea'), box = area.querySelector('.small-sizes');
+  area.classList.remove('ss-side', 'ss-below');
+  if (!box) return;
+  if (matchMedia('(max-width: 860px)').matches) { requestAnimationFrame(() => sayScroll(box)); return; }
+  const w = +box.dataset.w || 360;
+  if (area.clientWidth - w - 32 >= 420) { area.classList.add('ss-side'); area.style.setProperty('--ssw', w + 'px'); }
+  else { area.classList.add('ss-below'); area.style.setProperty('--ssh', Math.min(box.offsetHeight, area.clientHeight * 0.6) + 'px'); }
+  sayScroll(box);
+}
+// a proof wider than the room scrolls rather than shrinking, and says so
+function sayScroll(box) { for (const f of box.querySelectorAll('figure')) { const wide = [...f.querySelectorAll('.pair > div'), box.querySelector('.ss-row')].some((d) => d && d.scrollWidth > d.clientWidth + 1); f.querySelector('figcaption').textContent = `${f.dataset.px} px tall${wide ? ' · scroll sideways to see it all' : ''}`; } }
+new ResizeObserver(() => placeSmallSizes()).observe(document.getElementById('stagearea'));
 
 
 // the phone layout keeps the rail just under the header, however tall the header wraps
@@ -763,20 +1018,44 @@ function drawSmallSizes() {
 (async () => {
   const m = location.hash.match(/#l=([\w-]+)/);
   let restored = false;
-  if (m) { try { doc = merge(clone(DEFAULT_DOC), await unpack(m[1])); } catch { doc = applyPreset(PRESETS[0]); } }
-  else {
-    let saved = null; try { saved = localStorage.getItem('daphne.autosave'); } catch (e) { /* a convenience */ }
-    if (saved) { try { doc = merge(clone(DEFAULT_DOC), await unpack(saved)); restored = true; } catch { doc = applyPreset(PRESETS[0]); } }
+  let saved = null, pending = null;
+  try { saved = localStorage.getItem('daphne.autosave'); pending = JSON.parse(localStorage.getItem('daphne.pending') || 'null'); } catch (e) { /* a convenience */ }
+  // back from Daphne's story: the laurel this tab left with, not whichever one was autosaved last
+  let ret = null; try { ret = sessionStorage.getItem('daphne.return'); sessionStorage.removeItem('daphne.return'); } catch (e) { /* a convenience */ }
+  let from = null, badLink = false;
+  if (m) { try { doc = merge(clone(DEFAULT_DOC), await unpack(m[1])); from = m[1]; } catch { badLink = true; } }
+  else if (ret) { try { doc = merge(clone(DEFAULT_DOC), await unpack(ret)); from = ret; history.replaceState(null, '', '#l=' + ret); } catch { /* fall through to the autosave */ } }
+  if (!from) {
+    if (saved) { try { doc = merge(clone(DEFAULT_DOC), await unpack(saved)); from = saved; restored = !badLink; } catch { doc = applyPreset(PRESETS[0]); } }
     else doc = applyPreset(PRESETS[0]);
   }
-  for (const f of doc.fields) { const n = +String(f.id).replace(/\D/g, ''); if (n >= uid) uid = n + 1; }
-  lastSnap = JSON.stringify(doc);
-  buildRail(); buildPanel();
+  lastPacked = from;
+  // an edit made just before the page closed, on top of this same laurel: bring it back
+  if (pending && pending.doc && pending.from === lastPacked) { try { doc = merge(clone(DEFAULT_DOC), sanitizeDoc(pending.doc)); restored = !ret && !m; } catch (e) { /* keep the saved one */ } }
+  bumpUid(doc);
+  normalize(doc); lastSnap = JSON.stringify(doc);
+  buildRail(); buildPanel(); historyButtons();
   let m0 = 'laurel'; try { m0 = sessionStorage.getItem('daphne.mode') || 'laurel'; } catch (e) { /* a convenience */ }
   mode = ''; MODES[''] = {}; setMode(MODES[m0] ? m0 : 'laurel'); delete MODES[''];
   schedule();
-  if (restored) toast('Welcome back: here’s the laurel you were working on');
+  if (badLink) toast('That link couldn’t be opened: it’s damaged or incomplete. ' + (saved ? 'Here’s your last laurel instead.' : 'Here’s a fresh one.'), 6000);
+  else if (restored) toast('Welcome back: here’s the laurel you were working on');
+  // another link opened in this tab, or Back and Forward between links: the design follows the address
+  addEventListener('hashchange', async () => {
+    const h2 = location.hash.match(/#l=([\w-]+)/); if (!h2 || h2[1] === lastPacked) return;
+    try { const d = merge(clone(DEFAULT_DOC), await unpack(h2[1])); bumpUid(d); lastPacked = h2[1]; replaceDoc(d); toast('Opened the laurel in the link. Undo goes back to the one before.'); }
+    catch { toast('That link couldn’t be opened: it’s damaged or incomplete. Your laurel is unchanged.', 6000); try { if (lastPacked) history.replaceState(null, '', '#l=' + lastPacked); } catch (e) { /* the address is a convenience */ } }
+  });
+  // leaving for the story: remember this laurel for this tab, so "Make a laurel" comes back to it
+  document.addEventListener('click', async (e) => {
+    const a = e.target.closest && e.target.closest('a[href="story/"]'); if (!a || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    e.preventDefault();
+    try { const p = await pack(doc); sessionStorage.setItem('daphne.return', p); } catch (err) { /* the story still opens */ }
+    location.href = a.href;
+  });
   setTimeout(() => preloadOutlines(doc.roles).catch(() => null), 2500); // warm the shaper for the first SVG or PDF
-  import('./fixer.js').then((mod) => { ctx.openFixer = (onDone, o) => mod.openFixer(ctx, onDone, o); }).catch(() => null);
-  window.__laurel = { get doc() { return doc; }, render: (d) => render(d || doc, { measure }), PRESETS, applyPreset, measure, setMode, get mode() { return mode; }, ctx, MODES, setTab, altText, openExport };
+  // C08: Clean up works from the first click: it loads the tool when needed, and says so if the tool can't load
+  import('./fixer.js').catch(() => null);
+  ctx.openFixer = async (onDone, o) => { let mod; try { mod = await import('./fixer.js'); } catch (e) { toast('Couldn’t load the clean-up tool. Check your connection, then reload the page.'); return; } mod.openFixer(ctx, onDone, o); };
+  window.__laurel = { get doc() { return doc; }, get renders() { return renders; }, get lastMs() { return lastMs; }, render: (d) => render(d || doc, { measure }), PRESETS, applyPreset, measure, setMode, get mode() { return mode; }, ctx, MODES, setTab, altText, openExport };
 })();
