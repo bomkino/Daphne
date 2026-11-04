@@ -11,10 +11,11 @@ const FIELDS = [
   { id: 'b', kind: 'festival', text: 'Daphne Test Festival', role: 'hero', slot: 'inside', show: true },
   { id: 'c', kind: 'year', text: '2026', role: 'sub', slot: 'inside', show: true },
 ];
+// the user's own row (ids unlike the four examples, which never go into a caption)
 const ROW = [
-  { id: 'r1', status: 'Official Selection', festival: 'Northlight', award: '', year: '2026' },
-  { id: 'r2', status: 'World Premiere', festival: 'Atlas Film Festival', award: '', year: '2026' },
-  { id: 'r3', status: 'Winner', festival: 'Hidden Fest', award: 'Best Film', year: '2026', show: false },
+  { id: 'u1', status: 'Official Selection', festival: 'Northlight', award: '', year: '2026' },
+  { id: 'u2', status: 'World Premiere', festival: 'Atlas Film Festival', award: '', year: '2026' },
+  { id: 'u3', status: 'Winner', festival: 'Hidden Fest', award: 'Best Film', year: '2026', show: false },
 ];
 async function social(extra = {}) {
   const o = await openApp();

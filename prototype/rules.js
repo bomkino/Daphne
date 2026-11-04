@@ -4,6 +4,16 @@
 import { festivalFromText } from './festivals.js';
 import { assetMissing } from './engine.mjs';
 
+// the row's four example laurels: they show what a row looks like and never go into a file, a caption or the accolades
+export const SAMPLE_ROW = [
+  { id: 'r1', status: 'Official Selection', festival: 'Northlight', award: '', year: '2026', example: true },
+  { id: 'r2', status: 'Winner', festival: 'Halcyon Film Festival', award: 'Best Documentary', year: '2026', example: true },
+  { id: 'r3', status: 'World Premiere', festival: 'Atlas Film Festival', award: '', year: '2026', example: true },
+  { id: 'r4', status: 'Nominee', festival: 'Meridian', award: 'Best Editing', year: '2026', example: true },
+];
+// an example: marked so, or one of the samples saved untouched by an older version (before they were marked)
+export const isExample = (it) => !!it.example || SAMPLE_ROW.some((x) => x.id === it.id && ['status', 'festival', 'award', 'year'].every((k) => String(x[k] || '') === String(it[k] || '')));
+
 // Festivals that publish rules about laurels. `aliases` match the festival line (case-insensitive, whole words).
 //   artwork: 'required' (the festival supplies official artwork and requires it), 'supplied' (it supplies artwork and
 //            asks for it unaltered), 'prefer' (it would rather you didn't make your own);
@@ -150,7 +160,7 @@ export function accoladesOf(d) {
   const items = [];
   const self = { status: t('status'), festival: t('festival'), award: t('award'), year: (t('year').match(/\d{4}/) || [''])[0] };
   if (self.festival || self.award) items.push(self);
-  for (const it of (d.row && d.row.items) || []) if (it.show !== false && (it.festival || it.award)) items.push({ status: (it.status || '').trim(), festival: (it.festival || '').trim(), award: (it.award || '').trim(), year: String(it.year || '').match(/\d{4}/)?.[0] || '' });
+  for (const it of (d.row && d.row.items) || []) if (it.show !== false && !isExample(it) && (it.festival || it.award)) items.push({ status: (it.status || '').trim(), festival: (it.festival || '').trim(), award: (it.award || '').trim(), year: String(it.year || '').match(/\d{4}/)?.[0] || '' });
   const seen = new Set(), list = items.filter((it) => { const k = [it.status, it.festival, it.award, it.year].join('|').toLowerCase(); if (seen.has(k)) return false; seen.add(k); return true; });
   list.sort((a, b) => prestige(b) - prestige(a));
   for (const it of list) it.outcome = outcomeOf(it.status, it.award);

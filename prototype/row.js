@@ -1,19 +1,25 @@
 // row.js — the row builder: several laurels in the current look, the way a poster carries them. The same type size in
 // every laurel, a shared center line, prestige order (wins, then premieres, then selections, biggest names first), a
 // tiered layout with a lead laurel, official artwork placed alongside, and the festival rules checked across the row.
-import { STATUSES, prestige, checkRow } from './rules.js';
+import { STATUSES, prestige, checkRow, SAMPLE_ROW, isExample } from './rules.js';
+export { isExample };
 import { zip } from './zip.js';
 
 export const ROW_DEFAULT = {
-  items: [
-    { id: 'r1', status: 'Official Selection', festival: 'Northlight', award: '', year: '2026' },
-    { id: 'r2', status: 'Winner', festival: 'Halcyon Film Festival', award: 'Best Documentary', year: '2026' },
-    { id: 'r3', status: 'World Premiere', festival: 'Atlas Film Festival', award: '', year: '2026' },
-    { id: 'r4', status: 'Nominee', festival: 'Meridian', award: 'Best Editing', year: '2026' },
-  ],
+  items: SAMPLE_ROW,
   arrange: 'row', perRow: 4, order: 'prestige', uniform: true, gap: 0.14, lead: 1.3,
 };
 const AWARD_LAYOUTS = ['winner', 'award-detail', 'award-festival-hero', 'star-winner'];
+// J05, V04: one answer, everywhere, to "is there a row to export?" Example laurels show on the stage to show what a row
+// is; they never go into a file, a caption or Motion. Null when there's a row to export, else what to do about it.
+export function rowEmpty(doc, ASSETS) {
+  const items = doc.row && Array.isArray(doc.row.items) ? doc.row.items : ROW_DEFAULT.items, own = items.filter((it) => !isExample(it));
+  const usable = own.filter((it) => it.show !== false && (it.src ? ASSETS[it.src] : it.festival || it.award || it.status));
+  if (usable.length) return null;
+  if (!own.length) return items.length ? 'Your row only has the example laurels so far. Add your own in Row, under the stage: type your festivals over the examples, paste a list, or start with this laurel.' : 'Your row is empty. Add laurels in Row, under the stage: type your festivals, paste a list, or start with this laurel.';
+  if (own.every((it) => it.show === false)) return 'Every laurel in your row is hidden. Show at least one in Row, under the stage.';
+  return 'Your row’s laurels have no words yet, or their artwork isn’t on this device. Fill them in, or upload the artwork again, in Row under the stage.';
+}
 
 // pasted rows from a spreadsheet: tabs, commas, semicolons or pipes; each cell is recognized by what it looks like
 const YEAR = /^(19|20)\d\d$/, AWARDISH = /\b(best|award|prize|jury|audience|mention|grand|golden|silver|bronze|honou?rable)\b/i;
@@ -86,8 +92,8 @@ export function rowMode(ctx) {
 
   // the row as placed laurels: { parts: [{ it, r?, x, y, w, h, s }], vb, svg }
   function scene(opts = {}) {
-    const row = R(), base = ctx.doc;
-    let items = row.items.filter((it) => it.show !== false && (it.src ? ctx.ASSETS[it.src] : it.festival || it.award || it.status));
+    const row = R(), base = opts.base || ctx.doc; // D07: Export passes its colorway's document, so the row is drawn in it
+    let items = row.items.filter((it) => !(opts.real && isExample(it)) && it.show !== false && (it.src ? ctx.ASSETS[it.src] : it.festival || it.award || it.status));
     if (row.order === 'prestige') items = [...items].sort((a, b) => prestige(b) - prestige(a));
     items = [...items.filter((it) => it.lead), ...items.filter((it) => !it.lead)];
     if (!items.length) return null;
@@ -123,7 +129,7 @@ export function rowMode(ctx) {
     const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${vb.join(' ')}" width="${vb[2]}" height="${vb[3]}">${bg ? `<rect data-bg="1" x="${vb[0]}" y="${vb[1]}" width="${vb[2]}" height="${vb[3]}" fill="${bg}"/>` : ''}${inner}</svg>`;
     return { parts, vb, svg, unitH };
   }
-  ctx.rowScene = scene;
+  ctx.rowScene = scene; ctx.rowEmpty = () => rowEmpty(ctx.doc, ctx.ASSETS);
   // official artwork from elsewhere (the laurel fixer): joins the row at the same height as the rest
   ctx.addRowArt = (a) => { const r = R(); r.items.push({ id: 'r' + ++uid + Date.now().toString(36), ...a }); ctx.change('row', r); };
 
@@ -150,7 +156,13 @@ export function rowMode(ctx) {
         h('button', { class: 'btn small primary', onclick: () => { const t = pasteBox.querySelector('textarea').value, got = parsePaste(t); if (!got.length) return; const r = R(); r.items = r.items.filter((it) => it.src).concat(got.map((g) => ({ id: 'r' + ++uid + Date.now().toString(36), ...g }))); setRow(r, true); } }, 'Replace the row'),
         h('button', { class: 'btn small', onclick: () => { const t = pasteBox.querySelector('textarea').value, got = parsePaste(t); if (!got.length) return; const r = R(); r.items.push(...got.map((g) => ({ id: 'r' + ++uid + Date.now().toString(36), ...g }))); setRow(r, true); } }, 'Add to the row'),
         h('button', { class: 'btn small', onclick: () => (pasteBox.style.display = 'none') }, 'Close')));
+    const examples = row.items.filter(isExample).length;
+    // the laurel on the Words tab, as a row entry
+    const fromLaurel = () => { const t = (k) => ctx.doc.fields.filter((f) => f.kind === k && f.show !== false && f.text).map((f) => f.text.trim()).join(' '); return { id: 'r' + ++uid + Date.now().toString(36), status: t('status'), festival: t('festival'), award: t('award'), year: (t('year').match(/\d{4}/) || [''])[0] }; };
     P.append(
+      examples ? h('div', { class: 'note row-examples' }, h('span', {}, `${examples === row.items.length ? 'These are examples' : examples === 1 ? 'One of these is an example' : examples + ' of these are examples'}, to show how a row looks: type over ${examples === 1 ? 'it to make it' : 'them to make them'} yours. Examples never go into a file.`),
+        h('button', { class: 'btn small primary', onclick: () => { const r = R(); r.items = [fromLaurel(), ...r.items.filter((it) => !isExample(it))]; setRow(r, true); } }, 'Start with this laurel'),
+        h('button', { class: 'btn small', onclick: () => { const r = R(); r.items = r.items.filter((it) => !isExample(it)); setRow(r, true); } }, 'Clear the examples')) : null,
       h('div', { class: 'rowtools' },
         seg('Arrange', 'arrange', [['row', 'One row'], ['tiered', 'Tiered: lead on top'], ['grid', 'Grid']]),
         row.arrange !== 'row' ? seg('Per row', 'perRow', [2, 3, 4, 5, 6].map((n) => [n, String(n)])) : null,
@@ -172,9 +184,9 @@ export function rowMode(ctx) {
     const order = row.order === 'prestige' ? new Map([...row.items].sort((a, b) => prestige(b) - prestige(a)).map((it, i) => [it.id, i + 1])) : null;
     const tb = h('tbody');
     row.items.forEach((it, i) => {
-      const upd = (k, v, rebuild = false) => { const r = R(); r.items[i] = { ...r.items[i], [k]: v }; setRow(r, rebuild); };
+      const upd = (k, v, rebuild = false) => { const r = R(); r.items[i] = { ...r.items[i], [k]: v }; if (['status', 'festival', 'award', 'year'].includes(k)) delete r.items[i].example; setRow(r, rebuild || (isExample(it) && !isExample(r.items[i]))); };
       const inp = (k, ph, w) => h('input', { type: 'text', value: it[k] || '', placeholder: ph, 'data-k': k, style: w ? `width:${w}` : '', list: k === 'status' ? 'row-statuses' : null, oninput: (e) => upd(k, e.target.value) });
-      const tr = h('tr', { class: 'item' + (it.show === false ? ' off' : ''), draggable: 'true' },
+      const tr = h('tr', { class: 'item' + (it.show === false ? ' off' : '') + (isExample(it) ? ' example' : ''), draggable: 'true', title: isExample(it) ? 'An example: type over it to make it yours. Examples never go into a file.' : null },
         h('td', { class: 'handle', title: order ? `Prestige order: ${order.get(it.id)}. Drag to set your own order` : 'Drag to reorder' }, '⋮⋮'),
         it.src
           ? [h('td', { colspan: 2 }, h('div', { class: 'art' }, h('img', { src: ctx.ASSETS[it.src] || '', alt: '' }), h('span', {}, ctx.ASSETS[it.src] ? (it.name || 'Official artwork') : 'Upload it again: artwork stays on the device it was added on'))),
@@ -202,8 +214,9 @@ export function rowMode(ctx) {
 
   // ── exports ──
   const withBg = () => (ctx.prefs ? ctx.prefs().bg : true) !== false;
+  const empty = () => { const m = rowEmpty(ctx.doc, ctx.ASSETS); if (m) ctx.toast(m, 6000); return !!m; };
   async function zipAll() {
-    const sc = scene(); if (!sc) return;
+    if (empty()) return; const sc = scene({ real: true }); if (!sc) return;
     ctx.toast('Packing the row…');
     const files = [], pxPerUnit = 1200 / sc.unitH;
     let n = 0;
@@ -219,9 +232,9 @@ export function rowMode(ctx) {
   }
   const exports = {
     zip: zipAll,
-    svg: async () => { const sc = scene({ bg: withBg() }); if (!sc) return; ctx.download(new Blob([await ctx.exportSvgText(sc.svg)], { type: 'image/svg+xml' }), 'laurel-row.svg'); },
-    pdf: async () => { const sc = scene({ bg: withBg() }); if (!sc) return; ctx.download(await ctx.toPdf(sc.svg, ctx.doc, 'Laurel row'), 'laurel-row.pdf'); },
-    png: async () => { const sc = scene({ bg: withBg() }); if (!sc) return; ctx.toast('Rendering the row…'); const w = +((ctx.prefs && ctx.prefs().pngW) || 3000); ctx.download(await ctx.toPng(sc.svg, sc.vb, Math.max(w, 2000), withBg() && !!ctx.doc.canvas.bg), 'laurel-row.png'); },
+    svg: async () => { if (empty()) return; const sc = scene({ bg: withBg(), real: true }); if (!sc) return; ctx.download(new Blob([await ctx.exportSvgText(sc.svg)], { type: 'image/svg+xml' }), 'laurel-row.svg'); },
+    pdf: async () => { if (empty()) return; const sc = scene({ bg: withBg(), real: true }); if (!sc) return; ctx.download(await ctx.toPdf(sc.svg, ctx.doc, 'Laurel row'), 'laurel-row.pdf'); },
+    png: async () => { if (empty()) return; const sc = scene({ bg: withBg(), real: true }); if (!sc) return; ctx.toast('Rendering the row…'); const w = +((ctx.prefs && ctx.prefs().pngW) || 3000); ctx.download(await ctx.toPng(sc.svg, sc.vb, Math.max(w, 2000), withBg() && !!ctx.doc.canvas.bg), 'laurel-row.png'); },
   };
 
   return {

@@ -709,10 +709,11 @@ const refreshMode = () => { if (MODES[mode] && MODES[mode].refresh) MODES[mode].
 document.getElementById('undo').onclick = undo; document.getElementById('redo').onclick = redo;
 window.addEventListener('keydown', (e) => {
   const typing = /input|textarea|select/i.test(document.activeElement.tagName) && document.activeElement.type !== 'checkbox' && document.activeElement.type !== 'range';
-  const mod = e.metaKey || e.ctrlKey;
+  const mod = e.metaKey || e.ctrlKey, dialog = document.querySelector('.scrim'); // D06: an open dialog owns the keyboard
+  if (dialog) { if (mod && e.key.toLowerCase() === 'e') e.preventDefault(); return; }
   if (mod && e.key.toLowerCase() === 'z' && !typing) { e.preventDefault(); e.shiftKey ? redo() : undo(); }
   else if (mod && e.key.toLowerCase() === 'e') { e.preventDefault(); openExport(); }
-  else if (!mod && !typing && e.key.toLowerCase() === 's' && !document.querySelector('.scrim')) shuffle('all');
+  else if (!mod && !typing && e.key.toLowerCase() === 's') shuffle('all');
   else if (e.key === 'Escape') { closeFontPop(); endPeek(); }
 });
 
@@ -802,7 +803,7 @@ async function toPdf(svg, d = doc, title = 'Laurel', mm) {
   try { outl = (await outlineSvg(svg)).svg; } catch (e) { toast('Couldn’t fetch the fonts for the PDF: check your connection'); throw e; }
   return svgToPdf(stamp(outl, d), mm || (d.out && d.out.pdfMm) || 100, { title: altText(d).replace(/\.$/, '') || title, subject: 'Festival laurel. Not affiliated with or endorsed by any festival.' });
 }
-function openExport() { endPeek(); markSeen(); openStudio(ctx); }
+function openExport() { if (document.querySelector('.scrim')) return; endPeek(); markSeen(); openStudio(ctx); }
 document.getElementById('open-export').onclick = openExport;
 
 // ── views: the laurel, on the poster, a row, motion ──

@@ -1,6 +1,7 @@
 // studio.js — Export. Say where the laurel is going and get exactly the files that place needs.
 // Nothing here changes the laurel: every destination re-dresses a copy of the document (a one-color version, a social
 // card, an end-card frame) and packs it. The settings people pick are remembered on this device.
+import { holdFocus } from './modal.js';
 import { checkLaurel, accoladesOf } from './rules.js';
 import { STATUS_COMMON } from './words.js';
 import { smallestText, caseOf } from './engine.mjs';
@@ -161,10 +162,11 @@ export function openStudio(ctx) {
   }
   const keepPack = () => { const K = P.pack; d0().pack = { statuses: [...K.statuses], awards: K.awards, winner: K.winner, ways: [...K.ways], fmts: [...K.fmts], pngW: P.pngW, pdfMm: P.pdfMm }; ctx.settle(); };
   const save = () => { try { const { title, line, ...social } = P.social; localStorage.setItem('daphne.studio', JSON.stringify({ ...P, social })); } catch (e) { /* a convenience */ } };
-  const hasRow = () => !!(d0().row && d0().row.items && d0().row.items.length && ctx.rowScene);
+  // J05: the row is always a place to export to; whether it has laurels of its own is one question, asked of the row (rowEmpty)
+  const hasRow = () => !!ctx.rowScene, rowNone = () => (ctx.rowEmpty ? ctx.rowEmpty() : 'Your row is empty.');
   // the row as it's drawn: its laurels in order, without hidden ones or artwork missing on this device
-  const rowShown = () => { const sc = hasRow() && ctx.rowScene({ bg: false }); return sc ? sc.parts.map((p) => p.it) : []; };
-  const rowMissing = () => (hasRow() ? d0().row.items.filter((it) => it.show !== false && it.src && !ctx.ASSETS[it.src]) : []);
+  const rowShown = () => { const sc = hasRow() && ctx.rowScene({ bg: false, real: true }); return sc ? sc.parts.map((p) => p.it) : []; };
+  const rowMissing = () => (d0().row && Array.isArray(d0().row.items) ? d0().row.items.filter((it) => it.show !== false && it.src && !ctx.ASSETS[it.src]) : []);
   const rowLine = (it) => (it.src && !it.status && !it.award ? `the official laurel of ${[it.festival, it.year].filter(Boolean).join(' ') || 'a festival'}` : [it.status, it.award, [it.festival, it.year].filter(Boolean).join(' ')].filter(Boolean).join(', '));
   const rowAlt = () => { const its = rowShown(); return its.length ? `Festival laurels: ${its.map(rowLine).join('; ')}.` : ctx.altText(d0()); };
   const showsRow = (what) => what === 'row' && rowShown().length > 0;
@@ -174,22 +176,21 @@ export function openStudio(ctx) {
   const rendered = (way) => { if (!cache.has(way)) cache.set(way, ctx.render(docOf(way))); return cache.get(way); }; // the laurel doesn't change while Export is open
   const bgOn = () => P.way === 'color' && !!d0().canvas.bg && P.bg !== false;
   const smallest = (r) => smallestText(r.svg); // every word that's drawn, in any slot; Infinity when there are none
-  const prevFocus = document.activeElement;
 
   // ── shell ──
   const dests = h('nav', { class: 'dests', 'aria-label': 'Where it’s going' });
   const preview = h('div', { class: 'preview', 'aria-live': 'polite' });
   const opts = h('div', { class: 'opts' });
-  const close = () => { scrim.remove(); window.removeEventListener('keydown', onKey, true); if (prevFocus && prevFocus.focus) prevFocus.focus(); };
-  const onKey = (e) => { if (e.key === 'Escape') { e.stopPropagation(); close(); } };
+  let release = () => {};
+  const close = () => { scrim.remove(); release(); };
   const modeNote = ctx.mode === 'motion' ? 'Video files (MP4, PNG sequence, animated SVG) are in the Motion panel under the stage.' : ctx.mode === 'poster' ? 'The poster mockup downloads from the Poster panel under the stage.' : '';
   const modal = h('div', { class: 'modal', role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': 'studio-title' },
     h('header', {}, h('div', {}, h('h2', { id: 'studio-title' }, 'Export'), h('p', {}, modeNote || 'Pick where it’s going. Daphne makes the right files for it.')),
       h('button', { class: 'btn ghost x', 'aria-label': 'Close', onclick: close }, '✕')),
     h('div', { class: 'studio' }, dests, preview, opts));
-  const scrim = h('div', { class: 'scrim', onmousedown: (e) => { if (e.target === scrim) close(); } }, modal);
+  const scrim = h('div', { class: 'scrim export-scrim', onmousedown: (e) => { if (e.target === scrim) close(); } }, modal);
   document.body.append(scrim);
-  window.addEventListener('keydown', onKey, true);
+  release = holdFocus(scrim, close);
 
   function buildDests() {
     dests.innerHTML = '';
@@ -250,7 +251,7 @@ export function openStudio(ctx) {
 
   // ── composed pictures: the social card and the end-card frame ──
   function scene(what) {
-    if (what === 'row' && hasRow()) { const sc = ctx.rowScene({ bg: false }); if (sc) return { svg: sc.svg, vb: sc.vb, row: true }; }
+    if (what === 'row' && hasRow()) { const sc = ctx.rowScene({ bg: false, base: docOf(P.way), real: true }); if (sc) return { svg: sc.svg, vb: sc.vb, row: true }; }
     const r = rendered(P.way); return { svg: P.way === 'color' ? r.svg : stripBg(r.svg), vb: r.viewBox, r };
   }
   function socialSvg() {
@@ -319,6 +320,12 @@ export function openStudio(ctx) {
       const K = kitPlan(), ws = K.ways.length ? K.ways : ['color'], bw = Math.max(120, (preview.clientWidth - 90) / ws.length - 14);
       pv.append(h('div', { class: 'kitgrid' }, ws.map((w) => { const r = rendered(w); return h('figure', {}, frameOf(w === 'color' && d0().canvas.bg ? r.svg : stripBg(r.svg), wayCls(w), bw, preview.clientHeight * 0.5), h('figcaption', {}, WAYS.find((x) => x.id === w).label)); })),
         cap(!K.ready ? 'Pick at least one colorway and one format.' : `${K.plan.length + 1} files: ${K.fmts.map((f) => f.toUpperCase()).join(', ')} in ${K.ways.length === 1 ? 'one colorway' : K.ways.length + ' colorways'}${K.plan.some((f) => /-on-background\.png$/.test(f.name)) ? ', a PNG on your background color' : ''}, and a README holding the alt text, the fonts and the sizes that stay readable.`));
+    } else if ((D === 'social' && P.social.what === 'row') || (D === 'video' && P.video.what === 'row') || D === 'row') {
+      const none = rowNone();
+      if (none) pv.append(h('div', { class: 'stage-empty' }, h('p', {}, none)));
+      else if (D === 'social') { const c = socialSvg(); pv.append(frameOf(c.svg, 'card'), cap(`${c.W} × ${c.H} px · ${SOCIAL[P.social.fmt][2]} · your row`)); }
+      else if (D === 'video') { const c = videoSvg(); pv.append(frameOf(c.svg, P.video.bg === 'black' ? 'card' : 'footage'), cap(`${c.W} × ${c.H} px PNG · your row`)); }
+      else { const sc = ctx.rowScene({ bg: true, real: true }); if (sc) pv.append(frameOf(sc.svg, ''), cap(`${sc.parts.length} laurel${sc.parts.length > 1 ? 's' : ''}, drawn at one scale so the type matches.`)); }
     } else if (D === 'social') {
       const c = socialSvg(); pv.append(frameOf(c.svg, 'card'), cap(`${c.W} × ${c.H} px · ${SOCIAL[P.social.fmt][2]}`));
     } else if (D === 'video') {
@@ -336,8 +343,6 @@ export function openStudio(ctx) {
       const vs = packList();
       pv.append(h('div', { class: 'packgrid' }, vs.slice(0, 24).map((v) => { const r = ctx.render(colorway(v.doc, 'color', ctx.clone)); return h('figure', {}, h('div', { class: 'pt', html: (d0().canvas.bg ? r.svg : stripBg(r.svg)).replace(/width="[^"]+" height="[^"]+"/, '') }), h('figcaption', {}, v.label)); })),
         cap(!vs.length ? 'Pick the statuses and awards your festival gives.' : !P.pack.ways.length || !P.pack.fmts.length ? 'Pick at least one colorway and one format.' : `${vs.length} laurels × ${P.pack.ways.length} colorway${P.pack.ways.length > 1 ? 's' : ''} × ${P.pack.fmts.length} format${P.pack.fmts.length > 1 ? 's' : ''} = ${vs.length * P.pack.ways.length * P.pack.fmts.length} files, plus a README and guidelines to send your filmmakers.`));
-    } else if (D === 'row') {
-      const sc = ctx.rowScene({ bg: true }); if (sc) pv.append(frameOf(sc.svg, ''), cap(`${d0().row.items.length} laurels, drawn at one scale so the type matches.`));
     } else {
       pv.append(laurelPreview());
       const r = rendered(P.way), vb = r.viewBox, sm = smallest(r);
@@ -377,6 +382,8 @@ export function openStudio(ctx) {
     const rb = rulesBlock(); if (rb && !['words'].includes(D.id)) put(rb);
     const r = rendered(P.way), vb = r.viewBox, sm = smallest(r);
     const go = (...b) => h('div', { class: 'go' }, ...b);
+    // a download that shows the row is offered only when the row has laurels of its own; otherwise it says what to do
+    const rowGate = (what, b) => { const none = what === 'row' && rowNone(); if (none) b.disabled = true; return go(b, none ? h('div', { class: 'hint' }, none) : null); };
 
     if (D.id === 'kit') {
       put(label('Colorways'), h('div', { class: 'checks' }, WAYS.map((W) => h('label', {}, h('input', { type: 'checkbox', checked: P.kit.ways.includes(W.id), onchange: (e) => { P.kit.ways = WAYS.map((x) => x.id).filter((id) => (id === W.id ? e.target.checked : P.kit.ways.includes(id))); save(); show(); } }), W.label, h('small', {}, W.note)))),
@@ -421,7 +428,7 @@ export function openStudio(ctx) {
         S.bg === 'photo' && photo ? h('div', { class: 'row' }, h('label', {}, 'Darken'), h('input', { type: 'range', 'aria-label': 'Darken the photo', min: 0, max: 0.85, step: 0.05, value: S.dim, oninput: (e) => set('social.dim', +e.target.value, { opts: false }) }), h('button', { class: 'btn small ghost', onclick: () => file.click() }, 'Change')) : null,
         h('div', { class: 'row' }, h('label', {}, 'Laurel size'), h('input', { type: 'range', 'aria-label': 'Laurel size', min: 0.5, max: 1.25, step: 0.05, value: S.size, oninput: (e) => set('social.size', +e.target.value, { opts: false }) }), h('span', {})),
         label('Colorway'), ways(),
-        go(run('Download the card', async () => { const c = socialSvg(); ctx.download(await composedPng(c), `${base()}${showsRow(S.what) ? '-row' : ''}-${S.fmt.replace(':', 'x')}.png`); })),
+        rowGate(S.what, run('Download the card', async () => { const c = socialSvg(); ctx.download(await composedPng(c), `${base()}${showsRow(S.what) ? '-row' : ''}-${S.fmt.replace(':', 'x')}.png`); })),
         h('div', { class: 'oblock' }, label('A first line for the post', h('button', { class: 'btn small ghost', onclick: () => copy(capNow(), 'Caption copied') }, 'Copy')), capEl, h('div', { class: 'hint' }, 'A starting point: make it yours. Tag the festival; they often share. Many festivals ask films to wait for the line-up announcement before posting.')),
         altBlock(showsRow(S.what) ? rowAlt() : undefined));
     } else if (D.id === 'video') {
@@ -432,7 +439,7 @@ export function openStudio(ctx) {
         h('div', { class: 'row' }, h('label', {}, 'Height'), h('input', { type: 'range', 'aria-label': 'Laurel height', min: 0.12, max: 0.7, step: 0.01, value: V.size, oninput: (e) => set('video.size', +e.target.value, { opts: false }) }), h('span', {})),
         label('Background'), seg([['none', 'Transparent'], ['black', 'Black']], V.bg, (v) => set('video.bg', v), 'Background'),
         label('Colorway'), ways(),
-        go(run('Download the frame', async () => { const c = videoSvg(); ctx.download(await composedPng(c), `${base()}${showsRow(V.what) ? '-row' : ''}-endcard-${c.W}x${c.H}.png`); })),
+        rowGate(V.what, run('Download the frame', async () => { const c = videoSvg(); ctx.download(await composedPng(c), `${base()}${showsRow(V.what) ? '-row' : ''}-endcard-${c.W}x${c.H}.png`); })),
         h('div', { class: 'hint' }, 'For animated laurels (a reveal, a shimmer), use Motion in the top bar: it makes MP4s and PNG sequences.'), altBlock(showsRow(V.what) ? rowAlt() : undefined));
     } else if (D.id === 'web') {
       const ar = vb[3] / vb[2], wpx = P.web.w, hpx = Math.round(wpx * ar), alt = ctx.altText(d0());
@@ -480,7 +487,9 @@ export function openStudio(ctx) {
         h('div', { class: 'hint' }, 'Comes with a guidelines file to edit and send with the laurels: what each one may be used for, sizes, and who to ask.'));
     } else if (D.id === 'row') {
       const X = ctx.modes.row && ctx.modes.row.exports;
-      put(go(run('ZIP of separate files', async () => X.zip()), run('One PNG of the row', async () => X.png(), 'btn'), run('One SVG of the row', async () => X.svg(), 'btn'), run('One PDF of the row', async () => X.pdf(), 'btn')),
+      const none = rowNone(), bs = [run('ZIP of separate files', async () => X.zip()), run('One PNG of the row', async () => X.png(), 'btn'), run('One SVG of the row', async () => X.svg(), 'btn'), run('One PDF of the row', async () => X.pdf(), 'btn')];
+      if (none) bs.forEach((b) => (b.disabled = true));
+      put(go(...bs, none ? h('div', { class: 'hint' }, none) : null),
         h('div', { class: 'hint' }, 'The separate files are all drawn at the same scale, so the type matches when you place them at 100%.'));
     }
   }

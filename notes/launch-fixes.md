@@ -93,8 +93,8 @@ All work goes on the branch `claude/project-thread-tx7lhm` with one draft PR. Me
 | D02 | 3 | fixed | one physical width; the unit only changes how it's shown (test: browser print, unit) |
 | D03 | 3 | fixed | Motion keys its preview on what's drawn, not its length (test: browser motion) |
 | D04 | 3 | fixed | every line's painted box, nudges and ink room included, sits in the canvas; a nudged line is judged where it's drawn (tests: unit engine D04) |
-| D06 | 3 | todo | |
-| D07 | 3 | todo | |
+| D06 | 3 | fixed | one dialog at a time owns the keyboard: the page behind is inert, Undo and shortcuts wait, Escape closes the top dialog (test: browser dialog, 1440 and 390 px) |
+| D07 | 3 | fixed | the row is composed from Export's colorway (test: browser rowexport) |
 | D14 | 3 | todo | |
 | D15 | 3 | todo | |
 | D23 | 3 | todo | |
@@ -107,8 +107,8 @@ All work goes on the branch `claude/project-thread-tx7lhm` with one draft PR. Me
 | D36 | 3 | todo | |
 | D37 | 3 | todo | |
 | D39 | 3 | todo | |
-| J05 | 3 | todo | |
-| V04 | 3 | todo | |
+| J05 | 3 | fixed | one rule for the row everywhere: examples are marked, shown on the stage, never exported; Your row is always in Export with an empty state and disabled downloads; Start with this laurel and Clear the examples (test: browser rowexport) |
+| V04 | 3 | fixed | Motion, Social and Trailer say the row is empty instead of drawing this laurel; exports disabled (test: browser rowexport) |
 | D09 | 4 | todo | |
 | D10 | 4 | todo | |
 | D11 | 4 | todo | |

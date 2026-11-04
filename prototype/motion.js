@@ -34,7 +34,9 @@ export function motionMode(ctx) {
   // what's in the frame: one laurel, or the row as the row builder places it
   function subjects() {
     if (M().what === 'row' && ctx.rowScene) {
-      const sc = ctx.rowScene(); if (sc) return { vb: sc.vb, items: sc.parts.map((p) => (p.art ? { art: ctx.ASSETS[p.it.src], x: p.x, y: p.y, w: p.w, h: p.h } : { r: p.r, x: p.x, y: p.y, w: p.w, h: p.h })) };
+      // V04: the row means the row: when it has nothing of its own to show, say so rather than animate this laurel
+      const sc = ctx.rowScene({ real: true }); if (!sc) return { empty: ctx.rowEmpty() || 'Your row is empty.', vb: [0, 0, 1, 1], items: [] };
+      return { vb: sc.vb, items: sc.parts.map((p) => (p.art ? { art: ctx.ASSETS[p.it.src], x: p.x, y: p.y, w: p.w, h: p.h } : { r: p.r, x: p.x, y: p.y, w: p.w, h: p.h })) };
     }
     const r = ctx.render(ctx.doc, 1), [vx, vy, vw, vh] = r.viewBox;
     return { vb: [vx, vy, vw, vh], items: [{ r, x: vx, y: vy, w: vw, h: vh }] };
@@ -132,6 +134,7 @@ export function motionMode(ctx) {
   // ── preview ──
   function buildPreview() {
     const [W, H] = dims(), S = subjects();
+    if (S.empty) { built = ''; live = null; ctx.stage.className = 'stage motion-stage'; ctx.stage.innerHTML = ''; ctx.stage.append(h('div', { class: 'stage-empty' }, h('p', {}, S.empty), h('button', { class: 'btn small', onclick: () => ctx.change('motion', { ...M(), what: 'laurel' }) }, 'Animate this laurel instead'))); return; }
     const key = JSON.stringify([M(), S.vb, S.items.map((it) => (it.r ? hashOf(it.r.svg) + ':' + it.r.viewBox.join() : hashOf(String(it.art)))), ctx.doc.canvas.bg]); // D03: what is drawn, not its length
     if (key === built && live && ctx.stage.contains(live.root)) return;
     built = key;
@@ -234,6 +237,7 @@ export function motionMode(ctx) {
   let progEl = null;
   const progress = (p) => { if (progEl) progEl.firstChild.style.width = Math.round(p * 100) + '%'; };
   async function run(fn, label) {
+    const S = subjects(); if (S.empty) { ctx.toast(S.empty, 6000); return; }
     if (busy) return; busy = true; pause(); ctx.toast(label);
     try { await fn(); } catch (e) { console.warn(e); alert('The export stopped: ' + (e && e.message ? e.message : e)); }
     busy = false; progress(0); play();
@@ -249,7 +253,7 @@ export function motionMode(ctx) {
     ctx.modebar.classList.add('on');
   }
   function panel() {
-    const P = ctx.modepanel; P.innerHTML = '';
+    const P = ctx.modepanel; P.innerHTML = ''; const none = M().what === 'row' && ctx.rowEmpty && ctx.rowEmpty();
     const m = M(), sel = (label, key, opts, num) => h('label', {}, label, h('select', { onchange: (e) => { ctx.change('motion', { ...M(), [key]: num ? +e.target.value : e.target.value === 'true' ? true : e.target.value === 'false' ? false : e.target.value }); built = ''; bar(); } }, opts.map(([v, l]) => h('option', { value: String(v), selected: String(m[key]) === String(v) }, l))));
     P.append(
       h('div', { class: 'rowtools' },
@@ -262,9 +266,9 @@ export function motionMode(ctx) {
         h('label', {}, 'Size', h('input', { type: 'range', min: 0.2, max: 0.95, step: 0.01, value: m.size, onchange: (e) => { ctx.change('motion', { ...M(), size: +e.target.value }); built = ''; } })),
         sel('Background', 'bg', [['look', 'The look’s'], ['black', 'Black'], ['white', 'White'], ['transparent', 'Transparent']])),
       h('div', { class: 'rowtools' },
-        h('button', { class: 'btn small primary', title: 'H.264 video for editors and social. No transparency: the background is filled', onclick: () => run(exportMp4, 'Rendering the video…') }, 'MP4 video'),
-        h('button', { class: 'btn small', title: 'Every frame as a PNG with transparency, for Premiere, Resolve or After Effects', onclick: () => run(exportPngSeq, 'Rendering the frames…') }, 'PNG sequence (transparent)'),
-        h('button', { class: 'btn small', title: 'Plays once in any browser, then holds. Small, sharp at any size, for websites and EPKs', onclick: () => run(exportAnimatedSvg, 'Writing the animated SVG…') }, 'Animated SVG'),
+        h('button', { class: 'btn small primary', title: 'H.264 video for editors and social. No transparency: the background is filled', disabled: !!none, onclick: () => run(exportMp4, 'Rendering the video…') }, 'MP4 video'),
+        h('button', { class: 'btn small', title: 'Every frame as a PNG with transparency, for Premiere, Resolve or After Effects', disabled: !!none, onclick: () => run(exportPngSeq, 'Rendering the frames…') }, 'PNG sequence (transparent)'),
+        h('button', { class: 'btn small', title: 'Plays once in any browser, then holds. Small, sharp at any size, for websites and EPKs', disabled: !!none, onclick: () => run(exportAnimatedSvg, 'Writing the animated SVG…') }, 'Animated SVG'),
         progEl = h('div', { class: 'progress', title: 'Export progress' }, h('i')),
         h('span', { class: 'hint' }, `${m.fps} fps · ${m.dur * m.fps} frames. Exports draw the text as shapes, so no fonts are needed.`)));
   }
