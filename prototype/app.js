@@ -1,7 +1,7 @@
 // app.js — Daphne's editor. Vanilla ES modules, no build step.
 // The shell: a rail of tabs (Words first, because the words are the first thing anyone does), a panel, and the stage.
 // The engine (engine.mjs) turns one JSON document into the laurel; everything here edits that document.
-import { render, DEFAULT_DOC, FORMS, METALS, PROFILES, FAMILIES, FRAMES, FILLABLE_FRAMES, ASSETS, LOGO_SLOTS, merge, clone, applyForm, shuffleBranch, rngOf, assetMissing } from './engine.mjs';
+import { render, DEFAULT_DOC, FORMS, METALS, PROFILES, FAMILIES, FRAMES, FILLABLE_FRAMES, ASSETS, LOGO_SLOTS, merge, clone, applyForm, shuffleBranch, rngOf, assetMissing, sanitizeDoc } from './engine.mjs';
 import { FONTS, fontInfo, loadFont, embedFontCss, cssUrl, loadPreviewFonts } from './fonts.js';
 import { PRESETS, GROUPS } from './presets.js';
 import { LAYOUTS, LAYOUT_GROUPS, layoutFields, applyLayout, EXAMPLE } from './layouts.js';
@@ -136,7 +136,10 @@ let fontsReady = Promise.resolve();
 async function draw() {
   raf = 0;
   const pending = ensureFonts(doc); fontsReady = pending;
-  last = render(doc, { measure, scale: 2 });
+  // a drawing that came out broken (no size) never replaces the last good one, and says so
+  let r; try { r = render(doc, { measure, scale: 2 }); } catch (e) { console.error(e); r = null; }
+  if (!r || !r.viewBox.every(Number.isFinite)) { const el = document.getElementById('report'); if (el) el.innerHTML = '<span class="warn">These settings don’t draw a laurel: Undo, or change the last setting.</span>'; return; }
+  last = r;
   if (!peeking) MODES[mode].draw(last);
   showReport(last.report);
   if (mode !== 'row') showNotes(checkLaurel(doc));
@@ -705,7 +708,15 @@ window.addEventListener('keydown', (e) => {
 const b64u = (buf) => { const b = new Uint8Array(buf); let s = ''; for (let i = 0; i < b.length; i += 0x8000) s += String.fromCharCode.apply(null, b.subarray(i, i + 0x8000)); return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); };
 const unb64u = (s) => Uint8Array.from(atob(s.replace(/-/g, '+').replace(/_/g, '/')), (c) => c.charCodeAt(0));
 async function pack(o) { const cs = new CompressionStream('deflate-raw'); const w = cs.writable.getWriter(); w.write(new TextEncoder().encode(JSON.stringify(o))); w.close(); return b64u(await new Response(cs.readable).arrayBuffer()); }
-async function unpack(s) { const ds = new DecompressionStream('deflate-raw'); const w = ds.writable.getWriter(); w.write(unb64u(s)); w.close(); return JSON.parse(await new Response(ds.readable).text()); }
+// a link's laurel, checked before it's used: bounded in size, and through sanitizeDoc
+async function unpack(s) {
+  const ds = new DecompressionStream('deflate-raw'), w = ds.writable.getWriter(); w.write(unb64u(s)).catch(() => null); w.close().catch(() => null);
+  const rd = ds.readable.getReader(), parts = []; let n = 0;
+  for (;;) { const { done, value } = await rd.read(); if (done) break; n += value.length; if (n > 4e6) { rd.cancel().catch(() => null); throw new Error('too big to be a laurel'); } parts.push(value); }
+  const all = new Uint8Array(n); let o = 0; for (const x of parts) { all.set(x, o); o += x.length; }
+  return sanitizeDoc(JSON.parse(new TextDecoder().decode(all)));
+}
+const bumpUid = (d) => { for (const f of d.fields || []) { const n = +String(f.id).replace(/\D/g, ''); if (n >= uid) uid = n + 1; } };
 let hashTimer = 0;
 // The link and the autosave follow the laurel half a second after an edit. Each save carries a number, and one that
 // finishes after a newer one started is dropped, so an older laurel never overwrites a newer one. If the page is
@@ -838,19 +849,39 @@ function drawSmallSizes() {
   let restored = false;
   let saved = null, pending = null;
   try { saved = localStorage.getItem('daphne.autosave'); pending = JSON.parse(localStorage.getItem('daphne.pending') || 'null'); } catch (e) { /* a convenience */ }
-  if (m) { try { doc = merge(clone(DEFAULT_DOC), await unpack(m[1])); } catch { doc = applyPreset(PRESETS[0]); } }
-  else if (saved) { try { doc = merge(clone(DEFAULT_DOC), await unpack(saved)); restored = true; } catch { doc = applyPreset(PRESETS[0]); } }
-  else doc = applyPreset(PRESETS[0]);
-  lastPacked = m ? m[1] : saved;
+  // back from Daphne's story: the laurel this tab left with, not whichever one was autosaved last
+  let ret = null; try { ret = sessionStorage.getItem('daphne.return'); sessionStorage.removeItem('daphne.return'); } catch (e) { /* a convenience */ }
+  let from = null, badLink = false;
+  if (m) { try { doc = merge(clone(DEFAULT_DOC), await unpack(m[1])); from = m[1]; } catch { badLink = true; } }
+  else if (ret) { try { doc = merge(clone(DEFAULT_DOC), await unpack(ret)); from = ret; history.replaceState(null, '', '#l=' + ret); } catch { /* fall through to the autosave */ } }
+  if (!from) {
+    if (saved) { try { doc = merge(clone(DEFAULT_DOC), await unpack(saved)); from = saved; restored = !badLink; } catch { doc = applyPreset(PRESETS[0]); } }
+    else doc = applyPreset(PRESETS[0]);
+  }
+  lastPacked = from;
   // an edit made just before the page closed, on top of this same laurel: bring it back
-  if (pending && pending.doc && pending.from === lastPacked) { try { doc = merge(clone(DEFAULT_DOC), pending.doc); restored = true; } catch (e) { /* keep the saved one */ } }
-  for (const f of doc.fields) { const n = +String(f.id).replace(/\D/g, ''); if (n >= uid) uid = n + 1; }
+  if (pending && pending.doc && pending.from === lastPacked) { try { doc = merge(clone(DEFAULT_DOC), sanitizeDoc(pending.doc)); restored = !ret && !m; } catch (e) { /* keep the saved one */ } }
+  bumpUid(doc);
   normalize(doc); lastSnap = JSON.stringify(doc);
   buildRail(); buildPanel(); historyButtons();
   let m0 = 'laurel'; try { m0 = sessionStorage.getItem('daphne.mode') || 'laurel'; } catch (e) { /* a convenience */ }
   mode = ''; MODES[''] = {}; setMode(MODES[m0] ? m0 : 'laurel'); delete MODES[''];
   schedule();
-  if (restored) toast('Welcome back: here’s the laurel you were working on');
+  if (badLink) toast('That link couldn’t be opened: it’s damaged or incomplete. ' + (saved ? 'Here’s your last laurel instead.' : 'Here’s a fresh one.'), 6000);
+  else if (restored) toast('Welcome back: here’s the laurel you were working on');
+  // another link opened in this tab, or Back and Forward between links: the design follows the address
+  addEventListener('hashchange', async () => {
+    const h2 = location.hash.match(/#l=([\w-]+)/); if (!h2 || h2[1] === lastPacked) return;
+    try { const d = merge(clone(DEFAULT_DOC), await unpack(h2[1])); bumpUid(d); lastPacked = h2[1]; replaceDoc(d); toast('Opened the laurel in the link. Undo goes back to the one before.'); }
+    catch { toast('That link couldn’t be opened: it’s damaged or incomplete. Your laurel is unchanged.', 6000); try { if (lastPacked) history.replaceState(null, '', '#l=' + lastPacked); } catch (e) { /* the address is a convenience */ } }
+  });
+  // leaving for the story: remember this laurel for this tab, so "Make a laurel" comes back to it
+  document.addEventListener('click', async (e) => {
+    const a = e.target.closest && e.target.closest('a[href="story/"]'); if (!a || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    e.preventDefault();
+    try { const p = await pack(doc); sessionStorage.setItem('daphne.return', p); } catch (err) { /* the story still opens */ }
+    location.href = a.href;
+  });
   setTimeout(() => preloadOutlines(doc.roles).catch(() => null), 2500); // warm the shaper for the first SVG or PDF
   import('./fixer.js').then((mod) => { ctx.openFixer = (onDone, o) => mod.openFixer(ctx, onDone, o); }).catch(() => null);
   window.__laurel = { get doc() { return doc; }, render: (d) => render(d || doc, { measure }), PRESETS, applyPreset, measure, setMode, get mode() { return mode; }, ctx, MODES, setTab, altText, openExport };

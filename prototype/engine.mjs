@@ -373,7 +373,8 @@ function freeOf(pts, mirror) {
 function buildOnce(p, seed) {
   const rnd = rngOf(seed), J = (amt) => (rnd() * 2 - 1) * amt;
   const sp = p.spine, lf = { ...p.leaf }, orn = p.orn;
-  const tail = sp.cross ? (sp.a0 - 90 + sp.cross) / (sp.a1 - sp.a0) : 0;
+  // the crossing tail, as a share of the arc; an arc with no length (start = end) gets a one-degree span, not a NaN
+  const span = Math.abs(sp.a1 - sp.a0) < 1 ? (sp.a1 < sp.a0 ? -1 : 1) : sp.a1 - sp.a0, tail = sp.cross ? (sp.a0 - 90 + sp.cross) / span : 0;
   const S0 = sampleSpine(sp, -tail, 1);
   const pts = (SINK = []);
   SHADE = [];
@@ -475,15 +476,19 @@ export const METALS = {
 };
 let PID = 0;
 // returns a fill value; pushes any gradient into defs. bbox = [x, y, w, h] of what is painted (user space)
+// a color as it may appear in an attribute: anything else (a stray quote, markup) becomes black
+const COLOR_RE = /^(#[0-9a-f]{3,8}|(rgb|hsl)a?\([\d\s.,%deg]+\)|[a-z]{3,20})$/i;
+const colorOf = (c) => (typeof c === 'string' && COLOR_RE.test(c.trim()) ? c.trim() : '#000000');
+const num01 = (v, d) => (Number.isFinite(+v) && v !== null && v !== '' ? +v : d);
 export function paintRef(paint, defs, bbox) {
   if (!paint) return 'none';
-  if (typeof paint === 'string') return paint;
-  if (paint.type === 'solid') return paint.color;
+  if (typeof paint === 'string') return paint === 'none' ? 'none' : colorOf(paint);
+  if (paint.type === 'solid') return colorOf(paint.color);
   const id = 'p' + ++PID;
-  const stops = (paint.type === 'metal' ? METALS[paint.metal] || METALS.gold : paint.stops).map(([o, c, a]) => `<stop offset="${f(o)}" stop-color="${c}"${a != null && a < 1 ? ` stop-opacity="${a}"` : ''}/>`).join('');
+  const stops = (paint.type === 'metal' ? METALS[paint.metal] || METALS.gold : Array.isArray(paint.stops) ? paint.stops : METALS.gold).map(([o, c, a]) => `<stop offset="${f(num01(o, 0))}" stop-color="${colorOf(c)}"${a != null && num01(a, 1) < 1 ? ` stop-opacity="${f(num01(a, 1))}"` : ''}/>`).join('');
   if (paint.type === 'radial') {
     const [x, y, w, h] = bbox, cx = x + w * (paint.cx ?? 0.5), cy = y + h * (paint.cy ?? 0.5), r = Math.max(w, h) * (paint.r ?? 0.6);
-    defs.push(paint.scope === 'leaf' ? `<radialGradient id="${id}" cx="${paint.cx ?? 0.5}" cy="${paint.cy ?? 0.5}" r="${paint.r ?? 0.6}">${stops}</radialGradient>` : `<radialGradient id="${id}" gradientUnits="userSpaceOnUse" cx="${f(cx)}" cy="${f(cy)}" r="${f(r)}">${stops}</radialGradient>`);
+    defs.push(paint.scope === 'leaf' ? `<radialGradient id="${id}" cx="${f(num01(paint.cx, 0.5))}" cy="${f(num01(paint.cy, 0.5))}" r="${f(num01(paint.r, 0.6))}">${stops}</radialGradient>` : `<radialGradient id="${id}" gradientUnits="userSpaceOnUse" cx="${f(cx)}" cy="${f(cy)}" r="${f(r)}">${stops}</radialGradient>`);
     return `url(#${id})`;
   }
   const a = rad(paint.angle ?? (paint.type === 'metal' ? 20 : 0)), sx = Math.sin(a), sy = -Math.cos(a); // CSS angles: 0 = to top
@@ -1121,3 +1126,59 @@ export function smallestText(svg) {
 
 // an uploaded image lives on the device it was added on: a reference without its bytes here is missing
 export const assetMissing = (src) => /^asset:/.test(src || '') && !ASSETS[src];
+
+// A document from outside (a share link, an autosave, a back-button entry) is checked before it replaces anything:
+// numbers are finite, switches are switches, lists are lists, and no string outside the words people type carries a
+// quote or markup into an SVG attribute. Throws when it isn't a laurel at all.
+const TEXT_KEYS = new Set(['text', 'title', 'line', 'status', 'festival', 'award', 'year', 'name', 'presetName', 'font', 'label', 'awards', 'winner', 'note']);
+export function sanitizeDoc(raw) {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) throw new Error('not a laurel');
+  let budget = 50000;
+  const clean = (v, def, key, depth) => {
+    if (--budget < 0) throw new Error('too big to be a laurel');
+    if (v === null) return null;
+    if (typeof v === 'number') return Number.isFinite(v) ? v : undefined;
+    if (typeof v === 'boolean') return typeof def === 'number' ? undefined : v;
+    if (typeof v === 'string') {
+      if (typeof def === 'number') return v === 'auto' ? v : /^-?\d+(\.\d+)?$/.test(v) ? +v : undefined;
+      if (typeof def === 'boolean') return undefined;
+      if (!TEXT_KEYS.has(key) && /["<>]/.test(v)) return undefined;
+      return v.length > 4000 && !/^data:image\//.test(v) ? v.slice(0, 4000) : v;
+    }
+    if (depth > 12 || typeof v !== 'object') return undefined;
+    if (Array.isArray(v)) return v.slice(0, 500).map((x) => clean(x, Array.isArray(def) ? def[0] : undefined, key, depth + 1)).filter((x) => x !== undefined);
+    const o = {};
+    for (const k of Object.keys(v).slice(0, 500)) {
+      if (k === '__proto__' || k === 'constructor' || k === 'prototype') continue;
+      const c = clean(v[k], def && typeof def === 'object' && !Array.isArray(def) ? def[k] : undefined, k, depth + 1);
+      if (c !== undefined) o[k] = c;
+    }
+    return o;
+  };
+  const obj = (x) => x && typeof x === 'object' && !Array.isArray(x);
+  // the shape itself must be right: a laurel whose lines or settings aren't lists and objects is refused, not guessed at
+  if ('fields' in raw && (!Array.isArray(raw.fields) || raw.fields.some((f) => !obj(f) || typeof f.kind !== 'string'))) throw new Error('its lines are damaged');
+  for (const k of Object.keys(DEFAULT_DOC)) if (obj(DEFAULT_DOC[k]) && k in raw && !obj(raw[k])) throw new Error(`its ${k} settings are damaged`);
+  if ('row' in raw && raw.row !== null && (!obj(raw.row) || ('items' in raw.row && !Array.isArray(raw.row.items)))) throw new Error('its row is damaged');
+  const d = clean(raw, DEFAULT_DOC, '', 0);
+  const okSrc = (s) => typeof s === 'string' && (/^asset:[\w-]{1,60}$/.test(s) || /^data:image\/(png|jpeg|webp|gif|svg\+xml);base64,[A-Za-z0-9+/=]+$/.test(s));
+  const seen = new Set();
+  if ('fields' in d) {
+    d.fields = (Array.isArray(d.fields) ? d.fields : []).filter((f) => obj(f) && typeof f.kind === 'string').slice(0, 80).map((f, i) => {
+      let id = typeof f.id === 'string' && /^[\w-]{1,40}$/.test(f.id) && !seen.has(f.id) ? f.id : 'i' + i + 'x'; seen.add(id);
+      const g = { ...f, id, text: typeof f.text === 'string' ? f.text : '' };
+      for (const k of ['dx', 'dy']) if (k in g && typeof g[k] !== 'number') delete g[k];
+      if ('src' in g && !okSrc(g.src)) delete g.src;
+      return g;
+    });
+    if (!d.fields.length) delete d.fields;
+  }
+  for (const k of Object.keys(DEFAULT_DOC)) if (obj(DEFAULT_DOC[k]) && k in d && !obj(d[k])) delete d[k];
+  if (obj(d.roles)) for (const r of Object.keys(d.roles)) { const x = d.roles[r]; if (!obj(x)) { delete d.roles[r]; continue; } if ('weight' in x && typeof x.weight !== 'number') delete x.weight; }
+  if ('row' in d) {
+    if (!obj(d.row)) delete d.row;
+    else d.row.items = (Array.isArray(d.row.items) ? d.row.items : []).filter(obj).slice(0, 60).map((it, i) => { const g = { ...it, id: typeof it.id === 'string' && /^[\w-]{1,60}$/.test(it.id) ? it.id : 'r' + i + 'x' }; if ('src' in g && !okSrc(g.src)) delete g.src; return g; });
+  }
+  if (obj(d.poster) && 'src' in d.poster && !okSrc(d.poster.src)) delete d.poster.src;
+  return d;
+}

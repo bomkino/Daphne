@@ -53,7 +53,7 @@ Each wave is one group of commits on the working branch, verified before the nex
 
 ## Shipping
 
-All work goes on the branch `claude/project-thread-tx7lhm` with one draft PR. Merging and publishing to pitch.dog/daphne happen with pitch.dog's go-ahead, wave by wave, through the existing build (`node tools/build-pitchdog.mjs`) and a website PR.
+All work goes on the branch `claude/project-thread-tx7lhm` with one draft PR. Merging and publishing to pitch.dog/daphne happen once, when every wave is done (pitch.dog's choice, November 4, 2026), through the existing build (`node tools/build-pitchdog.mjs`) and a website PR.
 
 ## Status
 
@@ -75,20 +75,20 @@ All work goes on the branch `claude/project-thread-tx7lhm` with one draft PR. Me
 | J08 | 1 | fixed | Festivals that moved (Sundance, Slamdance) carry dated cities; the city offered follows the year (2026, MMXXVI, ’26), an unread year offers none, and a city from another year gets a note; tests/unit/festivals.test.mjs, tests/browser/festival.test.mjs (fails on main) |
 | L04 | 1 | fixed | The medallion shows every line assigned to it, joined like a ribbon; warns when the text is too long to read or a star and words compete; the slot picker names who is already in it; tests/unit/engine.test.mjs (2 of 3 new fail on main) |
 | V03 | 1 | fixed | Social card uses the laurel's casing (Title Case included) and italics for title and detail; tests/browser/social.test.mjs (fails on main) |
-| D05 | 2 | todo | |
+| D05 | 2 | fixed | Links are checked before use (sanitizeDoc): a damaged shape is refused and your last laurel stays, with a message; tests/unit/engine.test.mjs, tests/browser/links.test.mjs (fails on main) |
 | D12 | 2 | fixed | Saved images are only added to (another tab's upload and Undo's logo stay); unused ones go after 30 days, oldest first when storage is full; tests/browser/saving.test.mjs (fails on main) |
 | D13 | 2 | fixed | Saves carry a number and a late older one is dropped; an edit made as the page closes is kept and restored; a 'Not saved' badge and one toast when storage refuses; tests/browser/saving.test.mjs (fails on main). Reverse-order completion is guarded in code, not reproduced in a test |
 | D18 | 2 | fixed | Row edits work on a fresh copy, so every edit redraws, saves to the link and undoes; tests/browser/history.test.mjs (fails on main) |
-| D19 | 2 | todo | |
+| D19 | 2 | fixed | A zero-length arc gets a one-degree span (6,496-case sweep finite); a drawing with no size never replaces the stage and says so; tests/unit/engine.test.mjs |
 | D26 | 2 | todo | |
 | D31 | 2 | todo | |
 | D35 | 2 | todo | |
-| D38 | 2 | todo | |
+| D38 | 2 | fixed | Non-text strings can't carry quotes or markup, colors and gradient values are validated in paintRef, ids are sanitized, decompression is capped at 4 MB; tests/unit/engine.test.mjs, tests/browser/links.test.mjs (fails on main) |
 | D43 | 2 | todo | |
-| D44 | 2 | todo | |
+| D44 | 2 | fixed | Opening another link in the same tab, or Back and Forward between links, loads that laurel (Undo returns); a broken one leaves the design and restores the address; tests/browser/links.test.mjs (fails on main) |
 | J02 | 2 | fixed | A status choice and an email import are one Undo step each (film title included); a click on the stage selects without touching Redo, a drag is one step and pointercancel ends it; menu numbers stored as numbers; Undo/Redo show when unavailable; tests/browser/history.test.mjs (fails on main). Typing stays one step per edit by choice |
 | J03 | 2 | fixed | The Social film title and detail live in the laurel's document (link and autosave), not device prefs; an email's film title goes there too; tests/browser/film.test.mjs (fails on main) |
-| J04 | 2 | todo | |
+| J04 | 2 | fixed | Leaving for the story remembers this tab's laurel; Make a laurel comes back to it, not the last autosave; tests/browser/links.test.mjs (fails on main) |
 | L05 | 2 | fixed | Lines and Row entries reorder only from their own drag, by id; dropped text (numbers, words, empty, out of range) never moves or empties a list; tests/browser/history.test.mjs (fails on main) |
 | D02 | 3 | todo | |
 | D03 | 3 | todo | |
