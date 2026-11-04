@@ -142,14 +142,16 @@ function loadPrefs() {
   let p = {}; try { p = JSON.parse(localStorage.getItem('daphne.studio') || '{}'); } catch (e) { /* a convenience */ }
   const o = { ...DEFAULTS, ...p };
   for (const k of ['social', 'video', 'web', 'email', 'kit', 'pack']) o[k] = { ...DEFAULTS[k], ...(p[k] || {}) };
-  o.social.title = o.social.title || ''; return o;
+  delete o.social.title; delete o.social.line; // a film's words belong to its laurel, not to this device (older prefs kept them)
+  return o;
 }
 let photo = null; // a still or poster for the social card: this session only, never stored
 
 export function openStudio(ctx) {
-  const { h } = ctx, P = loadPrefs();
-  const save = () => { try { localStorage.setItem('daphne.studio', JSON.stringify(P)); } catch (e) { /* a convenience */ } };
-  const d0 = () => ctx.doc;
+  const { h } = ctx, P = loadPrefs(), d0 = () => ctx.doc;
+  // the film's title and detail line travel with this laurel (its link, its autosave), never to the next one
+  P.social.title = (d0().film && d0().film.title) || ''; P.social.line = (d0().film && d0().film.line) || '';
+  const save = () => { try { const { title, line, ...social } = P.social; localStorage.setItem('daphne.studio', JSON.stringify({ ...P, social })); } catch (e) { /* a convenience */ } };
   const hasRow = () => !!(d0().row && d0().row.items && d0().row.items.length && ctx.rowScene);
   // the row as it's drawn: its laurels in order, without hidden ones or artwork missing on this device
   const rowShown = () => { const sc = hasRow() && ctx.rowScene({ bg: false }); return sc ? sc.parts.map((p) => p.it) : []; };
@@ -195,7 +197,11 @@ export function openStudio(ctx) {
   const chips = (items, cur, on) => h('div', { class: 'chips' }, items.map(([v, l]) => h('button', { class: 'chip' + (v === cur ? ' on' : ''), onclick: () => on(v) }, l)));
   const label = (t, ...kids) => h('div', { class: 'olabel' }, h('span', {}, t), ...kids);
   const toggle = (text, on, set) => h('label', { class: 'switch' }, h('input', { type: 'checkbox', checked: !!on, onchange: (e) => set(e.target.checked) }), text);
-  const set = (k, v, o = {}) => { const path = k.split('.'); let t = P; while (path.length > 1) t = t[path.shift()]; t[path[0]] = v; save(); if (o.opts !== false) show(); else drawPreview(); };
+  const set = (k, v, o = {}) => {
+    const path = k.split('.'); let t = P; while (path.length > 1) t = t[path.shift()]; t[path[0]] = v; save();
+    if (k === 'social.title' || k === 'social.line') { const d = d0(); d.film = { ...(d.film || {}), [k.slice(7)]: v }; if (!d.film.title && !d.film.line) delete d.film; ctx.settle(); }
+    if (o.opts !== false) show(); else drawPreview();
+  };
   const copy = async (text, what = 'Copied') => { try { await navigator.clipboard.writeText(text); ctx.toast(what); } catch (e) { window.prompt('Copy this', text); } };
   const run = (label, fn, cls = 'btn primary') => { const b = h('button', { class: cls, onclick: async () => { if (b.disabled) return; const was = b.textContent; b.disabled = true; b.textContent = 'Making…'; try { await fn((s) => (b.textContent = s)); } catch (e) { console.error(e); ctx.toast('That didn’t work: ' + (e.message || e)); } finally { b.disabled = false; b.textContent = was; } } }, label); return b; };
   function ways(cur = P.way, on = (v) => set('way', v)) {

@@ -86,8 +86,8 @@ All work goes on the branch `claude/project-thread-tx7lhm` with one draft PR. Me
 | D38 | 2 | todo | |
 | D43 | 2 | todo | |
 | D44 | 2 | todo | |
-| J02 | 2 | todo | |
-| J03 | 2 | todo | |
+| J02 | 2 | fixed | A status choice and an email import are one Undo step each (film title included); a click on the stage selects without touching Redo, a drag is one step and pointercancel ends it; menu numbers stored as numbers; Undo/Redo show when unavailable; tests/browser/history.test.mjs (fails on main). Typing stays one step per edit by choice |
+| J03 | 2 | fixed | The Social film title and detail live in the laurel's document (link and autosave), not device prefs; an email's film title goes there too; tests/browser/film.test.mjs (fails on main) |
 | J04 | 2 | todo | |
 | L05 | 2 | fixed | Lines and Row entries reorder only from their own drag, by id; dropped text (numbers, words, empty, out of range) never moves or empties a list; tests/browser/history.test.mjs (fails on main) |
 | D02 | 3 | todo | |

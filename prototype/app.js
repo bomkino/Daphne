@@ -60,14 +60,25 @@ function applyPreset(p, keepText = true, newId = () => 'f' + ++uid, from = doc, 
 const get = (path, o = doc) => path.split('.').reduce((a, k) => (a == null ? a : a[k]), o);
 function set(path, v, o = doc) { const ks = path.split('.'); let a = o; for (const k of ks.slice(0, -1)) { if (a[k] == null || typeof a[k] !== 'object') a[k] = {}; a = a[k]; } a[ks[ks.length - 1]] = v; }
 let lastSnap = JSON.stringify(doc);
+// one user action is one step of history: a batch (a status with its layout, an email import) records its start once
+let batching = 0, batchPushed = false;
+function remember() { if (batching && batchPushed) return; undoStack.push(lastSnap); if (undoStack.length > 200) undoStack.shift(); future.length = 0; if (batching) batchPushed = true; historyButtons(); }
+function batch(fn) { batching++; try { return fn(); } finally { if (--batching === 0) batchPushed = false; } }
+// numbers chosen from a menu are stored as numbers, so history and the renderer agree on them ("-20", not a string)
+function normalize(d) {
+  const num = (o, k) => { if (o && typeof o[k] === 'string' && o[k] !== 'auto' && /^-?\d+(\.\d+)?$/.test(o[k])) o[k] = +o[k]; };
+  num(d.layout, 'dy'); num(d.branch && d.branch.spine, 'gap');
+  return d;
+}
+function historyButtons() { const u = document.getElementById('undo'), r = document.getElementById('redo'); if (u) u.disabled = !undoStack.length; if (r) r.disabled = !future.length; }
 function change(path, v, rebuild = false) {
   if (JSON.stringify(get(path)) === JSON.stringify(v)) { if (rebuild) buildPanel(); return; }
-  undoStack.push(lastSnap); if (undoStack.length > 200) undoStack.shift(); future.length = 0; set(path, v);
+  remember(); set(path, v); normalize(doc);
   if (doc.poster && doc.poster.autoInk && /^(paint\.(branch|inner|ornament)|text\.|roles\.\w+\.paint)/.test(path)) { doc.poster.autoInk = false; delete doc.poster.saved; toast('Auto ink is off: you chose a color'); rebuild = true; }
   if (/^(branch|paint|roles|text|canvas|frame|ribbon|form)/.test(path)) delete doc.presetName; // hand-tuned: no longer exactly the preset
   lastSnap = JSON.stringify(doc); schedule(); if (rebuild) buildPanel(); saveHash(); thumbsDirty = true; if (path === 'fields' || /^(row|poster)/.test(path)) saveAssets();
 }
-function replaceDoc(d, rebuild = true) { undoStack.push(lastSnap); future.length = 0; doc = d; lastSnap = JSON.stringify(doc); schedule(); if (rebuild) buildPanel(); saveHash(); thumbsDirty = true; saveAssets(); refreshMode(); }
+function replaceDoc(d, rebuild = true) { remember(); doc = normalize(d); lastSnap = JSON.stringify(doc); schedule(); if (rebuild) buildPanel(); saveHash(); thumbsDirty = true; saveAssets(); refreshMode(); }
 
 // ── logos: official artwork the user uploads. The image lives in ASSETS (and this browser's storage); the field keeps
 // only its key and aspect ratio, so undo and share links stay small. A shared link's logo has to be uploaded again.
@@ -164,12 +175,12 @@ function decorateStage() {
     const ids = t.dataset.ids.split(' '), f0 = doc.fields.find((f) => f.id === ids[0]); if (!f0) return;
     selectField(f0.id);
     const m = svg.getScreenCTM().inverse(), p0 = new DOMPoint(e.clientX, e.clientY).matrixTransform(m), base = { dx: f0.dx || 0, dy: f0.dy || 0 };
-    undoStack.push(lastSnap); future.length = 0;
-    const move = (ev) => { const p = new DOMPoint(ev.clientX, ev.clientY).matrixTransform(m); f0.dx = Math.round((base.dx + p.x - p0.x) * 10) / 10; f0.dy = Math.round((base.dy + p.y - p0.y) * 10) / 10; schedule(); };
-    const up = () => { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); lastSnap = JSON.stringify(doc); saveHash(); };
-    window.addEventListener('pointermove', move); window.addEventListener('pointerup', up);
+    let moved = false;
+    const move = (ev) => { const p = new DOMPoint(ev.clientX, ev.clientY).matrixTransform(m); if (!moved) { if (Math.hypot(ev.clientX - e.clientX, ev.clientY - e.clientY) < 3) return; moved = true; remember(); } f0.dx = Math.round((base.dx + p.x - p0.x) * 10) / 10; f0.dy = Math.round((base.dy + p.y - p0.y) * 10) / 10; schedule(); };
+    const up = () => { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); window.removeEventListener('pointercancel', up); if (!moved) return; lastSnap = JSON.stringify(doc); saveHash(); };
+    window.addEventListener('pointermove', move); window.addEventListener('pointerup', up); window.addEventListener('pointercancel', up);
   });
-  svg.addEventListener('dblclick', (e) => { const t = e.target.closest('[data-ids]'); if (!t || !t.dataset.ids) return; const f0 = doc.fields.find((f) => f.id === t.dataset.ids.split(' ')[0]); if (f0) { undoStack.push(lastSnap); f0.dx = 0; f0.dy = 0; lastSnap = JSON.stringify(doc); schedule(); } });
+  svg.addEventListener('dblclick', (e) => { const t = e.target.closest('[data-ids]'); if (!t || !t.dataset.ids) return; const f0 = doc.fields.find((f) => f.id === t.dataset.ids.split(' ')[0]); if (f0 && (f0.dx || f0.dy)) { remember(); f0.dx = 0; f0.dy = 0; lastSnap = JSON.stringify(doc); schedule(); saveHash(); } });
 }
 function selectField(id) {
   selected = id;
@@ -380,7 +391,7 @@ const sectionsEl = document.getElementById('sections');
 let thumbsDirty = true, thumbTimer = 0;
 const head = (title, sub, ...actions) => h('div', { class: 'tabhead' }, h('h2', {}, title), sub ? h('p', {}, sub) : null, actions.length ? h('div', { class: 'actions' }, ...actions) : null);
 const ui = {
-  get doc() { return doc; }, state, h, clone, change, replaceDoc, schedule, toast, layoutById, applyLayout, LAYOUTS, fieldRow, addField, selectField,
+  get doc() { return doc; }, state, h, clone, change, replaceDoc, batch, schedule, toast, layoutById, applyLayout, LAYOUTS, fieldRow, addField, selectField,
   newId: () => 'f' + ++uid, rebuild: () => buildPanel(),
   openFixer: (cb, o) => ctx.openFixer && ctx.openFixer(cb, o),
   addLogo: (a) => { const fs = clone(doc.fields); fs.push({ id: 'f' + ++uid, kind: 'logo', text: '', role: 'hero', slot: 'inside', show: true, ...a }); change('fields', fs, true); },
@@ -408,7 +419,6 @@ function buildPanel() {
   else if (T === 'canvas') sectionsEl.append(...canvasTab());
   else if (T === 'about') sectionsEl.append(...aboutTab());
   // the wrapper selects coerce numbers for dy/gap
-  sectionsEl.querySelectorAll('select').forEach((s) => s.addEventListener('change', () => { const v = get('layout.dy'); if (typeof v === 'string' && v !== 'auto') set('layout.dy', +v); const g = get('branch.spine.gap'); if (typeof g === 'string' && g !== 'auto') set('branch.spine.gap', +g); }));
   document.getElementById('panel').scrollTop = scroll;
   thumbsDirty = true; schedule();
 }
@@ -678,8 +688,8 @@ function shuffle(part) {
 }
 
 // ── undo / redo ──
-function undo() { if (!undoStack.length) return; future.push(JSON.stringify(doc)); doc = JSON.parse(undoStack.pop()); lastSnap = JSON.stringify(doc); buildPanel(); refreshMode(); schedule(); saveHash(); }
-function redo() { if (!future.length) return; undoStack.push(JSON.stringify(doc)); doc = JSON.parse(future.pop()); lastSnap = JSON.stringify(doc); buildPanel(); refreshMode(); schedule(); saveHash(); }
+function undo() { if (!undoStack.length) return; future.push(JSON.stringify(doc)); doc = normalize(JSON.parse(undoStack.pop())); lastSnap = JSON.stringify(doc); buildPanel(); refreshMode(); schedule(); saveHash(); historyButtons(); }
+function redo() { if (!future.length) return; undoStack.push(JSON.stringify(doc)); doc = normalize(JSON.parse(future.pop())); lastSnap = JSON.stringify(doc); buildPanel(); refreshMode(); schedule(); saveHash(); historyButtons(); }
 const refreshMode = () => { if (MODES[mode] && MODES[mode].refresh) MODES[mode].refresh(); };
 document.getElementById('undo').onclick = undo; document.getElementById('redo').onclick = redo;
 window.addEventListener('keydown', (e) => {
@@ -771,7 +781,7 @@ const modebar = document.getElementById('modebar'), modepanel = document.getElem
 const ctx = {
   get doc() { return doc; }, change, replaceDoc, schedule, clone, merge, h, toast, download, measure, render: (d, scale = 1) => render(d, { measure, scale }),
   ensureFonts, svgWithFonts, exportSvgText, toPng, toPdf, fileName, slug, stamp, altText, ASSETS, saveAssets, addAsset, readLogo, stage, modebar, modepanel, showNotes, layoutFields, layoutById, LAYOUTS, PRESETS, applyPreset, zip,
-  pushUndo: () => { undoStack.push(lastSnap); future.length = 0; }, settle: () => { lastSnap = JSON.stringify(doc); saveHash(); }, rebuild: () => buildPanel(), get last() { return last; }, get mode() { return mode; }, get modes() { return MODES; },
+  pushUndo: () => remember(), batch, settle: () => { lastSnap = JSON.stringify(doc); saveHash(); }, rebuild: () => buildPanel(), get last() { return last; }, get mode() { return mode; }, get modes() { return MODES; },
   prefs: () => ({ pngW: (doc.out && doc.out.pngW) || 3000, bg: !(doc.out && doc.out.pngBg === false) }),
   fixNote: null, openFixer: null, shareLink: async () => location.href.split('#')[0] + '#l=' + (await pack(doc)),
   // size an SVG to the stage, keeping its shape (no letterboxing)
@@ -835,8 +845,8 @@ function drawSmallSizes() {
   // an edit made just before the page closed, on top of this same laurel: bring it back
   if (pending && pending.doc && pending.from === lastPacked) { try { doc = merge(clone(DEFAULT_DOC), pending.doc); restored = true; } catch (e) { /* keep the saved one */ } }
   for (const f of doc.fields) { const n = +String(f.id).replace(/\D/g, ''); if (n >= uid) uid = n + 1; }
-  lastSnap = JSON.stringify(doc);
-  buildRail(); buildPanel();
+  normalize(doc); lastSnap = JSON.stringify(doc);
+  buildRail(); buildPanel(); historyButtons();
   let m0 = 'laurel'; try { m0 = sessionStorage.getItem('daphne.mode') || 'laurel'; } catch (e) { /* a convenience */ }
   mode = ''; MODES[''] = {}; setMode(MODES[m0] ? m0 : 'laurel'); delete MODES[''];
   schedule();

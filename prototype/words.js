@@ -43,7 +43,8 @@ export function wordsTab(ui) {
   }
   const applyLayoutId = (id) => { const L = ui.layoutById(id); if (L) ui.replaceDoc({ ...ui.applyLayout(ui.doc, L, ui.newId), layoutBy: 'user', userLayoutId: id }); };
 
-  function pickStatus(s) {
+  function pickStatus(s) { ui.batch(() => pickStatusNow(s)); }
+  function pickStatusNow(s) {
     setKind('status', s);
     const hasAward = ui.doc.fields.some((f) => f.kind === 'award' && vis(f) && f.text);
     if (WANTS_AWARD.test(s) && !hasAward) applyLayoutId('winner');
@@ -195,7 +196,8 @@ export function wordsTab(ui) {
       h('div', { class: 'acts' }, h('button', { class: 'btn small primary', onclick: () => applyEmail(r) }, 'Use these'), h('button', { class: 'btn small ghost', onclick: () => { st.emailText = ''; st.emailOpen = false; st.emailPick = null; ui.rebuild(); } }, 'Clear')),
       h('div', { class: 'hint' }, 'Read in your browser; nothing is sent anywhere. Check each line against the email.'));
   }
-  function applyEmail(r) {
+  function applyEmail(r) { ui.batch(() => applyEmailNow(r)); }
+  function applyEmailNow(r) {
     const chosen = { ...(st.emailPick || {}) }, pick = (k) => !!r[k] && (chosen[k] ?? !OPTIONAL.includes(k));
     if (pick('award') && !ui.doc.fields.some((f) => f.kind === 'award' && vis(f))) applyLayoutId('winner');
     if (pick('festival')) setKind('festival', r.festival, { extra: { fid: r.fid || null } });
@@ -203,9 +205,9 @@ export function wordsTab(ui) {
     if (pick('award')) setKind('award', r.award);
     if (pick('category')) setKind('category', r.category);
     if (pick('edition')) { const fs = ui.clone(ui.doc.fields), at = Math.max(0, fs.findIndex((x) => x.kind === 'status' && vis(x)) + 1); if (!fs.some((x) => x.kind === 'edition' && vis(x))) { fs.splice(at, 0, { id: ui.newId(), kind: 'edition', text: r.edition, role: 'eyebrow', slot: 'inside', show: true }); ui.change('fields', fs); } else setKind('edition', r.edition); }
-    if (pick('film')) { try { const p = JSON.parse(localStorage.getItem('daphne.studio') || '{}'); p.social = { ...(p.social || {}), title: r.film }; localStorage.setItem('daphne.studio', JSON.stringify(p)); } catch (e) { /* a convenience */ } }
+    if (pick('film')) ui.change('film', { ...(ui.doc.film || {}), title: r.film });
     st.emailOpen = false; st.emailText = ''; st.emailPick = null;
-    if (pick('status')) pickStatus(r.status); else ui.rebuild();
+    if (pick('status')) pickStatusNow(r.status); else ui.rebuild();
     ui.toast(pick('film') ? 'Filled in from the email. The film’s title is ready for your social card.' : 'Filled in from the email: check each line');
   }
   const emailArea = h('textarea', { rows: 5, class: 'emailin', placeholder: 'Paste the email the festival sent you. Daphne picks out the status, the festival, the year, the award and the section.', 'aria-label': 'The festival’s email', oninput: (e) => { st.emailText = e.target.value; st.emailPick = null; showFound(); } }, st.emailText || '');
