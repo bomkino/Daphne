@@ -12,7 +12,7 @@ await page.waitForFunction('!!window.__stress', null, { timeout: 600000 });
 const s = await page.evaluate(() => window.__stress);
 console.log(`stress: ${s.total - s.bad}/${s.total} clean, ${s.adv} advisories, max ${s.maxMs.toFixed(0)} ms, max ${s.maxKb.toFixed(0)} KB`);
 for (const [k, n] of Object.entries(s.kinds)) console.log(`  ${n} × ${k}`);
-if (s.bad) console.log('  failing documents: window.__docs on the stress page');
+if (s.bad) { for (const f of s.fails) console.log('  ✗ ' + f); console.log('  failing documents: window.__docs on the stress page'); }
 if (errors.length) console.log('page errors:', errors);
 await close();
 const allow = process.argv.includes('--allow') ? +process.argv[process.argv.indexOf('--allow') + 1] : 0;

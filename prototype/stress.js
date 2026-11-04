@@ -166,14 +166,14 @@ const card = (res) => `<div class="card${res.issues.length ? ' bad' : ''}">${res
   const fonts = new Set(['Noto Sans', ...FUZZ_FONTS]); PRESETS.forEach((p) => Object.values(p.doc.roles || {}).forEach((r) => r && r.font && fonts.add(r.font)));
   await Promise.all([...fonts].map((f) => loadFont(f, [300, 400, 500, 600, 700, 800, 900])));
   await document.fonts.ready;
-  const out = document.getElementById('out'), table = [], all = { total: 0, bad: 0, adv: 0, ms: 0, maxMs: 0, maxKb: 0, kinds: {} };
+  const out = document.getElementById('out'), table = [], all = { total: 0, bad: 0, adv: 0, ms: 0, maxMs: 0, maxKb: 0, kinds: {}, fails: [] };
   const kind = (x) => x.replace(/“.*”/, '“…”').replace(/[\d.]+ (px|ms|KB)/, 'N $1').replace(/by [\d.]+/, '').trim();
   const run = (title, cases, drawAll, limit = 40) => {
     let bad = 0, adv = 0, ms = 0, shown = 0; const grid = document.createElement('div'); grid.className = 'grid';
     for (const [name, d, fields] of cases) {
       d.fields = clone(fields); const res = check(d, name);
       all.total++; ms += res.ms; all.maxMs = Math.max(all.maxMs, res.ms); all.maxKb = Math.max(all.maxKb, res.kb);
-      if (res.issues.length) { bad++; res.issues.forEach((x) => (all.kinds[kind(x)] = (all.kinds[kind(x)] || 0) + 1)); }
+      if (res.issues.length) { bad++; res.issues.forEach((x) => (all.kinds[kind(x)] = (all.kinds[kind(x)] || 0) + 1)); all.fails.push(`${title} · ${name}: ${res.issues.join('; ')}`); }
       if (res.adv.length) adv++;
       if (drawAll || (res.issues.length && shown++ < limit)) grid.insertAdjacentHTML('beforeend', card(res));
     }
