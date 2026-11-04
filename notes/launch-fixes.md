@@ -9,7 +9,7 @@ Started November 3, 2026. This file is the working plan and the record. Update t
 How we'll know:
 
 1. Every fix has a regression test in `tests/` that fails on the code before the fix and passes after it.
-2. The 1,702-case stress suite passes with zero failures (today: one known badge case, K01).
+2. The 1,702-case stress suite passes with zero failures (K01, the one known badge case, passes since D04, November 4, 2026).
 3. No look changes by accident: all 78 presets and the default laurel are rendered before and after each wave and compared. Intended changes are inspected by eye for clipping.
 4. Each wave is checked in a real browser at 1440, 390 and 320 px wide, with a keyboard.
 5. CI runs all of it on every push once the repository is public.
@@ -60,7 +60,7 @@ All work goes on the branch `claude/project-thread-tx7lhm` with one draft PR. Me
 | ID | Wave | Status | Test / note |
 | --- | --- | --- | --- |
 | D17 | 0 | fixed | Repo public (November 4, 2026), MIT detected by GitHub; tests and CI in the open |
-| D40 | 0 | todo | |
+| D40 | 0 | fixed (Daphne half) | CI runs unit, browser, stress (no allowance) and looks on every push and PR, on the same Playwright as local runs. Site half with D41 |
 | D01 | 1 | fixed | Status read per sentence about this film; unsure results unticked; tests/unit/email.test.mjs (6 of 12 fail on main) |
 | D08 | 1 | fixed | Social caption and its Copy follow the title as typed; tests/browser/social.test.mjs (fails on main) |
 | D20 | 1 | fixed | Smallest words read from the drawn SVG in every slot (flank, arcs, ribbon, medallion); no words means no size claim; pack guidelines use the variant that needs the most room; tests/browser/print.test.mjs (main says 99.0 pt), tests/unit/engine.test.mjs |
@@ -90,9 +90,9 @@ All work goes on the branch `claude/project-thread-tx7lhm` with one draft PR. Me
 | J03 | 2 | fixed | The Social film title and detail live in the laurel's document (link and autosave), not device prefs; an email's film title goes there too; tests/browser/film.test.mjs (fails on main) |
 | J04 | 2 | fixed | Leaving for the story remembers this tab's laurel; Make a laurel comes back to it, not the last autosave; tests/browser/links.test.mjs (fails on main) |
 | L05 | 2 | fixed | Lines and Row entries reorder only from their own drag, by id; dropped text (numbers, words, empty, out of range) never moves or empties a list; tests/browser/history.test.mjs (fails on main) |
-| D02 | 3 | todo | |
-| D03 | 3 | todo | |
-| D04 | 3 | todo | |
+| D02 | 3 | fixed | one physical width; the unit only changes how it's shown (test: browser print, unit) |
+| D03 | 3 | fixed | Motion keys its preview on what's drawn, not its length (test: browser motion) |
+| D04 | 3 | fixed | every line's painted box, nudges and ink room included, sits in the canvas; a nudged line is judged where it's drawn (tests: unit engine D04) |
 | D06 | 3 | todo | |
 | D07 | 3 | todo | |
 | D14 | 3 | todo | |
@@ -126,3 +126,4 @@ All work goes on the branch `claude/project-thread-tx7lhm` with one draft PR. Me
 | L02 | 5 | todo | |
 | L03 | 5 | todo | |
 | D41 | site | todo | |
+| K01 | 6 | fixed | the words-only badge (stress B37) now fits its canvas through D04; the stress suite runs with no allowance |

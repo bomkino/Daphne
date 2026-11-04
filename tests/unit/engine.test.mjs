@@ -120,3 +120,30 @@ test('every pasted shape draws a finite laurel', () => {
     assert.match(r.svg, /<path[^>]+d="M[\d.-]+ [\d.-]+[CQL]/, `${p} draws leaves`);
   }
 });
+
+// D04: a nudged line is drawn inside the canvas and judged where it is drawn
+const inside = (vb, b, room = 0) => b[0] - room >= vb[0] - 1e-6 && b[1] - room >= vb[1] - 1e-6 && b[0] + b[2] + room <= vb[0] + vb[2] + 1e-6 && b[1] + b[3] + room <= vb[1] + vb[3] + 1e-6;
+test('a line nudged sideways or up stays inside the canvas', () => {
+  for (const [dx, dy] of [[160, 0], [-160, 0], [0, -260], [0, 260], [120, 120]]) {
+    const d = clone(DEFAULT_DOC); d.canvas.pad = 0;
+    d.fields = d.fields.map((f) => (f.kind === 'festival' ? { ...f, dx, dy } : f));
+    const r = render(d, { measure });
+    for (const it of r.items) assert.ok(inside(r.viewBox, it.bbox), `${dx},${dy}: ${it.slot} ${it.bbox.map(Math.round)} outside ${r.viewBox.map(Math.round)}`);
+  }
+});
+test('a line nudged into the leaves is not reported as clear', () => {
+  const d = clone(DEFAULT_DOC);
+  const before = render(d, { measure }).report.lines.find((l) => /northlight/i.test(l.s));
+  d.fields = d.fields.map((f) => (f.kind === 'festival' ? { ...f, dx: 70 } : f));
+  const after = render(d, { measure }).report.lines.find((l) => /northlight/i.test(l.s));
+  assert.ok(before.margin > -0.5, `clear before: ${before.margin}`);
+  assert.ok(after.margin < before.margin - 60, `${after.margin} after a 70 nudge`);
+});
+test('accented words with no padding and no branches keep room for their ink', () => {
+  for (const slot of ['inside', 'above', 'below']) {
+    const d = applyForm(clone(DEFAULT_DOC), 'text'); d.canvas.pad = 0;
+    d.fields = [{ id: 'a', kind: 'festival', text: 'Ångström Fílm Fëstival', role: 'hero', slot, show: true }, { id: 'y', kind: 'year', text: 'Égypte 2026', role: 'sub', slot: 'inside', show: true }];
+    const r = render(d, { measure });
+    for (const it of r.items) assert.ok(inside(r.viewBox, it.bbox, it.bbox[3] * 0.15), `${slot}: ${it.slot} ${it.bbox} in ${r.viewBox}`);
+  }
+});

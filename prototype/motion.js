@@ -10,6 +10,8 @@ const FRAMES = [['1920x1080', 'HD 1920 × 1080'], ['3840x2160', '4K 3840 × 2160
 const NS = 'http://www.w3.org/2000/svg';
 const clamp01 = (v) => Math.max(0, Math.min(1, v));
 const ease = { out: (p) => 1 - (1 - p) ** 3, inOut: (p) => (p < 0.5 ? 4 * p * p * p : 1 - (-2 * p + 2) ** 3 / 2), sine: (p) => -(Math.cos(Math.PI * p) - 1) / 2 };
+// a short fingerprint of a drawing's full text (FNV-1a), so a same-length edit (2026 → 2027, gold → silver) still redraws
+const hashOf = (s) => { let x = 2166136261; for (let i = 0; i < s.length; i++) { x ^= s.charCodeAt(i); x = Math.imul(x, 16777619); } return (x >>> 0).toString(36) + '.' + s.length; };
 const solidOf = (p) => (!p ? null : typeof p === 'string' ? p : p.type === 'solid' ? p.color : p.type === 'metal' ? (METALS[p.metal] || METALS.gold)[2][1] : p.stops[Math.floor(p.stops.length / 2)][1]);
 const n2 = (v) => Math.round(v * 100) / 100;
 
@@ -130,7 +132,7 @@ export function motionMode(ctx) {
   // ── preview ──
   function buildPreview() {
     const [W, H] = dims(), S = subjects();
-    const key = JSON.stringify([M(), S.vb, S.items.map((it) => (it.r ? it.r.svg.length + ':' + it.r.viewBox.join() : it.art.length)), ctx.doc.canvas.bg]);
+    const key = JSON.stringify([M(), S.vb, S.items.map((it) => (it.r ? hashOf(it.r.svg) + ':' + it.r.viewBox.join() : hashOf(String(it.art)))), ctx.doc.canvas.bg]); // D03: what is drawn, not its length
     if (key === built && live && ctx.stage.contains(live.root)) return;
     built = key;
     const sc = buildScene(S, S.items.map((it) => (it.r ? it.r.svg : '')), W, H, bgColor() || null);

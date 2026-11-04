@@ -347,7 +347,10 @@ export function openStudio(ctx) {
     }
     preview.append(pv);
   }
-  const printIn = () => (P.unit === 'mm' ? P.printW / 25.4 : P.printW);
+  // D02: the printed width is one physical length (inches, unrounded); the unit only changes how it's shown
+  const printIn = () => (P.printInch > 0 ? P.printInch : P.unit === 'mm' ? P.printW / 25.4 : P.printW);
+  const setPrint = (v, unit = P.unit) => { P.printInch = unit === 'mm' ? v / 25.4 : v; set('printW', unit === P.unit ? v : P.unit === 'mm' ? Math.round(v * 25.4) : v); };
+  const setUnit = (u) => { if (u === P.unit) return; const inch = printIn(); P.printInch = inch; P.printW = u === 'mm' ? Math.round(inch * 25.4) : r2(inch); set('unit', u); };
   const fmtLen = (inch) => (P.unit === 'mm' ? `${Math.round(inch * 25.4)} mm` : `${r2(inch)} in`);
   const emailBg = () => { const e = P.email.bg; if (e === 'auto') return P.way === 'color' ? hex(d0().canvas.bg) : null; return e === 'white' ? '#ffffff' : e === 'dark' ? '#1b1b1f' : null; };
 
@@ -395,10 +398,10 @@ export function openStudio(ctx) {
         go(run('Download PDF', async () => ctx.download(await pdfOf(P.way, P.pdfMm), base() + suffix(P.way) + '.pdf'))));
     } else if (D.id === 'print') {
       const wi = printIn(), pt = sm * wi * 72 / vb[2], minIn = 6 * vb[2] / (72 * sm), px = Math.round(wi * 300);
-      const inp = h('input', { type: 'number', min: P.unit === 'mm' ? 10 : 0.4, max: P.unit === 'mm' ? 1000 : 40, step: P.unit === 'mm' ? 1 : 0.05, value: P.printW, 'aria-label': 'Printed width', onchange: (e) => set('printW', Math.max(+e.target.min, +e.target.value || 1)) });
+      const inp = h('input', { type: 'number', min: P.unit === 'mm' ? 10 : 0.4, max: P.unit === 'mm' ? 1000 : 40, step: P.unit === 'mm' ? 1 : 0.05, value: P.printW, 'aria-label': 'Printed width', onchange: (e) => setPrint(Math.max(+e.target.min, Math.min(+e.target.max, +e.target.value || 1))) });
       put(label('Colorway'), ways(), bgToggle(),
-        label('Printed width'), h('div', { class: 'inrow' }, inp, seg([['in', 'in'], ['mm', 'mm']], P.unit, (u) => { P.printW = u === 'mm' ? Math.round(printIn() * 25.4) : r2(P.printW / 25.4); set('unit', u); }, 'Unit')),
-        h('div', { class: 'chips' }, PRINT_SIZES.map(([n, w]) => h('button', { class: 'chip', onclick: () => set('printW', P.unit === 'mm' ? Math.round(w * 25.4) : w) }, n, h('small', {}, P.unit === 'mm' ? Math.round(w * 25.4) + ' mm' : w + ' in')))),
+        label('Printed width'), h('div', { class: 'inrow' }, inp, seg([['in', 'in'], ['mm', 'mm']], P.unit, setUnit, 'Unit')),
+        h('div', { class: 'chips' }, PRINT_SIZES.map(([n, w]) => h('button', { class: 'chip', onclick: () => setPrint(w, 'in') }, n, h('small', {}, P.unit === 'mm' ? Math.round(w * 25.4) + ' mm' : w + ' in')))),
         info(`${fmtLen(wi)} × ${fmtLen(wi * vb[3] / vb[2])}`, `${px} × ${Math.round(px * vb[3] / vb[2])} px at 300 dpi`),
         !isFinite(sm) ? h('div', { class: 'note' }, 'There are no words in this laurel to size: it’s all artwork. Check the logo’s own small details at this width.') : pt < 6 ? h('div', { class: 'note rule' }, `The smallest words print at ${pt.toFixed(1)} pt. Below about 6 pt they blur on most presses: print it at least ${fmtLen(minIn)} wide, or drop a line.`) : h('div', { class: 'note' }, `The smallest words print at ${pt.toFixed(1)} pt: comfortably readable.`),
         go(run('Download PDF at this size', async () => ctx.download(await pdfOf(P.way, wi * 25.4), `${base()}${suffix(P.way)}-${P.unit === 'mm' ? Math.round(P.printW) + 'mm' : r2(P.printW) + 'in'}.pdf`)),

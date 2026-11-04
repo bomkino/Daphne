@@ -28,3 +28,21 @@ test('a flank laurel at press-kit size reports its real smallest words', async (
   assert.deepEqual(errors, []);
   await context.close();
 });
+
+// D02: the unit only changes how the width is shown
+test('clicking the unit in use changes nothing; in, mm, in comes back to the same size', async () => {
+  const { page, errors, context } = await openApp();
+  await page.evaluate(() => window.__laurel.openExport()); await settle(page, 300);
+  await page.locator('button.dest', { hasText: 'Poster and print' }).click();
+  await page.locator('.chip', { hasText: 'Press kit page' }).click(); await settle(page, 200);
+  const width = page.getByRole('spinbutton', { name: 'Printed width' }), unit = (u) => page.getByRole('radiogroup', { name: 'Unit' }).getByRole('radio', { name: u, exact: true });
+  const px = async () => +/(\d+) × \d+ px at 300 dpi/.exec(await page.locator('.modal').innerText())[1];
+  assert.equal(await width.inputValue(), '2'); const p0 = await px(); assert.equal(p0, 600);
+  for (let i = 0; i < 3; i++) await unit('in').click();
+  assert.equal(await width.inputValue(), '2'); assert.equal(await px(), 600);
+  await unit('mm').click(); assert.equal(await width.inputValue(), '51'); assert.equal(await px(), 600);
+  await unit('mm').click(); assert.equal(await width.inputValue(), '51');
+  await unit('in').click(); assert.equal(await width.inputValue(), '2'); assert.equal(await px(), 600);
+  assert.deepEqual(errors, []);
+  await context.close();
+});

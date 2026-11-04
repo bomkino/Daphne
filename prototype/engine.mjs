@@ -910,7 +910,7 @@ export function render(docIn, env = {}) {
     for (const l of out) {
       const top = l.top + off + l.dy, base = top + l.h;
       drawLine(l, l.dx, base, 'inside');
-      if (!flank) report.lines.push({ s: l.text || l.icon, icon: !!l.icon, margin: Math.min(free(top - pad * 0.6, base + l.desc + pad * 0.6) - pad, maxW / 2) - l.w / 2, w: l.w, size: l.size, track: l.track });
+      if (!flank) report.lines.push({ s: l.text || l.icon, icon: !!l.icon, margin: Math.min(free(top - pad * 0.6, base + l.desc + pad * 0.6) - pad, maxW / 2) - l.w / 2 - Math.abs(l.dx || 0), w: l.w, size: l.size, track: l.track }); // a nudged line is judged where it's drawn
     }
   }
   let top = flank ? Math.min(B.top, -H) : B.top, bottom = B.bottom;
@@ -1121,6 +1121,8 @@ export function render(docIn, env = {}) {
 
   // canvas
   const pad = doc.canvas.pad;
+  // D04: every line's painted box, nudges included, sits inside the canvas (with a little room for ink past the advance: accents, italics)
+  for (const it of items) { const ink = it.slot === 'badge' ? 0 : it.bbox[3] * 0.2; /* the medallion is drawn to its box */ halfWExtra = Math.max(halfWExtra, -it.bbox[0] + ink, it.bbox[0] + it.bbox[2] + ink); top = Math.min(top, it.bbox[1] - ink); bottom = Math.max(bottom, it.bbox[1] + it.bbox[3] + ink); }
   const halfW = Math.max(halfW0, halfWExtra);
   let vx = -halfW - pad, vy = top - pad, vw = 2 * (halfW + pad), vh = bottom - top + 2 * pad;
   // legibility, measured on the real result: lines placed outside (ribbon, arcs, below…) make the laurel taller than
