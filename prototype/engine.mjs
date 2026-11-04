@@ -878,9 +878,12 @@ export function render(docIn, env = {}) {
   const ribbonPaint = doc.ribbon.paint || (FG && frameInk) || doc.paint.branch; // across a filled seal the ribbon takes its ink, so it reads against the face
   const ribbonInk = doc.ribbon.text && doc.ribbon.text !== 'auto' ? doc.ribbon.text : lumOf(solidOf(ribbonPaint)) > 0.5 ? '#1a1206' : bgSolid && lumOf(bgSolid) > 0.6 ? bgSolid : '#ffffff';
   // badge: a medallion in the top gap holding an icon or a short text (a year, "1st")
+  // several lines in the medallion share it, joined like a ribbon's ("1st · 2026"), so none goes missing
   const badgeF = toLines(fieldsIn('badge'));
   if (badgeF.length) {
-    const l = badgeF[0], rb = Math.max(8, H * 0.62) * L.badgeR; let cy = B.top + rb * 0.15;
+    const words = badgeF.filter((x) => !x.icon), l = words.length ? { s: words.map((x) => x.s).join(L.joinSep), ids: badgeF.flatMap((x) => x.ids) } : badgeF[0];
+    if (words.length && words.length < badgeF.length) report.warnings.push('The medallion holds words or a star, not both: the star is left out. Move one of them out of the medallion.');
+    const rb = Math.max(8, H * 0.62) * L.badgeR; let cy = B.top + rb * 0.15;
     const inside = FR && (!FG || (FG.hasBand && fieldsIn('arc-top').length));
     if (FG) cy = inside ? -FG.tb + rb + padOf(H) * 0.5 : -FG.ob;
     // tendrils curl into the top gap: the medallion rises clear of them
@@ -894,7 +897,7 @@ export function render(docIn, env = {}) {
     const bfill = paintRef(onFace ? frameInk : doc.ribbon.paint || doc.paint.branch, defs, [-rb, cy - rb, 2 * rb, 2 * rb]);
     shapes.push(`<path d="${circleD(0, cy, rb)}" fill="${bfill}"/>`);
     if (l.icon) shapes.push(`<path d="${polyD(starPts(0, cy, rb * 0.62))}" fill="${paintRef(bInk, defs, [-rb, cy - rb, 2 * rb, 2 * rb])}"/>`);
-    else { const r = roleOf('arc'), s = caseOf(l.s, r.case); let size = rb * 0.62; while (measure(s, r.font, r.weight, r.italic, size) > rb * 1.6 && size > 3) size *= 0.92; texts.push(`<text x="0" y="${f(cy + size * 0.36)}" text-anchor="middle" font-family="${esc(r.font)}" font-weight="${r.weight}" font-size="${f(size)}" fill="${paintRef(bInk, defs, [-rb, cy - rb, 2 * rb, 2 * rb])}">${esc(s)}</text>`); }
+    else { const r = roleOf('arc'), s = caseOf(l.s, r.case); let size = rb * 0.62; while (measure(s, r.font, r.weight, r.italic, size) > rb * 1.6 && size > 3) size *= 0.92; if (size < MS * 0.8) report.warnings.push(`"${l.s}" is too long for the medallion to read: keep it to a year or a short word like "1st".`); texts.push(`<text x="0" y="${f(cy + size * 0.36)}" text-anchor="middle" font-family="${esc(r.font)}" font-weight="${r.weight}" font-size="${f(size)}" fill="${paintRef(bInk, defs, [-rb, cy - rb, 2 * rb, 2 * rb])}">${esc(s)}</text>`); }
     items.push({ ids: l.ids, slot: 'badge', bbox: [-rb, cy - rb, 2 * rb, 2 * rb] });
     top = Math.min(top, cy - rb);
   }

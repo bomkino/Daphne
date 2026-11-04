@@ -11,3 +11,35 @@ test('the default laurel renders with a finite canvas', () => {
   assert.ok(r.viewBox.every(Number.isFinite), `viewBox ${r.viewBox}`);
   assert.ok(r.viewBox[2] > 0 && r.viewBox[3] > 0);
 });
+
+// L04: two lines in the medallion both show; nothing marked Show goes missing from the artwork
+const badgeDoc = (extra) => {
+  const d = clone(DEFAULT_DOC);
+  d.fields = [
+    { id: 'a', kind: 'status', text: 'Official Selection', role: 'eyebrow', slot: 'inside', show: true },
+    { id: 'b', kind: 'festival', text: 'Northlight', role: 'hero', slot: 'inside', show: true },
+    { id: 'c', kind: 'year', text: '2026', role: 'sub', slot: 'badge', show: true },
+    ...extra,
+  ];
+  return d;
+};
+const textOf = (svg) => [...svg.matchAll(/<text[^>]*>([^<]*)<\/text>/g)].map((m) => m[1]).join(' | ');
+
+test('a second line in the medallion is shown, not dropped', () => {
+  const r = render(badgeDoc([{ id: 'd', kind: 'edition', text: '75th', role: 'sub', slot: 'badge', show: true }]), { measure });
+  const t = textOf(r.svg);
+  assert.match(t, /2026/, t);
+  assert.match(t, /75TH|75th/, t);
+});
+
+test('a long medallion line comes with a warning', () => {
+  const d = badgeDoc([]); d.fields[0].slot = 'badge';
+  const r = render(d, { measure });
+  assert.match(textOf(r.svg), /official selection/i);
+  assert.ok(r.report.warnings.some((w) => /medallion/.test(w)), r.report.warnings.join(' | '));
+});
+
+test('a year alone in the medallion reads without a warning', () => {
+  const r = render(badgeDoc([]), { measure });
+  assert.ok(!r.report.warnings.some((w) => /medallion/.test(w)), r.report.warnings.join(' | '));
+});

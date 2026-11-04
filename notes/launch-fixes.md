@@ -73,7 +73,7 @@ All work goes on the branch `claude/project-thread-tx7lhm` with one draft PR. Me
 | J06 | 1 | todo | |
 | J07 | 1 | todo | |
 | J08 | 1 | todo | |
-| L04 | 1 | todo | |
+| L04 | 1 | fixed | The medallion shows every line assigned to it, joined like a ribbon; warns when the text is too long to read or a star and words compete; the slot picker names who is already in it; tests/unit/engine.test.mjs (2 of 3 new fail on main) |
 | V03 | 1 | todo | |
 | D05 | 2 | todo | |
 | D12 | 2 | todo | |

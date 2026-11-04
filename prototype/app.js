@@ -270,6 +270,8 @@ function roleEditor(key, label, note) {
 }
 
 // ── fields: every line of the laurel ──
+// the medallion takes several lines, joined; its option says who is already in it
+const sharedBadge = (f) => { const o = doc.fields.filter((x) => x.id !== f.id && x.slot === 'badge' && x.show !== false && (x.text || x.kind === 'icon')).map((x) => (x.kind === 'icon' ? 'the star' : x.text)); return o.length ? ` (with ${o.join(', ')})` : ''; };
 function addField(k) {
   const fs = clone(doc.fields);
   const f = { id: 'f' + ++uid, kind: k, text: k === 'logo' ? '' : k === 'icon' ? 'star' : k === 'year' ? String(new Date().getFullYear()) : '', role: KIND_ROLE[k], slot: 'inside', show: true };
@@ -305,7 +307,7 @@ function fieldRow(f, i) {
       h('div', { class: 'meta' },
         h('select', { title: 'What it is', 'aria-label': 'What it is', onchange: (e) => upd('kind', e.target.value, true) }, KINDS.map((k) => h('option', { value: k, selected: k === f.kind }, KIND_LABEL[k]))),
         h('select', { title: 'How big', 'aria-label': 'Size', onchange: (e) => upd('role', e.target.value) }, ROLES.map(([k, l]) => h('option', { value: k, selected: k === f.role }, l))),
-        h('select', { title: 'Where it sits', 'aria-label': 'Where it sits', onchange: (e) => upd('slot', e.target.value) }, (f.kind === 'logo' ? SLOTS.filter(([k]) => LOGO_SLOTS.includes(k)) : SLOTS).map(([k, l]) => h('option', { value: k, selected: k === (f.slot || 'inside') }, l)))),
+        h('select', { title: 'Where it sits', 'aria-label': 'Where it sits', onchange: (e) => upd('slot', e.target.value) }, (f.kind === 'logo' ? SLOTS.filter(([k]) => LOGO_SLOTS.includes(k)) : SLOTS).map(([k, l]) => h('option', { value: k, selected: k === (f.slot || 'inside') }, k === 'badge' ? l + sharedBadge(f) : l)))),
       h('div', { class: 'flags' },
         h('label', {}, h('input', { type: 'checkbox', checked: f.show !== false, onchange: (e) => upd('show', e.target.checked, true) }), 'Show'),
         f.kind === 'logo' ? null : h('label', { title: 'Join onto the line above (e.g. TRIBECA 2026)' }, h('input', { type: 'checkbox', checked: !!f.join, onchange: (e) => upd('join', e.target.checked) }), 'Join line above'),
