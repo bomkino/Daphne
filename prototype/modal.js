@@ -14,3 +14,20 @@ export function holdFocus(scrim, close) {
     if (prev && prev.focus && document.contains(prev)) prev.focus();
   };
 }
+
+// D10: rebuilding a panel puts focus back on the same control (found by what it's called and which field it's in),
+// so a keyboard user never drops to the page body when the editor redraws itself
+const FOCUSABLE = 'button, input, select, textarea, a[href], [tabindex]';
+const keyOf = (el) => [el.tagName, el.type || '', el.getAttribute('role') || '', el.getAttribute('aria-label') || el.title || el.name || el.id || el.textContent.trim().slice(0, 40), el.closest('[data-id]')?.dataset.id || ''].join('|');
+export function keepFocus(container, rebuild) {
+  const a = document.activeElement, had = a && a !== document.body && container.contains(a);
+  if (!had) return rebuild();
+  const key = keyOf(a), nth = [...container.querySelectorAll(FOCUSABLE)].filter((el) => keyOf(el) === key).indexOf(a);
+  const sel = a.selectionStart != null && /^(text|search|url|tel|number)?$/.test(a.type || '') ? [a.selectionStart, a.selectionEnd] : null;
+  const out = rebuild();
+  if (document.activeElement && document.activeElement !== document.body && document.activeElement !== a) return out;
+  if (container.contains(a)) return out;
+  const same = [...container.querySelectorAll(FOCUSABLE)].filter((el) => keyOf(el) === key), m = same[Math.max(0, nth)] || same[0];
+  if (m) { m.focus({ preventScroll: true }); if (sel) try { m.setSelectionRange(...sel); } catch { /* not a text field */ } }
+  return out;
+}

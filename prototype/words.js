@@ -64,7 +64,7 @@ export function wordsTab(ui) {
   const statusInput = h('input', { type: 'text', value: status, placeholder: 'Or type the exact wording the festival used', list: 'w-statuses', 'aria-label': 'Status', oninput: (e) => setKind('status', e.target.value), onchange: () => ui.rebuild() });
   const q1 = h('section', { class: 'q' },
     h('h3', {}, h('span', { class: 'num' }, '1'), 'What did your film ', h('em', {}, 'get'), '?'),
-    h('div', { class: 'chips' }, STATUS_COMMON.map((s) => chip(s)), h('button', { class: 'chip quiet', 'aria-expanded': String(!!ui.state.moreStatus), onclick: (e) => { ui.state.moreStatus = !ui.state.moreStatus; more.style.display = ui.state.moreStatus ? '' : 'none'; e.currentTarget.textContent = ui.state.moreStatus ? 'Fewer' : 'More, and other languages'; } }, ui.state.moreStatus ? 'Fewer' : 'More, and other languages')),
+    h('div', { class: 'chips' }, STATUS_COMMON.map((s) => chip(s)), h('button', { class: 'chip quiet', 'aria-expanded': String(!!ui.state.moreStatus), onclick: (e) => { ui.state.moreStatus = !ui.state.moreStatus; more.style.display = ui.state.moreStatus ? '' : 'none'; e.currentTarget.textContent = ui.state.moreStatus ? 'Fewer' : 'More, and other languages'; e.currentTarget.setAttribute('aria-expanded', String(!!ui.state.moreStatus)); } }, ui.state.moreStatus ? 'Fewer' : 'More, and other languages')),
     more, statusInput,
     h('datalist', { id: 'w-statuses' }, [...STATUS_COMMON, ...STATUS_MORE, ...Object.values(STATUS_LANG).flat()].map((s) => h('option', { value: s }))));
 

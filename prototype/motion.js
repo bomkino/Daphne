@@ -27,7 +27,8 @@ function spine(B, shift, sx, over) {
 export function motionMode(ctx) {
   const { h } = ctx;
   let playing = true, t0 = 0, tNow = 0, raf = 0, live = null, scrub = null, busy = false, built = '';
-  const M = () => ({ ...MOTION_DEFAULT, ...(ctx.doc.motion || {}) });
+  let frozen = null; // D29: while a video is made, every frame uses the settings it started with
+  const M = () => frozen || ({ ...MOTION_DEFAULT, ...(ctx.doc.motion || {}) });
   const dims = () => M().frame.split('x').map(Number);
   const bgColor = () => { const m = M(); return m.bg === 'transparent' ? null : m.bg === 'black' ? '#000000' : m.bg === 'white' ? '#ffffff' : solidOf(ctx.doc.canvas.bg) || '#000000'; };
 
@@ -65,7 +66,7 @@ export function motionMode(ctx) {
       const gs = [...sv.children].filter((c) => c.localName === 'g'), artG = gs[0], txG = gs[1];
       // the wreath, revealed along the stem by a soft-edged stroke
       const wrapA = doc.createElementNS(NS, 'g'); wrapA.setAttribute('id', id + 'a'); artG.replaceWith(wrapA); wrapA.append(artG);
-      const B = it.r.B, masks = [];
+      const B = it.r.B, masks = []; let rest = null;
       if (B && B.pts && B.pts.length > 2) {
         const sh = +((svgs[i].match(/<g id="h\d+" transform="translate\(([-\d.]+) 0\)"/) || [, 0])[1]), L0 = (B.p && B.p.leaf && Math.max(B.p.leaf.L0, B.p.leaf.L1)) || 30;
         const sw = L0 * 2.7 + 10, mirror = ctx.doc.branch.mirror !== false;
@@ -78,8 +79,10 @@ export function motionMode(ctx) {
           const p = doc.createElementNS(NS, 'path'); p.setAttribute('d', spine(B, sh, sx, sw * 0.6)); p.setAttribute('fill', 'none'); p.setAttribute('stroke', '#fff'); p.setAttribute('stroke-width', n2(sw)); p.setAttribute('pathLength', '1'); p.setAttribute('stroke-dasharray', '1 1'); p.setAttribute('stroke-dashoffset', '0');
           g.append(p); masks.push(p);
         }
-        // the tie and anything the stem doesn't reach (a badge frame, a ribbon) fade in over the first third
-        mask.append(g); defs.append(mask);
+        // D37: the tie and anything the stem doesn't reach (a badge frame, a ribbon's tails) fade in as the growth ends,
+        // so the finished laurel is never cut
+        rest = doc.createElementNS(NS, 'rect'); for (const [k, v] of [['x', vb[0] - vb[2]], ['y', vb[1] - vb[3]], ['width', vb[2] * 3], ['height', vb[3] * 3], ['fill', '#fff'], ['opacity', '0']]) rest.setAttribute(k, v);
+        mask.append(g, rest); defs.append(mask);
         if (M().entrance === 'grow') wrapA.setAttribute('mask', `url(#${id}k)`);
       }
       // the words, one by one
@@ -100,7 +103,7 @@ export function motionMode(ctx) {
         band._range = [0, vb[2] + bw];
       }
       root.append(sv);
-      parts.push({ i, art: wrapA, masks, texts, band, cx: vb[0] + vb[2] / 2, cy: vb[1] + vb[3] / 2, vb, rise: vb[3] * 0.035, grow: !!masks.length && M().entrance === 'grow' });
+      parts.push({ i, art: wrapA, masks, rest, texts, band, cx: vb[0] + vb[2] / 2, cy: vb[1] + vb[3] / 2, vb, rise: vb[3] * 0.035, grow: !!masks.length && M().entrance === 'grow' });
     });
     return { root, parts, W, H };
   }
@@ -114,7 +117,7 @@ export function motionMode(ctx) {
     const m = M();
     for (const { p, d, win } of timing(sc.parts)) {
       const u = t - d, grow = clamp01(u / (win * 0.5)), fade = clamp01(u / (win * 0.18));
-      if (p.grow) { const off = 1 - ease.inOut(grow); for (const mk of p.masks) mk.setAttribute('stroke-dashoffset', n2(off)); p.art.setAttribute('opacity', n2(fade)); }
+      if (p.grow) { const off = 1 - ease.inOut(grow); for (const mk of p.masks) mk.setAttribute('stroke-dashoffset', n2(off)); if (p.rest) p.rest.setAttribute('opacity', n2(clamp01((grow - 0.6) / 0.4))); p.art.setAttribute('opacity', n2(fade)); }
       else if (m.entrance === 'fade' || (m.entrance === 'grow' && !p.grow)) { const e = ease.out(clamp01(u / (win * 0.4))), s = 0.94 + 0.06 * e; p.art.setAttribute('opacity', n2(e)); p.art.setAttribute('transform', `translate(${n2(p.cx * (1 - s))} ${n2(p.cy * (1 - s))}) scale(${n2(s)})`); }
       else { p.art.removeAttribute('opacity'); p.art.removeAttribute('transform'); }
       p.texts.forEach((g, k) => {
@@ -145,7 +148,7 @@ export function motionMode(ctx) {
   function tick(now) {
     raf = 0; if (!live) return;
     const D = M().dur;
-    if (playing) { tNow = ((now - t0) / 1000) % (D + 1); if (scrub) scrub.value = Math.min(D, tNow); }
+    if (playing) { tNow = ((now - t0) / 1000) % (D + 1); if (scrub) { scrub.value = Math.min(D, tNow); ctx.fill(scrub); } }
     apply(live, Math.min(tNow, D));
     if (playing) raf = requestAnimationFrame(tick);
   }
@@ -216,6 +219,7 @@ export function motionMode(ctx) {
       if (p.grow) {
         for (const mk of p.masks) anim(mk, 'stroke-dashoffset', [1, 1, 0, 0], [0, kt(d), kt(d + win * 0.5), 1], ['0 0 1 1', '0.65 0 0.35 1', '0 0 1 1']);
         anim(p.art, 'opacity', [0, 0, 1, 1], [0, kt(d), kt(d + win * 0.18), 1]);
+        if (p.rest) anim(p.rest, 'opacity', [0, 0, 1, 1], [0, kt(d + win * 0.3), kt(d + win * 0.5), 1]);
       } else if (m.entrance !== 'none') anim(p.art, 'opacity', [0, 0, 1, 1], [0, kt(d), kt(d + win * 0.4), 1], ['0 0 1 1', '0.2 0.7 0.3 1', '0 0 1 1']);
       p.texts.forEach((g, k) => {
         if (m.text === 'none') return;
@@ -238,20 +242,33 @@ export function motionMode(ctx) {
   const progress = (p) => { if (progEl) progEl.firstChild.style.width = Math.round(p * 100) + '%'; };
   async function run(fn, label) {
     const S = subjects(); if (S.empty) { ctx.toast(S.empty, 6000); return; }
-    if (busy) return; busy = true; pause(); ctx.toast(label);
-    try { await fn(); } catch (e) { console.warn(e); alert('The export stopped: ' + (e && e.message ? e.message : e)); }
-    busy = false; progress(0); play();
+    if (busy) return; busy = true; const was = playing; pause(); ctx.toast(label); frozen = M();
+    try { await fn(); } catch (e) { console.warn(e); ctx.toast('The export stopped: ' + (e && e.message ? e.message : e), 6000); }
+    frozen = null; busy = false; progress(0); if (was) play(); else if (!raf) raf = requestAnimationFrame(tick); // D16: an export never starts playback
   }
 
   // ── controls ──
+  // D09: the bar is built once and then only updated, so the Time slider keeps focus through arrows, Home and End
+  let playBtn = null;
   function bar() {
-    const B = ctx.modebar; B.innerHTML = '';
-    B.append(h('button', { class: 'btn small', onclick: () => (playing ? pause() : play()) }, playing ? 'Pause' : 'Play'),
-      h('button', { class: 'btn small', onclick: () => { tNow = 0; play(); } }, 'From the start'),
-      scrub = h('input', { type: 'range', 'aria-label': 'Time', min: 0, max: M().dur, step: 0.01, value: Math.min(tNow, M().dur), style: 'width:240px', oninput: (e) => { pause(); tNow = +e.target.value; if (!raf) raf = requestAnimationFrame(tick); } }),
-      h('span', { class: 'hint' }, 'The leaves grow in from the stem, the words follow, then a shimmer crosses the metal.'));
-    ctx.modebar.classList.add('on');
+    const B = ctx.modebar;
+    if (!scrub || !playBtn || !B.contains(scrub)) {
+      B.innerHTML = '';
+      B.append(playBtn = h('button', { class: 'btn small', onclick: () => (playing ? pause() : play()) }),
+        h('button', { class: 'btn small', onclick: () => { tNow = 0; play(); } }, 'From the start'),
+        scrub = h('input', { type: 'range', 'aria-label': 'Time', min: 0, max: M().dur, step: 0.01, value: Math.min(tNow, M().dur), style: 'width:240px', oninput: (e) => { tNow = +e.target.value; pause(); if (!raf) raf = requestAnimationFrame(tick); } }),
+        h('span', { class: 'hint' }, 'The leaves grow in from the stem, the words follow, then a shimmer crosses the metal.'));
+    }
+    playBtn.textContent = playing ? 'Pause' : 'Play';
+    if (+scrub.max !== M().dur) scrub.max = M().dur;
+    if (document.activeElement !== scrub) scrub.value = Math.min(tNow, M().dur);
+    ctx.fill(scrub);
+    B.classList.add('on');
   }
+  // D16: with reduced motion asked for, Motion opens on its finished frame and plays only when asked
+  const calm = matchMedia('(prefers-reduced-motion: reduce)');
+  calm.addEventListener('change', (e) => { if (e.matches && live) { pause(); tNow = M().dur; if (!raf) raf = requestAnimationFrame(tick); } });
+  const start = () => { if (calm.matches) { playing = false; tNow = M().dur; bar(); if (!raf) raf = requestAnimationFrame(tick); } else { tNow = 0; play(); } };
   function panel() {
     const P = ctx.modepanel; P.innerHTML = ''; const none = M().what === 'row' && ctx.rowEmpty && ctx.rowEmpty();
     const m = M(), sel = (label, key, opts, num) => h('label', {}, label, h('select', { onchange: (e) => { ctx.change('motion', { ...M(), [key]: num ? +e.target.value : e.target.value === 'true' ? true : e.target.value === 'false' ? false : e.target.value }); built = ''; bar(); } }, opts.map(([v, l]) => h('option', { value: String(v), selected: String(m[key]) === String(v) }, l))));
@@ -274,7 +291,7 @@ export function motionMode(ctx) {
   }
 
   return {
-    enter() { built = ''; live = null; bar(); panel(); tNow = 0; play(); },
+    enter() { built = ''; live = null; bar(); panel(); start(); },
     refresh() { built = ''; bar(); panel(); },
     leave() { cancelAnimationFrame(raf); raf = 0; live = null; built = ''; },
     draw() { buildPreview(); if (!raf) raf = requestAnimationFrame(tick); },

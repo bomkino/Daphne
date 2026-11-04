@@ -88,7 +88,7 @@ export function rowMode(ctx) {
     d.fields = fill(fields);
     return d;
   }
-  const renderCached = (d) => { const key = JSON.stringify(d); let r = cache.get(key); if (!r) { r = ctx.render(d, 1); cache.set(key, r); if (cache.size > 64) cache.delete(cache.keys().next().value); } return r; };
+  const renderCached = (d) => { const key = (ctx.fontEpoch || 0) + JSON.stringify(d); let r = cache.get(key); if (!r) { r = ctx.render(d, 1); cache.set(key, r); if (cache.size > 64) cache.delete(cache.keys().next().value); } return r; };
 
   // the row as placed laurels: { parts: [{ it, r?, x, y, w, h, s }], vb, svg }
   function scene(opts = {}) {
@@ -100,7 +100,16 @@ export function rowMode(ctx) {
     // laurels first, at the same type size if asked
     let docs = items.map((it) => (it.src ? null : itemDoc(base, it)));
     let rs = docs.map((d) => (d ? renderCached(d) : null));
-    if (row.uniform) { const H = Math.min(...rs.filter(Boolean).map((r) => r.report.hero)); if (isFinite(H)) { docs = docs.map((d) => { if (!d) return d; d.layout = { ...d.layout, heroMax: H }; return d; }); rs = docs.map((d) => (d ? renderCached(d) : null)); } }
+    // D36: the smallest name sets everyone's ceiling; a ceiling can make another laurel lay out smaller again, so
+    // repeat until every laurel lands on the same size
+    if (row.uniform) {
+      const least = () => Math.min(...rs.filter(Boolean).map((r) => r.report.hero));
+      for (let H = least(), k = 0; isFinite(H) && k < 6; k++) {
+        docs = docs.map((d) => (d ? { ...d, layout: { ...d.layout, heroMax: H } } : d));
+        rs = docs.map((d) => (d ? renderCached(d) : null));
+        const lo = least(); if (lo >= H - 0.01) break; H = lo;
+      }
+    }
     const hs = rs.filter(Boolean).map((r) => r.viewBox[3]).sort((a, b) => a - b), unitH = hs.length ? hs[Math.floor(hs.length / 2)] : 200;
     const tiered = row.arrange === 'tiered' && items.length > 1;
     const parts = items.map((it, i) => {

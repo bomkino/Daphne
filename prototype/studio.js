@@ -1,7 +1,7 @@
 // studio.js — Export. Say where the laurel is going and get exactly the files that place needs.
 // Nothing here changes the laurel: every destination re-dresses a copy of the document (a one-color version, a social
 // card, an end-card frame) and packs it. The settings people pick are remembered on this device.
-import { holdFocus } from './modal.js';
+import { holdFocus, keepFocus } from './modal.js';
 import { checkLaurel, accoladesOf } from './rules.js';
 import { STATUS_COMMON } from './words.js';
 import { smallestText, caseOf } from './engine.mjs';
@@ -173,7 +173,7 @@ export function openStudio(ctx) {
   const base = () => ctx.fileName();
   const docOf = (way) => colorway(d0(), way, ctx.clone);
   const cache = new Map();
-  const rendered = (way) => { if (!cache.has(way)) cache.set(way, ctx.render(docOf(way))); return cache.get(way); }; // the laurel doesn't change while Export is open
+  const rendered = (way) => { const k = way + (ctx.fontEpoch || 0); if (!cache.has(k)) cache.set(k, ctx.render(docOf(way))); return cache.get(k); }; // the laurel doesn't change while Export is open; a font arriving does (D14)
   const bgOn = () => P.way === 'color' && !!d0().canvas.bg && P.bg !== false;
   const smallest = (r) => smallestText(r.svg); // every word that's drawn, in any slot; Infinity when there are none
 
@@ -192,7 +192,8 @@ export function openStudio(ctx) {
   document.body.append(scrim);
   release = holdFocus(scrim, close);
 
-  function buildDests() {
+  function buildDests() { keepFocus(dests, buildDestsNow); }
+  function buildDestsNow() {
     dests.innerHTML = '';
     for (const D of DESTS) {
       if (D.g) { dests.append(h('div', { class: 'dgroup' }, D.g)); continue; }
@@ -214,7 +215,9 @@ export function openStudio(ctx) {
     if (o.opts !== false) show(); else drawPreview();
   };
   const copy = async (text, what = 'Copied') => { try { await navigator.clipboard.writeText(text); ctx.toast(what); } catch (e) { window.prompt('Copy this', text); } };
-  const run = (label, fn, cls = 'btn primary') => { const b = h('button', { class: cls, onclick: async () => { if (b.disabled) return; const was = b.textContent; b.disabled = true; b.textContent = 'Making…'; try { await fn((s) => (b.textContent = s)); } catch (e) { console.error(e); ctx.toast('That didn’t work: ' + (e.message || e)); } finally { b.disabled = false; b.textContent = was; } } }, label); return b; };
+  // D29: one download at a time; a job keeps the settings it started with, even if the panel is rebuilt meanwhile
+  let job = null;
+  const run = (label, fn, cls = 'btn primary') => { const b = h('button', { class: cls, onclick: async () => { if (b.disabled) return; if (job) { ctx.toast('One download at a time: the last one is still being made.'); return; } const was = b.textContent; b.disabled = true; b.textContent = 'Making…'; job = b; try { await fn((s) => (b.textContent = s)); } catch (e) { console.error(e); ctx.toast('That didn’t work: ' + (e.message || e)); } finally { job = null; b.disabled = false; b.textContent = was; } } }, label); return b; };
   function ways(cur = P.way, on = (v) => set('way', v)) {
     return h('div', { class: 'ways', role: 'radiogroup', 'aria-label': 'Colorway' }, WAYS.map((W) => {
       const r = rendered(W.id), sw = h('div', { class: 'sw ' + (W.id === 'black' ? 'light' : 'dark'), html: (W.id === 'color' ? r.svg : stripBg(r.svg)).replace(/width="[^"]+" height="[^"]+"/, '') });
@@ -303,11 +306,21 @@ export function openStudio(ctx) {
   const composedPng = async (c, dpi) => { const b = await ctx.toPng(c.svg, [0, 0, c.W, c.H], c.W, true, d0(), c.H); return dpi ? withDpi(b, dpi) : b; };
 
   // ── the preview ──
+  // V02, D45: a preview keeps its own shape (width set, height from the ratio) and is fitted again whenever the
+  // preview area changes size. On a phone the area grows with what's in it, so the fit uses a fixed share of the
+  // screen instead of the area's own height. Actual-size proofs (Email) keep their exact height.
+  const narrow = matchMedia('(max-width: 860px)'), fits = [];
+  const area = () => ({ w: preview.clientWidth - 64, h: narrow.matches ? Math.max(220, innerHeight * 0.52 - 96) : preview.clientHeight - 96 });
+  const refit = () => { for (const f of fits) if (preview.contains(f.el)) f(); };
+  new ResizeObserver(() => requestAnimationFrame(refit)).observe(preview);
   function frameOf(svg, cls = '', maxW, maxH) {
     const vb = (/viewBox="([^"]+)"/.exec(svg) || [, '0 0 100 100'])[1].split(/[\s,]+/).map(Number);
     const el = h('div', { class: 'frame ' + cls, html: svg.replace(/width="[^"]+" height="[^"]+"/, '') });
-    const s = el.querySelector('svg');
-    requestAnimationFrame(() => { const bw = maxW || preview.clientWidth - 64, bh = maxH || preview.clientHeight - 96, k = Math.min(bw / vb[2], bh / vb[3]); s.style.width = Math.max(40, vb[2] * k) + 'px'; s.style.height = Math.max(40, vb[3] * k) + 'px'; });
+    const s = el.querySelector('svg'), val = (v, d) => (typeof v === 'function' ? v() : v || d);
+    s.style.aspectRatio = `${vb[2]} / ${vb[3]}`; s.style.height = 'auto';
+    const fit = () => { const A = area(), bw = val(maxW, A.w), bh = val(maxH, A.h), k = Math.min(bw / vb[2], bh / vb[3]); s.style.width = Math.max(40, vb[2] * k) + 'px'; };
+    fit.el = el; fits.push(fit); if (fits.length > 40) fits.splice(0, fits.length - 40);
+    requestAnimationFrame(fit);
     return el;
   }
   const wayCls = (way) => (way === 'black' ? 'light' : way === 'white' ? 'dark' : '');
@@ -317,8 +330,8 @@ export function openStudio(ctx) {
     const pv = h('div', { class: 'pv' }), cap = (t) => h('div', { class: 'cap' }, t);
     const D = P.dest;
     if (D === 'kit') {
-      const K = kitPlan(), ws = K.ways.length ? K.ways : ['color'], bw = Math.max(120, (preview.clientWidth - 90) / ws.length - 14);
-      pv.append(h('div', { class: 'kitgrid' }, ws.map((w) => { const r = rendered(w); return h('figure', {}, frameOf(w === 'color' && d0().canvas.bg ? r.svg : stripBg(r.svg), wayCls(w), bw, preview.clientHeight * 0.5), h('figcaption', {}, WAYS.find((x) => x.id === w).label)); })),
+      const K = kitPlan(), ws = K.ways.length ? K.ways : ['color'], bw = () => Math.max(120, (preview.clientWidth - 90) / (narrow.matches ? 1 : ws.length) - 14);
+      pv.append(h('div', { class: 'kitgrid' }, ws.map((w) => { const r = rendered(w); return h('figure', {}, frameOf(w === 'color' && d0().canvas.bg ? r.svg : stripBg(r.svg), wayCls(w), bw, () => area().h * (narrow.matches ? 0.6 : 0.5)), h('figcaption', {}, WAYS.find((x) => x.id === w).label)); })),
         cap(!K.ready ? 'Pick at least one colorway and one format.' : `${K.plan.length + 1} files: ${K.fmts.map((f) => f.toUpperCase()).join(', ')} in ${K.ways.length === 1 ? 'one colorway' : K.ways.length + ' colorways'}${K.plan.some((f) => /-on-background\.png$/.test(f.name)) ? ', a PNG on your background color' : ''}, and a README holding the alt text, the fonts and the sizes that stay readable.`));
     } else if ((D === 'social' && P.social.what === 'row') || (D === 'video' && P.video.what === 'row') || D === 'row') {
       const none = rowNone();
@@ -360,7 +373,8 @@ export function openStudio(ctx) {
   const emailBg = () => { const e = P.email.bg; if (e === 'auto') return P.way === 'color' ? hex(d0().canvas.bg) : null; return e === 'white' ? '#ffffff' : e === 'dark' ? '#1b1b1f' : null; };
 
   // ── the options for each destination ──
-  function drawOpts() {
+  function drawOpts() { keepFocus(opts, drawOptsNow); }
+  function drawOptsNow() {
     opts.innerHTML = '';
     const put = (...k) => opts.append(...k.flat(Infinity).filter((x) => x != null && x !== false));
     const D = DESTS.find((x) => x.id === P.dest) || DESTS[0];
@@ -497,25 +511,25 @@ export function openStudio(ctx) {
   // ── the laurel kit: every chosen format in every chosen colorway, with a README that answers the questions ──
   // the kit's files, planned once: the preview counts them, the button makes them, in the same order
   function kitPlan() {
-    const ways = WAYS.map((W) => W.id).filter((w) => P.kit.ways.includes(w)), fmts = ['svg', 'png', 'pdf'].filter((f) => P.kit.fmts.includes(f)), b = base(), plan = [];
+    const ways = WAYS.map((W) => W.id).filter((w) => P.kit.ways.includes(w)), fmts = ['svg', 'png', 'pdf'].filter((f) => P.kit.fmts.includes(f)), b = base(), plan = [], pngW = P.pngW, pdfMm = P.pdfMm;
     for (const w of ways) {
       const dir = `${b}/${w}/`, name = `${b}-${w}`;
       if (fmts.includes('svg')) plan.push({ name: dir + name + '.svg', make: () => svgOf(w, { bg: false, text: 'outlined' }) });
       if (fmts.includes('png')) {
-        plan.push({ name: dir + name + '.png', make: () => pngOf(w, P.pngW, { bg: false }) });
-        if (w === 'color' && d0().canvas.bg) plan.push({ name: dir + name + '-on-background.png', make: () => pngOf(w, P.pngW, { bg: true }) });
+        plan.push({ name: dir + name + '.png', make: () => pngOf(w, pngW, { bg: false }) });
+        if (w === 'color' && d0().canvas.bg) plan.push({ name: dir + name + '-on-background.png', make: () => pngOf(w, pngW, { bg: true }) });
       }
-      if (fmts.includes('pdf')) plan.push({ name: dir + name + '.pdf', make: () => { const r = rendered(w); return ctx.toPdf(stripBg(r.svg), docOf(w), 'Laurel', P.pdfMm); } });
+      if (fmts.includes('pdf')) plan.push({ name: dir + name + '.pdf', make: () => { const r = rendered(w); return ctx.toPdf(stripBg(r.svg), docOf(w), 'Laurel', pdfMm); } });
     }
-    return { ways, fmts, b, plan, ready: ways.length > 0 && fmts.length > 0 };
+    return { ways, fmts, b, plan, pngW, pdfMm, ready: ways.length > 0 && fmts.length > 0 };
   }
   async function makeKit(say) {
-    const { ways, fmts, b, plan, ready } = kitPlan();
+    const { ways, fmts, b, plan, ready, pngW, pdfMm } = kitPlan();
     if (!ready) { ctx.toast('Pick at least one colorway and one format'); return; }
     const files = [];
     for (const [i, f] of plan.entries()) { say(`Making ${i + 1} of ${plan.length}…`); files.push({ name: f.name, data: await f.make() }); }
     say('Packing…');
-    files.push({ name: `${b}/README.txt`, data: readme(ways, fmts, ctx.shareLink ? await ctx.shareLink() : location.href) });
+    files.push({ name: `${b}/README.txt`, data: readme(ways, fmts, ctx.shareLink ? await ctx.shareLink() : location.href, { pngW, pdfMm }) });
     ctx.download(await ctx.zip(files), `${b}-laurel-kit.zip`);
     ctx.toast('Laurel kit downloaded');
   }
@@ -525,7 +539,8 @@ export function openStudio(ctx) {
   }
   async function makePack(say) {
     const vs = packList(); if (!vs.length) { ctx.toast('Pick at least one status or award'); return; }
-    const ways = WAYS.map((W) => W.id).filter((w) => P.pack.ways.includes(w)), fmts = ['svg', 'png', 'pdf'].filter((f) => P.pack.fmts.includes(f));
+    const ways = WAYS.map((W) => W.id).filter((w) => P.pack.ways.includes(w)), fmts = ['svg', 'png', 'pdf'].filter((f) => P.pack.fmts.includes(f)), pngW = P.pngW, pdfMm = P.pdfMm; // D29: this job's sizes, and its link
+    keepPack(); const link = ctx.shareLink ? await ctx.shareLink() : location.href; // the README's link carries this recipe
     if (!ways.length || !fmts.length) { ctx.toast('Pick at least one colorway and one format'); return; }
     const t = (k) => d0().fields.filter((f) => f.kind === k && f.show !== false && f.text).map((f) => f.text.trim()).join(' ');
     const fest = t('festival') || 'festival', year = (t('year').match(/\d{4}/) || [''])[0], stem = ctx.slug([year, fest].filter(Boolean).join(' ')) || 'festival', rootDir = stem + '-laurels/';
@@ -534,17 +549,17 @@ export function openStudio(ctx) {
       const dv = colorway(v.doc, w, ctx.clone), r = ctx.render(dv), name = `${rootDir}${v.slug}/${stem}-${v.slug}-${w}`, sv = smallest(r);
       if (isFinite(sv)) { minPx = Math.max(minPx, Math.ceil(6 * r.viewBox[3] / sv)); minIn = Math.max(minIn, 6 * r.viewBox[2] / (72 * sv)); }
       if (fmts.includes('svg')) { say(`Making ${++n} of ${total}…`); files.push({ name: name + '.svg', data: await ctx.exportSvgText(stripBg(r.svg), { ...dv, out: { ...(dv.out || {}), svgText: 'outlined' } }) }); }
-      if (fmts.includes('png')) { say(`Making ${++n} of ${total}…`); files.push({ name: name + '.png', data: await ctx.toPng(r.svg, r.viewBox, P.pngW, false, dv) }); }
-      if (fmts.includes('pdf')) { say(`Making ${++n} of ${total}…`); files.push({ name: name + '.pdf', data: await ctx.toPdf(stripBg(r.svg), dv, v.label, P.pdfMm) }); }
+      if (fmts.includes('png')) { say(`Making ${++n} of ${total}…`); files.push({ name: name + '.png', data: await ctx.toPng(r.svg, r.viewBox, pngW, false, dv) }); }
+      if (fmts.includes('pdf')) { say(`Making ${++n} of ${total}…`); files.push({ name: name + '.pdf', data: await ctx.toPdf(stripBg(r.svg), dv, v.label, pdfMm) }); }
     }
-    say('Packing…'); keepPack(); // the README's link carries this recipe
+    say('Packing…');
     const fonts = [...new Set(Object.values(d0().roles).map((x) => x && x.font).filter(Boolean))];
     const title = [fest, year].filter(Boolean).join(' ');
     files.push({ name: rootDir + 'README.txt', data: [
-      `${title}: laurels for selected films`, '', 'Made with Daphne, the free festival laurel maker by pitch.dog: https://pitch.dog/daphne', `Open this set again to edit it (then Export, Festival pack): ${ctx.shareLink ? await ctx.shareLink() : location.href}`, '',
+      `${title}: laurels for selected films`, '', 'Made with Daphne, the free festival laurel maker by pitch.dog: https://pitch.dog/daphne', `Open this set again to edit it (then Export, Festival pack): ${link}`, '',
       'ONE FOLDER PER LAUREL', ...vs.map((v) => `  ${v.slug}/  ${ctx.altText(v.doc)}`), '',
       'IN EACH FOLDER', ...ways.map((w) => `  -${w}  ${{ color: 'as designed', black: 'one color, black, clear background', white: 'one color, white, clear background' }[w]}`),
-      ...fmts.map((f) => `  .${f}  ${{ svg: 'vector, text drawn as shapes (opens anywhere without the fonts)', png: `${P.pngW} px wide, clear background`, pdf: `vector, ${P.pdfMm} mm wide, for print` }[f]}`), '',
+      ...fmts.map((f) => `  .${f}  ${{ svg: 'vector, text drawn as shapes (opens anywhere without the fonts)', png: `${pngW} px wide, clear background`, pdf: `vector, ${pdfMm} mm wide, for print` }[f]}`), '',
       'FONTS', `  ${fonts.join(', ')}. From Google Fonts, under open licenses such as the SIL Open Font License: free to use, commercially too.`, '',
       'Send each film only the laurel for what it received, with GUIDELINES.txt.', '',
       'YOURS TO USE', '  Daphne claims no rights in these laurels. What Daphne drew is dedicated to the public domain (CC0 1.0).', '',
@@ -563,13 +578,13 @@ export function openStudio(ctx) {
     ctx.download(await ctx.zip(files), `${stem}-laurels.zip`);
     ctx.toast('Festival pack downloaded');
   }
-  function readme(ways, fmts, link) {
+  function readme(ways, fmts, link, Z = { pngW: P.pngW, pdfMm: P.pdfMm }) {
     const d = d0(), r = rendered('color'), vb = r.viewBox, sm = smallest(r), alt = ctx.altText(d);
     const minPx = Math.ceil(6 * vb[3] / sm), minIn = 6 * vb[2] / (72 * sm);
     const fonts = [...new Set(Object.values(d.roles).map((x) => x && x.font).filter(Boolean))];
     const notes = checkLaurel(d);
     const W = { color: 'The laurel as you designed it.', black: 'One color, pure black (#000000), clear background. For light posters, one-ink print and festival programs.', white: 'One color, pure white (#FFFFFF), clear background. For dark posters, trailers and over photos.' };
-    const F = { svg: '.svg  Vector. The text is drawn as shapes, so it opens anywhere without the fonts. Best for print and the web.', png: `.png  ${P.pngW} px wide, clear background. For video edits, social posts and slides.`, pdf: `.pdf  Vector, ${P.pdfMm} mm wide. The one to send to printers.` };
+    const F = { svg: '.svg  Vector. The text is drawn as shapes, so it opens anywhere without the fonts. Best for print and the web.', png: `.png  ${Z.pngW} px wide, clear background. For video edits, social posts and slides.`, pdf: `.pdf  Vector, ${Z.pdfMm} mm wide. The one to send to printers.` };
     return [
       alt, '', 'Made with Daphne, the free festival laurel maker by pitch.dog: https://pitch.dog/daphne', `Open this laurel again to edit it: ${link}`, '',
       'WHAT’S HERE', ...ways.map((w) => `  ${w}/  ${W[w]}`), '', 'In each folder:', ...fmts.map((f) => '  ' + F[f]),

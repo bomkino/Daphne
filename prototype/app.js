@@ -1,7 +1,7 @@
 // app.js — Daphne's editor. Vanilla ES modules, no build step.
 // The shell: a rail of tabs (Words first, because the words are the first thing anyone does), a panel, and the stage.
 // The engine (engine.mjs) turns one JSON document into the laurel; everything here edits that document.
-import { render, DEFAULT_DOC, FORMS, METALS, PROFILES, FAMILIES, FRAMES, FILLABLE_FRAMES, ASSETS, LOGO_SLOTS, merge, clone, applyForm, shuffleBranch, rngOf, assetMissing, sanitizeDoc, parsePath, drawable } from './engine.mjs';
+import { render, DEFAULT_DOC, FORMS, METALS, PROFILES, FAMILIES, FRAMES, FILLABLE_FRAMES, ASSETS, LOGO_SLOTS, merge, clone, applyForm, shuffleBranch, rngOf, assetMissing, sanitizeDoc, parsePath, drawable, forgetWidths } from './engine.mjs';
 import { FONTS, fontInfo, loadFont, embedFontCss, cssUrl, loadPreviewFonts } from './fonts.js';
 import { PRESETS, GROUPS } from './presets.js';
 import { LAYOUTS, LAYOUT_GROUPS, layoutFields, applyLayout, EXAMPLE } from './layouts.js';
@@ -12,6 +12,7 @@ import { rowMode } from './row.js';
 import { motionMode } from './motion.js';
 import { wordsTab } from './words.js';
 import { openStudio } from './studio.js';
+import { keepFocus } from './modal.js';
 import { zip } from './zip.js';
 
 // ── measurement: real glyph widths from the browser ──
@@ -138,24 +139,35 @@ function addAsset(url, ar, name) { const key = 'asset:' + Date.now().toString(36
 
 // ── render loop ──
 let raf = 0, last = null, peeking = null;
-const schedule = () => { if (!raf) raf = requestAnimationFrame(draw); };
+// D42: a dense wreath can take a second to draw. While a slider is being dragged and drawings are slow, draw once the
+// hand pauses instead of on every step, so the slider keeps up; the last good drawing stays on screen meanwhile.
+let lastMs = 0, slowTimer = 0, renders = 0;
+const schedule = () => {
+  if (raf) return;
+  if (lastMs > 120 && document.activeElement && document.activeElement.type === 'range') { clearTimeout(slowTimer); slowTimer = setTimeout(() => { if (!raf) raf = requestAnimationFrame(draw); }, 160); return; }
+  raf = requestAnimationFrame(draw);
+};
+const timed = (d) => { const t0 = performance.now(); const r = render(d, { measure, scale: 2 }); lastMs = performance.now() - t0; renders++; return r; };
 async function ensureFonts(d) {
   const need = new Map();
   for (const r of Object.values(d.roles)) { if (!r || !r.font) continue; if (!need.has(r.font)) need.set(r.font, new Set()); need.get(r.font).add(r.weight || 400); }
   await Promise.all([...need].map(([f, ws]) => loadFont(f, [...ws])));
 }
-let fontsReady = Promise.resolve();
+let fontsReady = Promise.resolve(), fontEpoch = 0;
+// D14: a font that finishes loading changes every width measured with its stand-in, so measure again and redraw
+document.fonts.addEventListener('loadingdone', () => { fontEpoch++; forgetWidths(measure); thumbsDirty = true; schedule(); });
 async function draw() {
   raf = 0;
-  const pending = ensureFonts(doc); fontsReady = pending;
+  const pending = ensureFonts(doc), epoch = fontEpoch; fontsReady = pending;
   // a drawing that came out broken (no size) never replaces the last good one, and says so
-  let r; try { r = render(doc, { measure, scale: 2 }); } catch (e) { console.error(e); r = null; }
+  let r; try { r = timed(doc); } catch (e) { console.error(e); r = null; }
   if (!r || !r.viewBox.every(Number.isFinite)) { const el = document.getElementById('report'); if (el) el.innerHTML = '<span class="warn">These settings don’t draw a laurel: Undo, or change the last setting.</span>'; return; }
   last = r;
   if (!peeking) MODES[mode].draw(last);
   showReport(last.report);
   if (mode !== 'row') showNotes(checkLaurel(doc));
-  pending.then(() => { if (fontsReady === pending) { const r2 = render(doc, { measure, scale: 2 }); if (r2.svg !== last.svg) { last = r2; if (!peeking) MODES[mode].draw(last); showReport(last.report); } } });
+  // fonts that arrive while this drawing was made: draw again with their real widths (only when one did arrive; D42)
+  pending.then(() => { if (fontsReady === pending && fontEpoch !== epoch) { const r2 = timed(doc); if (r2.svg !== last.svg) { last = r2; if (!peeking) MODES[mode].draw(last); showReport(last.report); } } });
   if (thumbsDirty) { thumbsDirty = false; clearTimeout(thumbTimer); thumbTimer = setTimeout(drawThumbs, 350); }
   if (state.smallSizes && mode === 'laurel') drawSmallSizes();
 }
@@ -216,7 +228,7 @@ function altText(d = doc) {
 }
 
 // ── UI builders ──
-const h = (tag, attrs = {}, ...kids) => { const el = document.createElement(tag); for (const [k, v] of Object.entries(attrs)) { if (k.startsWith('on') && typeof v === 'function') el.addEventListener(k.slice(2), v); else if (k === 'class') el.className = v; else if (k === 'html') el.innerHTML = v; else if (v === true) el.setAttribute(k, ''); else if (v !== false && v != null) el.setAttribute(k, v); } for (const c of kids.flat(Infinity)) if (c != null && c !== false) el.append(c.nodeType ? c : document.createTextNode(c)); return el; };
+const h = (tag, attrs = {}, ...kids) => { const el = document.createElement(tag); for (const [k, v] of Object.entries(attrs)) { if (k.startsWith('on') && typeof v === 'function') el.addEventListener(k.slice(2), v); else if (k === 'class') el.className = v; else if (k === 'html') el.innerHTML = v; else if (v === true) el.setAttribute(k, ''); else if (v !== false && v != null) el.setAttribute(k, v); } for (const c of kids.flat(Infinity)) if (c != null && c !== false) el.append(c.nodeType ? c : document.createTextNode(c)); if (tag === 'input' && attrs.type === 'range') { fill(el); el.addEventListener('input', () => fill(el)); } return el; }; // V05: every slider's track shows its value
 const fmt = (v, step) => (step >= 1 ? Math.round(v) : (+v).toFixed(step >= 0.1 ? 1 : 2));
 const fill = (inp) => inp.style.setProperty('--p', ((inp.value - inp.min) / (inp.max - inp.min)) * 100 + '%');
 function range(label, path, min, max, step = 1, o = {}) {
@@ -253,7 +265,9 @@ function paintEditor(label, path, o = {}) {
       const next = t === 'none' ? null : t === 'solid' ? base : t === 'metal' ? { type: 'metal', metal: 'gold', angle: 28, scope: o.leaf ? 'leaf' : 'whole' } : { type: t, angle: 0, scope: 'whole', stops: p && p.stops ? p.stops : [[0, '#6e4f1c'], [1, '#f4e3a8']] };
       change(path, next); redraw();
     } }, types.map(([v, l]) => h('option', { value: v, selected: v === typeOf }, l)));
-    box.append(h('div', { class: 'head' }, h('span', { class: 'sw', style: `background:${paintCss(p)}` }), h('span', { class: 'lbl' }, label), sel));
+    // V08: an inherited paint shows the paint it inherits, with a dashed ring; only a real transparency is a checkerboard
+    const inh = p == null, swBg = !inh ? paintCss(p) : o.from === 'clear' ? 'repeating-conic-gradient(#8a948c 0 25%, #d7dcd5 0 50%) 0 0/8px 8px' : o.from === 'auto' ? 'linear-gradient(135deg, #f3f3ee 50%, #141418 50%)' : o.from ? (o.from[0] === '#' ? o.from : paintCss(get(o.from) ?? (o.from2 && get(o.from2)))) : 'transparent';
+    box.append(h('div', { class: 'head' }, h('span', { class: 'sw' + (inh && o.from !== 'clear' ? ' inherit' : ''), title: inh ? o.noneLabel || '' : '', style: `background:${swBg}${inh && o.dim ? ';opacity:.6' : ''}` }), h('span', { class: 'lbl' }, label), sel));
     if (typeOf === 'solid') { const c = typeof p === 'string' ? p : p.color; box.append(h('div', { class: 'head' }, h('input', { type: 'color', 'aria-label': label + ' color', value: /^#[0-9a-f]{6}$/i.test(c) ? c : '#ffffff', oninput: (e) => { change(path, e.target.value); box.querySelector('.sw').style.background = e.target.value; } }), h('input', { type: 'text', value: c, 'aria-label': label + ' hex', onchange: (e) => { change(path, e.target.value); redraw(); } }))); }
     if (typeOf === 'linear' || typeOf === 'radial') {
       const stops = h('div', { class: 'stops' });
@@ -301,7 +315,8 @@ function openFontPop(anchor, path) {
   fontPop = h('div', { class: 'fontpop', onclick: (e) => e.stopPropagation() }, h('div', { class: 'fhead' }, search, h('div', { class: 'hint' }, 'All open-license fonts: free to use in anything you make.')), listEl);
   document.body.append(fontPop);
   const r = anchor.getBoundingClientRect(), H = Math.min(520, innerHeight * 0.7);
-  fontPop.style.left = Math.min(innerWidth - 340, r.left) + 'px';
+  const vw = document.documentElement.clientWidth; // D11: inside the screen at any width, 8 px from either edge
+  fontPop.style.left = Math.max(8, Math.min(vw - fontPop.offsetWidth - 8, r.left)) + 'px';
   fontPop.style.top = Math.max(10, Math.min(innerHeight - H - 10, r.bottom + 6)) + 'px';
   fill2(); search.focus();
   const on = listEl.querySelector('.on'); if (on) on.scrollIntoView({ block: 'center' });
@@ -319,7 +334,7 @@ function roleEditor(key, label, note) {
     select('Case', 'roles.' + key + '.case', [['upper', 'UPPERCASE'], ['asis', 'As typed'], ['title', 'Title Case'], ['lower', 'lowercase']]),
     range('Letter spacing', 'roles.' + key + '.track', -0.05, 0.6, 0.01),
     range(key === 'hero' ? 'Size' : 'Size vs name', 'roles.' + key + '.ratio', key === 'hero' ? 0.5 : 0.15, key === 'big' ? 2.4 : 1.2, 0.01),
-    paintEditor('Color', 'roles.' + key + '.paint', { nullable: true, noneLabel: 'Default', leaf: false }));
+    paintEditor('Color', 'roles.' + key + '.paint', { nullable: true, noneLabel: 'Default', leaf: false, from: ['hero', 'big'].includes(key) ? 'text.paint' : 'text.sub', from2: 'text.paint' }));
 }
 
 // ── fields: every line of the laurel ──
@@ -395,7 +410,8 @@ if (state.tab === 'colour') state.tab = 'color';
 if (![...TABS.map((t) => t[0]), 'about'].includes(state.tab)) state.tab = 'words';
 if (state.group !== 'All' && !GROUPS.includes(state.group)) state.group = 'All';
 const railEl = document.getElementById('rail');
-function buildRail() {
+function buildRail() { keepFocus(railEl, buildRailNow); }
+function buildRailNow() {
   railEl.innerHTML = '';
   const btn = ([k, l], cls = '') => { const b = h('button', { class: (state.tab === k ? 'on ' : '') + cls, role: 'tab', 'aria-selected': String(state.tab === k), title: l, onclick: () => setTab(k) }); b.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON[k]}</svg>`; b.append(h('span', {}, l)); return b; };
   railEl.append(...TABS.map((t) => btn(t)), h('div', { class: 'grow' }), btn(['about', 'About'], 'about'));
@@ -422,7 +438,8 @@ function intro() {
     h('p', {}, 'Paste the festival’s email or type what it gave you, pick a look, then Export for your poster, trailer and socials. Free, with no account and no watermark. ', h('a', { href: '#', onclick: (e) => { e.preventDefault(); setTab('about'); setTimeout(() => document.getElementById('guide')?.scrollIntoView({ block: 'start' }), 50); } }, 'New to laurels? Six things to know.')),
     h('button', { class: 'btn ghost small x', 'aria-label': 'Close the introduction', onclick: () => { markSeen(); buildPanel(); } }, '✕'));
 }
-function buildPanel() {
+function buildPanel() { keepFocus(sectionsEl, buildPanelNow); }
+function buildPanelNow() {
   const scroll = document.getElementById('panel').scrollTop;
   sectionsEl.innerHTML = '';
   const T = state.tab;
@@ -507,8 +524,8 @@ function wreathTab() {
         fixed || FK === 'rules' ? select('Ornament', 'frame.orn', [['star', 'Star'], ['dot', 'Dot'], ['diamond', 'Diamond'], ['none', 'None']]) : null,
         fixed ? [range('Size', 'frame.size', 0.6, 1.6, 0.01, { def: 1 }), range('Band for text', 'frame.band', 0.16, 0.4, 0.01, { def: 0.27 })] : null,
         FK === 'box' ? range('Corner radius', 'frame.radius', 0, 1, 0.01, { def: 0.25 }) : null,
-        paintEditor('Frame color', 'frame.paint', { nullable: true, noneLabel: 'Same as leaves' }),
-        get('frame.filled') && FILLABLE_FRAMES.includes(FK) ? paintEditor('Text on the frame', 'frame.ink', { nullable: true, noneLabel: 'Auto (always readable)', leaf: false }) : null,
+        paintEditor('Frame color', 'frame.paint', { nullable: true, noneLabel: 'Same as leaves', from: 'paint.branch' }),
+        get('frame.filled') && FILLABLE_FRAMES.includes(FK) ? paintEditor('Text on the frame', 'frame.ink', { nullable: true, noneLabel: 'Auto (always readable)', leaf: false, from: 'auto' }) : null,
         h('div', { class: 'hint' }, fixed ? 'Seals carry curved text in their band: put the status on "Curved, top" and the year on "Curved, under" (or pick the Seal layout).' : 'The frame is sized round your words.'))
         : h('div', { class: 'hint' }, 'Text only. Pick a frame for a seal, a medal, a ticket or a film strip.'));
     return [top, pane];
@@ -539,7 +556,7 @@ function wreathTab() {
     fold('Mixed wreath', doc.branch.right ? 'on' : 'off', false,
       h('div', { class: 'hint' }, 'A different branch on the right: oak and palm, laurel and olive.'),
       h('div', { class: 'seg' },
-        h('button', { class: 'btn small' + (doc.branch.right ? ' on' : ''), onclick: () => { if (doc.branch.right) { const b = clone(doc.branch); delete b.right; change('branch', b, true); } else { const s = shuffleBranch(Date.now() % 100000); change('branch.right', { leaf: s.leaf, orn: { tip: s.orn.tip } }, true); } } }, doc.branch.right ? 'Same both sides' : 'Different right side'),
+        h('button', { class: 'btn small' + (doc.branch.right ? ' on' : ''), role: 'switch', 'aria-checked': String(!!doc.branch.right), title: 'A switch: on draws the right branch with its own leaves', onclick: () => { if (doc.branch.right) { const b = clone(doc.branch); delete b.right; change('branch', b, true); } else { const s = shuffleBranch(Date.now() % 100000); change('branch.right', { leaf: s.leaf, orn: { tip: s.orn.tip } }, true); } } }, doc.branch.right ? '✓ Different right side' : 'Different right side'), // V07: the lit state names what's on, not the next action
         doc.branch.right ? h('button', { class: 'btn small', onclick: () => { const s = shuffleBranch(Date.now() % 100000); change('branch.right', { leaf: s.leaf, orn: { tip: s.orn.tip } }, true); } }, 'Shuffle right side') : null)));
   return [top, pane];
 }
@@ -553,20 +570,20 @@ function colorTab() {
     h('div', { class: 'group' }, h('div', { class: 'label' }, 'Palettes', h('span', { class: 'grow' })), pal),
     fold('Leaves', null, true,
       paintEditor('Leaves', 'paint.branch', { leaf: true }),
-      paintEditor('Inner leaves', 'paint.inner', { nullable: true, noneLabel: 'Same, dimmed', leaf: true }),
+      paintEditor('Inner leaves', 'paint.inner', { nullable: true, noneLabel: 'Same, dimmed', leaf: true, from: 'paint.branch', dim: true }),
       range('Inner dimming', 'paint.depth', 0, 0.9, 0.01),
-      paintEditor('Fold shade', 'paint.shade', { nullable: true, noneLabel: 'Black', leaf: false }),
-      paintEditor('Berries & flowers', 'paint.ornament', { nullable: true, noneLabel: 'Same as leaves' }),
+      paintEditor('Fold shade', 'paint.shade', { nullable: true, noneLabel: 'Black', leaf: false, from: '#000000' }),
+      paintEditor('Berries & flowers', 'paint.ornament', { nullable: true, noneLabel: 'Same as leaves', from: 'paint.branch' }),
       select('Draw', 'paint.mode', [['fill', 'Filled'], ['outline', 'Outline'], ['both', 'Filled + outline']]),
       range('Outline width', 'paint.stroke.w', 0.2, 4, 0.05),
-      paintEditor('Outline color', 'paint.stroke.paint', { nullable: true, noneLabel: 'Same as leaves' })),
+      paintEditor('Outline color', 'paint.stroke.paint', { nullable: true, noneLabel: 'Same as leaves', from: 'paint.branch' })),
     fold('Text', null, true,
       paintEditor('Main text', 'text.paint', { leaf: false }),
-      paintEditor('Small text', 'text.sub', { nullable: true, noneLabel: 'Same as main', leaf: false })),
+      paintEditor('Small text', 'text.sub', { nullable: true, noneLabel: 'Same as main', leaf: false, from: 'text.paint' })),
     fold('Ribbon, badge and background', null, false,
-      paintEditor('Ribbon & badge', 'ribbon.paint', { nullable: true, noneLabel: 'Same as leaves' }),
-      paintEditor('Text on ribbon', 'ribbon.text', { nullable: true, noneLabel: 'Auto (always readable)', leaf: false }),
-      paintEditor('Background', 'canvas.bg', { nullable: true, noneLabel: 'Transparent', leaf: false })),
+      paintEditor('Ribbon & badge', 'ribbon.paint', { nullable: true, noneLabel: 'Same as leaves', from: 'paint.branch' }),
+      paintEditor('Text on ribbon', 'ribbon.text', { nullable: true, noneLabel: 'Auto (always readable)', leaf: false, from: 'auto' }),
+      paintEditor('Background', 'canvas.bg', { nullable: true, noneLabel: 'Transparent', leaf: false, from: 'clear' })),
     fold('Effects', ['shadow', 'glow', 'misreg', 'foil', 'press', 'grain'].filter(fx).length + ' on', false,
       h('div', { class: 'hint' }, 'Foil: stamped metal catching the light. Letterpress: pressed into the paper. Misprint: a second ink off register. Grain: worn ink.'),
       toggle('Foil', 'paint.effects.foil', { rebuild: true, on: { strength: 0.75, crinkle: 0.5, size: 1.6, light: 235 }, off: null }),
@@ -593,7 +610,7 @@ function canvasTab() {
   return [top, h('div', { class: 'pane' },
     select('Shape', 'canvas.aspect', [[0, 'Fit the laurel'], [1, 'Square 1:1'], [0.8, 'Portrait 4:5'], [0.5625, 'Story 9:16'], [1.7778, 'Wide 16:9'], [0.6667, 'Poster 2:3']], { num: true }),
     range('Padding', 'canvas.pad', 0, 80, 1),
-    paintEditor('Background', 'canvas.bg', { nullable: true, noneLabel: 'Transparent', leaf: false }),
+    paintEditor('Background', 'canvas.bg', { nullable: true, noneLabel: 'Transparent', leaf: false, from: 'clear' }),
     h('div', { class: 'group' }, h('div', { class: 'label' }, 'Smallest use', h('span', { class: 'grow' })),
       h('div', { class: 'hint' }, 'How small will people see it? Daphne keeps the small lines readable at that size: 6 px or more.'),
       h('div', { class: 'chips' }, [[0, 'No floor'], [600, 'Big · 600 px'], [300, 'Medium · 300 px'], [160, 'Poster row · 160 px'], [100, 'Tiny · 100 px']].map(([v, l]) => h('button', { class: 'chip' + (get(L + 'targetPx') === v ? ' on' : ''), onclick: () => change(L + 'targetPx', v, true) }, l)))),
@@ -782,7 +799,7 @@ const stamp = (svg, d = doc) => svg.replace(/^<svg([^>]*)>/, (m, a) => `<svg${a.
 async function exportSvgText(svg, d = doc) {
   if ((d.out && d.out.svgText) !== 'live') {
     try { const r = await outlineSvg(svg); if (r.notes.length) toast(`Drawn in ${r.notes.join(', ')} where the font has no glyphs`); return stamp(r.svg, d); }
-    catch (e) { console.warn(e); toast('Couldn’t fetch the fonts to outline the text: saved with live text'); }
+    catch (e) { console.warn(e); toast(`${e.message || 'Couldn’t fetch the fonts to outline the text'}. Saved with live text instead.`); }
   }
   return stamp(await svgWithFonts(svg, false, d), d);
 }
@@ -800,7 +817,7 @@ async function toPng(svgText, vb, width, withBg, d = doc, height) {
 }
 async function toPdf(svg, d = doc, title = 'Laurel', mm) {
   let outl;
-  try { outl = (await outlineSvg(svg)).svg; } catch (e) { toast('Couldn’t fetch the fonts for the PDF: check your connection'); throw e; }
+  try { outl = (await outlineSvg(svg)).svg; } catch (e) { toast(`${e.message || 'Couldn’t fetch the fonts'}, so no PDF was made. Check your connection and try again.`); throw e; }
   return svgToPdf(stamp(outl, d), mm || (d.out && d.out.pdfMm) || 100, { title: altText(d).replace(/\.$/, '') || title, subject: 'Festival laurel. Not affiliated with or endorsed by any festival.' });
 }
 function openExport() { if (document.querySelector('.scrim')) return; endPeek(); markSeen(); openStudio(ctx); }
@@ -809,7 +826,7 @@ document.getElementById('open-export').onclick = openExport;
 // ── views: the laurel, on the poster, a row, motion ──
 const modebar = document.getElementById('modebar'), modepanel = document.getElementById('modepanel');
 const ctx = {
-  get doc() { return doc; }, change, replaceDoc, schedule, clone, merge, h, toast, download, measure, render: (d, scale = 1) => render(d, { measure, scale }),
+  get doc() { return doc; }, get fontEpoch() { return fontEpoch; }, change, replaceDoc, schedule, clone, merge, h, fill, toast, download, measure, render: (d, scale = 1) => render(d, { measure, scale }),
   ensureFonts, svgWithFonts, exportSvgText, toPng, toPdf, fileName, slug, stamp, altText, ASSETS, saveAssets, addAsset, readLogo, stage, modebar, modepanel, showNotes, layoutFields, layoutById, LAYOUTS, PRESETS, applyPreset, zip,
   pushUndo: () => remember(), batch, logoTarget, settle: () => { lastSnap = JSON.stringify(doc); saveHash(); }, rebuild: () => buildPanel(), get last() { return last; }, get mode() { return mode; }, get modes() { return MODES; },
   prefs: () => ({ pngW: (doc.out && doc.out.pngW) || 3000, bg: !(doc.out && doc.out.pngBg === false) }),
@@ -841,11 +858,11 @@ const stagebar = document.getElementById('stagebar');
 function buildStagebar() {
   stagebar.innerHTML = '';
   mainEl.classList.toggle('light', state.backdrop === 'light'); mainEl.classList.toggle('check', state.backdrop === 'check');
-  if (mode !== 'laurel') { document.querySelector('.small-sizes')?.remove(); return; }
+  if (mode !== 'laurel') { document.querySelector('.small-sizes')?.remove(); placeSmallSizes(); return; }
   stagebar.append(
     segctl([['dark', h('span', {}, h('i', { class: 'bd', style: 'background:#12291E' }), ' Dark')], ['light', h('span', {}, h('i', { class: 'bd', style: 'background:#F3F6EF' }), ' Light')], ['check', h('span', {}, h('i', { class: 'bd', style: 'background:repeating-conic-gradient(#999 0 25%,#ddd 0 50%) 0 0/7px 7px' }), ' Clear')]], state.backdrop, (v) => { state.backdrop = v; saveUi(); buildStagebar(); }),
     h('span', { class: 'grow' }),
-    segctl([[true, state.smallSizes ? '✓ Small sizes' : 'Small sizes']], state.smallSizes ? true : null, () => { state.smallSizes = !state.smallSizes; buildStagebar(); if (state.smallSizes) drawSmallSizes(); else document.querySelector('.small-sizes')?.remove(); }));
+    segctl([[true, state.smallSizes ? '✓ Small sizes' : 'Small sizes']], state.smallSizes ? true : null, () => { state.smallSizes = !state.smallSizes; buildStagebar(); if (state.smallSizes) drawSmallSizes(); else { document.querySelector('.small-sizes')?.remove(); placeSmallSizes(); } }));
 }
 // the laurel at 160, 100 and 64 px tall, on dark and light: how a poster row, a listing and a thumbnail show it
 function drawSmallSizes() {
@@ -853,10 +870,26 @@ function drawSmallSizes() {
   let box = document.querySelector('.small-sizes');
   if (!box) { box = h('div', { class: 'small-sizes', 'aria-label': 'The laurel at small sizes' }); document.getElementById('stagearea').append(box); }
   const svg = last.svg.replace(/<rect data-bg="1"[^>]*\/>/, ''), vb = last.viewBox, ar = vb[2] / vb[3];
-  const fig = (px) => { const w = Math.round(px * ar); const mk = (bg) => h('div', { style: `background:${bg}`, html: svg.replace(/width="[^"]+" height="[^"]+"/, `width="${w}" height="${px}"`) }); return h('figure', {}, h('div', { class: 'pair' }, mk('#0a0a0a'), mk('#f2efe8')), h('figcaption', {}, `${px} px`)); };
+  const fig = (px) => { const w = Math.round(px * ar); const mk = (bg) => h('div', { style: `background:${bg}`, html: svg.replace(/width="[^"]+" height="[^"]+"/, `width="${w}" height="${px}"`) }); return h('figure', { 'data-px': px }, h('div', { class: 'pair' }, mk('#0a0a0a'), mk('#f2efe8')), h('figcaption', {}, `${px} px tall`)); };
   box.innerHTML = '';
-  box.append(h('div', { class: 'hint', style: 'font-size:11px' }, 'Real size on a standard screen: a poster row, a festival listing, a thumbnail.'), h('div', { class: 'ss-row' }, fig(160), fig(100), fig(64)));
+  box.append(h('div', { class: 'hint', style: 'font-size:11px' }, 'Real size on a standard screen (artwork height in CSS pixels): a poster row, a festival listing, a thumbnail.'), h('div', { class: 'ss-row' }, fig(160), fig(100), fig(64)));
+  box.dataset.w = 2 * (Math.round(160 * ar) + 12) + 6 + 26; // the panel's natural width: the 160 px pair, side by side
+  placeSmallSizes();
 }
+// V01: beside the laurel when there's room for both, else along the bottom; a phone stacks it under the stage
+function placeSmallSizes() {
+  const area = document.getElementById('stagearea'), box = area.querySelector('.small-sizes');
+  area.classList.remove('ss-side', 'ss-below');
+  if (!box) return;
+  if (matchMedia('(max-width: 860px)').matches) { requestAnimationFrame(() => sayScroll(box)); return; }
+  const w = +box.dataset.w || 360;
+  if (area.clientWidth - w - 32 >= 420) { area.classList.add('ss-side'); area.style.setProperty('--ssw', w + 'px'); }
+  else { area.classList.add('ss-below'); area.style.setProperty('--ssh', Math.min(box.offsetHeight, area.clientHeight * 0.6) + 'px'); }
+  sayScroll(box);
+}
+// a proof wider than the room scrolls rather than shrinking, and says so
+function sayScroll(box) { for (const f of box.querySelectorAll('figure')) { const wide = [...f.querySelectorAll('.pair > div'), box.querySelector('.ss-row')].some((d) => d && d.scrollWidth > d.clientWidth + 1); f.querySelector('figcaption').textContent = `${f.dataset.px} px tall${wide ? ' · scroll sideways to see it all' : ''}`; } }
+new ResizeObserver(() => placeSmallSizes()).observe(document.getElementById('stagearea'));
 
 
 // the phone layout keeps the rail just under the header, however tall the header wraps
@@ -903,5 +936,5 @@ function drawSmallSizes() {
   });
   setTimeout(() => preloadOutlines(doc.roles).catch(() => null), 2500); // warm the shaper for the first SVG or PDF
   import('./fixer.js').then((mod) => { ctx.openFixer = (onDone, o) => mod.openFixer(ctx, onDone, o); }).catch(() => null);
-  window.__laurel = { get doc() { return doc; }, render: (d) => render(d || doc, { measure }), PRESETS, applyPreset, measure, setMode, get mode() { return mode; }, ctx, MODES, setTab, altText, openExport };
+  window.__laurel = { get doc() { return doc; }, get renders() { return renders; }, get lastMs() { return lastMs; }, render: (d) => render(d || doc, { measure }), PRESETS, applyPreset, measure, setMode, get mode() { return mode; }, ctx, MODES, setTab, altText, openExport };
 })();

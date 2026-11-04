@@ -649,6 +649,8 @@ export function applyForm(doc, form) { const d = merge(doc, FORMS[form] || {}); 
 
 // ── layout + render ───────────────────────────────────────────────────────
 const MCACHE = new WeakMap(); // measured widths, kept per measure function across renders
+// D14: when a font arrives, the widths measured with its stand-in are wrong; the app forgets them and draws again
+export const forgetWidths = (measure) => { MCACHE.delete(measure); };
 // built branches, keyed by their parameters: typing, recoloring and re-layout passes reuse the leaves
 const BCACHE = new Map();
 function branchOf(br, seed) {

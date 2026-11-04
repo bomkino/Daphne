@@ -78,7 +78,7 @@
   .eyebrow { font: 500 12px/1.2 var(--data); letter-spacing: .1em; text-transform: uppercase; color: var(--leaf); margin: 0 0 18px; }
   h2 { font: 400 clamp(34px, 4.6vw, 60px)/1.08 var(--display); margin: 0 0 22px; max-width: 18ch; text-wrap: balance; letter-spacing: -.01em; }
   .lede { font: 400 clamp(19px, 1.8vw, 23px)/1.45 var(--lead); max-width: 40ch; margin: 0 0 18px; text-wrap: pretty; }
-  .after p { max-width: 62ch; text-wrap: pretty; }
+  .after p:not(.lede) { max-width: 62ch; text-wrap: pretty; } /* V09: the lead keeps its own 40ch measure */
   .mist { color: var(--mist); }
   .held { white-space: nowrap; }
   .lb { display: inline-block; width: .3976em; height: 1.24em; vertical-align: -.3em; background: var(--leaf); -webkit-mask: url('../assets/leaf-left.svg') center / contain no-repeat; mask: url('../assets/leaf-left.svg') center / contain no-repeat; }

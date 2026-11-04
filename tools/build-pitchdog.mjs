@@ -68,6 +68,26 @@ if (blocked.length) {
   process.exit(1)
 }
 
+// D39: one release, one module graph. Every relative import and module script names the commit (?v=), so a browser
+// holding an older cached app.js can never run it with a newer engine.mjs, or the other way round.
+const v = commit.slice(0, 12)
+const tag = (spec) => (spec.includes('?') ? spec : `${spec}?v=${v}`)
+async function* walk(dir) {
+  for (const entry of await readdir(dir, { withFileTypes: true })) {
+    const path = join(dir, entry.name)
+    if (entry.isDirectory()) { if (entry.name !== 'vendor') yield* walk(path) } else yield path
+  }
+}
+for await (const path of walk(out)) {
+  if (/\.m?js$/.test(path)) {
+    const s = await readFile(path, 'utf8')
+    await writeFile(path, s.replace(/(\bfrom\s*|\bimport\s*\(\s*|\bimport\s+)(['"])(\.{1,2}\/[^'"?]+\.m?js)\2/g, (m, a, q, spec) => a + q + tag(spec) + q))
+  } else if (path.endsWith('.html')) {
+    const s = await readFile(path, 'utf8')
+    await writeFile(path, s.replace(/(<script\b[^>]*\bsrc=|<link\b[^>]*\brel=["']modulepreload["'][^>]*\bhref=)(["'])((?!https?:|\/)[^"'?]+\.m?js)\2/g, (m, a, q, spec) => a + q + tag(spec) + q))
+  }
+}
+
 const build = {
   name: 'Daphne',
   source: 'https://github.com/bomkino/Daphne',

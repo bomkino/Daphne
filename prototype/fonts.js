@@ -69,14 +69,17 @@ export function cssUrl(family) {
 // load a family (and wait for the weights in use). Unknown families are tried as plain Google Fonts names.
 export async function loadFont(family, weights = [400]) {
   if (!family) return;
-  if (!loaded.has(family)) {
-    const link = document.createElement('link');
+  const was = loaded.get(family);
+  if (!was || (was.failed && Date.now() - was.failed > 15000)) {
+    // D30: a stylesheet that failed (offline, blocked) is taken out and asked for again later, not kept forever
+    if (was) was.link.remove();
+    const link = document.createElement('link'), entry = { link, failed: 0 };
     link.rel = 'stylesheet'; link.href = cssUrl(family);
-    const p = new Promise((res) => { link.onload = res; link.onerror = res; });
+    entry.p = new Promise((res) => { link.onload = res; link.onerror = () => { entry.failed = Date.now(); res(); }; });
     document.head.appendChild(link);
-    loaded.set(family, p);
+    loaded.set(family, entry);
   }
-  await loaded.get(family);
+  await loaded.get(family).p;
   await Promise.all(weights.map((w) => document.fonts.load(`${w} 100px "${family}"`).catch(() => null)));
 }
 
@@ -85,17 +88,19 @@ export async function embedFontCss(families) {
   const out = [];
   for (const fam of families) {
     try {
-      const css = await (await fetch(cssUrl(fam))).text();
+      const r = await fetch(cssUrl(fam)); if (!r.ok) throw new Error(r.status);
+      const css = await r.text();
       const urls = [...new Set([...css.matchAll(/url\((https:[^)]+)\)/g)].map((m) => m[1]))];
       let inlined = css;
       for (const u of urls) {
-        const buf = await (await fetch(u)).arrayBuffer();
+        const f = await fetch(u); if (!f.ok) throw new Error(f.status);
+        const buf = await f.arrayBuffer();
         let bin = ''; const bytes = new Uint8Array(buf);
         for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
         inlined = inlined.split(u).join(`data:font/woff2;base64,${btoa(bin)}`);
       }
       out.push(inlined);
-    } catch (e) { console.warn('font embed failed', fam, e); }
+    } catch (e) { throw new Error(`Couldn’t fetch ${fam} for the image. Check your connection and try again.`); } // D30: never a PNG in a stand-in font
   }
   return out.join('\n');
 }

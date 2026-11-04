@@ -95,33 +95,33 @@ All work goes on the branch `claude/project-thread-tx7lhm` with one draft PR. Me
 | D04 | 3 | fixed | every line's painted box, nudges and ink room included, sits in the canvas; a nudged line is judged where it's drawn (tests: unit engine D04) |
 | D06 | 3 | fixed | one dialog at a time owns the keyboard: the page behind is inert, Undo and shortcuts wait, Escape closes the top dialog (test: browser dialog, 1440 and 390 px) |
 | D07 | 3 | fixed | the row is composed from Export's colorway (test: browser rowexport) |
-| D14 | 3 | todo | |
-| D15 | 3 | todo | |
-| D23 | 3 | todo | |
-| D24 | 3 | todo | |
-| D25 | 3 | todo | |
-| D27 | 3 | todo | |
-| D28 | 3 | todo | |
-| D29 | 3 | todo | |
-| D30 | 3 | todo | |
-| D36 | 3 | todo | |
-| D37 | 3 | todo | |
-| D39 | 3 | todo | |
+| D14 | 3 | fixed | A font that finishes loading forgets the widths measured with its stand-in and redraws (laurel, row, Export); tests/browser/fonts.test.mjs (fails on main) |
+| D15 | 3 | fixed | Outlining never drops text: a run no font can draw, or a fallback that can't load, is an error; SVG falls back to live text and says why, PDF says why; tests/browser/outline.test.mjs (fails on main) |
+| D23 | 3 | fixed | Text is shaped in whole runs of one script and direction; marked Arabic and Devanagari keep every glyph at any weight and tracking; tests/browser/outline.test.mjs (fails on main) |
+| D24 | 3 | fixed | Bidi order (UAX #9, base left to right) before shaping, checked against the browser's own order; مهرجان 2026 stays 2026; tests/unit/outline.test.mjs, tests/browser/outline.test.mjs (fail on main) |
+| D25 | 3 | fixed | Masked shapes (tinted logos) are drawn into a 600 dpi image before the PDF; tests/browser/pdf.test.mjs (fails on main) |
+| D27 | 3 | fixed | Poster image swaps decode first and keep the old poster on failure, with a toast; tests/browser/poster.test.mjs (fails on main) |
+| D28 | 3 | fixed | Poster's actual-size and normal drawings can't overwrite each other or a newer mode; tests/browser/poster.test.mjs (fails on main) |
+| D29 | 3 | fixed | One download at a time; the kit and pack keep the sizes and link they started with; Motion exports keep their settings; tests/browser/export.test.mjs (fails on main) |
+| D30 | 3 | fixed | Failed outline lookups and font stylesheets are asked for again (after 15 s); a PNG whose font can't be fetched says so instead of using a stand-in; tests/browser/fonts.test.mjs, outline.test.mjs (fail on main) |
+| D36 | 3 | fixed | Same size in every laurel repeats the fit until every laurel lands on one size; tests/browser/row.test.mjs (fails on main) |
+| D37 | 3 | fixed | Grow in fades in what the stem doesn't reach (ribbon tails, frames) as the growth ends; the last frame matches Already there; tests/browser/motion.test.mjs (fails on main) |
+| D39 | 3 | fixed | The pitch.dog build tags every module, module script and modulepreload with the commit (?v=), so one release is one module graph; tests/browser/build.test.mjs |
 | J05 | 3 | fixed | one rule for the row everywhere: examples are marked, shown on the stage, never exported; Your row is always in Export with an empty state and disabled downloads; Start with this laurel and Clear the examples (test: browser rowexport) |
 | V04 | 3 | fixed | Motion, Social and Trailer say the row is empty instead of drawing this laurel; exports disabled (test: browser rowexport) |
-| D09 | 4 | todo | |
-| D10 | 4 | todo | |
-| D11 | 4 | todo | |
-| D16 | 4 | todo | |
-| D42 | 4 | todo | |
-| D45 | 4 | todo | |
-| V01 | 4 | todo | |
-| V02 | 4 | todo | |
-| V05 | 4 | todo | |
-| V06 | 4 | todo | |
-| V07 | 4 | todo | |
-| V08 | 4 | todo | |
-| V09 | 4 | todo | |
+| D09 | 4 | fixed | Motion's bar is built once and updated; Time keeps focus through arrows, Home and End; tests/browser/motion.test.mjs (fails on main) |
+| D10 | 4 | fixed | Panel, rail, Export destinations and options rebuild with focus put back on the same control; More/Fewer updates aria-expanded; tests/browser/focus.test.mjs (fails on main) |
+| D11 | 4 | fixed | Font picker fits the screen at any width, 8 px from each edge; tests/browser/narrow.test.mjs (fails on main) |
+| D16 | 4 | fixed | Reduced motion opens Motion on its last frame, paused; an export never starts playback; tests/browser/motion.test.mjs (fails on main) |
+| D42 | 4 | fixed | One edit draws once (the second draw only when a font arrived); dragging a slider over a slow wreath draws when the hand pauses; tests/browser/speed.test.mjs |
+| D45 | 4 | fixed | On a phone the Export preview grows with stacked previews instead of covering the options; Email proofs keep their actual size and scroll if wider; tests/browser/narrow.test.mjs (Email fails on main) |
+| V01 | 4 | fixed | Small sizes sits beside the laurel when both fit (the stage gives up its real width), else along the bottom in one scrolling row; phones stack it under the stage; proofs stay 160/100/64 px tall and say when to scroll; tests/browser/narrow.test.mjs (fails on main) |
+| V02 | 4 | fixed | Export previews keep their ratio and refit on every resize; tests/browser/narrow.test.mjs (fails on main) |
+| V05 | 4 | fixed | Every slider made by the app shows its fill on first draw, on input and during playback; tests/browser/motion.test.mjs (fails on main) |
+| V06 | 4 | fixed | Every line's selects size to their longest choice and wrap instead of cutting labels; tests/browser/narrow.test.mjs (fails on main) |
+| V07 | 4 | fixed | Mixed wreath is a switch (role=switch, aria-checked) reading ✓ Different right side when on; tests/browser/focus.test.mjs (fails on main) |
+| V08 | 4 | fixed | An inherited paint's swatch shows the paint it inherits with a dashed ring; only a transparent background is a checkerboard; tests/browser/focus.test.mjs (fails on main) |
+| V09 | 4 | fixed | Story's body rule no longer overrides the lead's 40ch measure; tests/browser/narrow.test.mjs (fails on main) |
 | L01 | 5 | todo | |
 | L02 | 5 | todo | |
 | L03 | 5 | todo | |

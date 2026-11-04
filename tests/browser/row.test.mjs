@@ -34,3 +34,24 @@ for (const layout of ['winner', 'award-detail', 'star-winner', 'award-festival-h
     await context.close();
   });
 }
+
+// D36: "Same size in every laurel" means the same size, even when a long name forces a second layout
+test('same size in every laurel holds for a short and a long festival name', async () => {
+  const { page, errors, context } = await openApp();
+  const sizes = await page.evaluate(() => {
+    const c = window.__laurel.ctx, out = [];
+    for (const long of ['International Documentary Film Festival Amsterdam', 'Hot Docs Canadian International Documentary Festival', 'Sheffield DocFest International Documentary Festival and Marketplace']) {
+      const d = c.clone(c.doc);
+      d.row = { ...(d.row || {}), items: [
+        { id: 'u1', status: 'Official Selection', festival: 'Northlight', award: '', year: '2026' },
+        { id: 'u2', status: 'Official Selection', festival: long, award: '', year: '2026' },
+      ], order: 'manual', arrange: 'row', perRow: 4, uniform: true, gap: 0.14, lead: 1.3 };
+      c.replaceDoc(d);
+      out.push(c.rowScene({ real: true }).parts.map((p) => p.r.report.hero));
+    }
+    return out;
+  });
+  for (const [a, b] of sizes) assert.ok(Math.abs(a - b) / Math.max(a, b) < 0.01, `${a} vs ${b}`);
+  assert.deepEqual(errors, []);
+  await context.close();
+});
