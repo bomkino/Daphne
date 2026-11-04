@@ -185,8 +185,8 @@ export function wordsTab(ui) {
     st.emailPick = st.emailPick || {};
     const keys = Object.keys(KLABEL).filter((k) => r[k]);
     found.append(h('div', { class: 'foundlist' }, keys.map((k) => {
-      const on = st.emailPick[k] ?? !OPTIONAL.includes(k);
-      return h('label', { class: 'frow' }, h('input', { type: 'checkbox', checked: on, onchange: (e) => { st.emailPick[k] = e.target.checked; } }), h('span', { class: 'k' }, KLABEL[k]), h('span', { class: 'v' }, r[k]));
+      const unsure = k === 'status' && r.unsure, on = st.emailPick[k] ?? (!OPTIONAL.includes(k) && !unsure);
+      return h('label', { class: 'frow' }, h('input', { type: 'checkbox', checked: on, onchange: (e) => { st.emailPick[k] = e.target.checked; } }), h('span', { class: 'k' }, KLABEL[k]), h('span', { class: 'v' }, r[k], unsure ? h('small', {}, ' · the email says more than one thing: check it') : null));
     })),
       h('div', { class: 'acts' }, h('button', { class: 'btn small primary', onclick: () => applyEmail(r) }, 'Use these'), h('button', { class: 'btn small ghost', onclick: () => { st.emailText = ''; st.emailOpen = false; st.emailPick = null; ui.rebuild(); } }, 'Clear')),
       h('div', { class: 'hint' }, 'Read in your browser; nothing is sent anywhere. Check each line against the email.'));

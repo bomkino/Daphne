@@ -61,7 +61,7 @@ All work goes on the branch `claude/project-thread-tx7lhm` with one draft PR. Me
 | --- | --- | --- | --- |
 | D17 | 0 | todo | |
 | D40 | 0 | todo | |
-| D01 | 1 | todo | |
+| D01 | 1 | fixed | Status read per sentence about this film; unsure results unticked; tests/unit/email.test.mjs (6 of 12 fail on main) |
 | D08 | 1 | todo | |
 | D20 | 1 | todo | |
 | D21 | 1 | todo | |
