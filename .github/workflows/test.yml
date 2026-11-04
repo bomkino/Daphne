@@ -19,3 +19,5 @@ jobs:
         run: node tests/stress.mjs
       - name: Every look unchanged
         run: node tests/looks.mjs
+      - name: Interface fonts match their recipe
+        run: pip install --quiet fonttools==4.68.0 brotli && python3 tools/subset-fonts.py

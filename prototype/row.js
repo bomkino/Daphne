@@ -118,7 +118,9 @@ export function rowMode(ctx) {
       const [vx, vy, vw, vh] = rs[i].viewBox; return { it, r: rs[i], d: docs[i], w: vw * s, h: vh * s, top: vy * s, s };
     });
     // lines: a single row, or wrapped every perRow (the lead takes a line of its own when tiered)
-    const per = row.arrange === 'row' ? parts.length : Math.max(1, row.perRow | 0), lines = [];
+    let per = row.arrange === 'row' ? parts.length : Math.max(1, row.perRow | 0); const lines = [];
+    // A04: a picture can ask for the row in N lines (a social card stacks a long row), without touching the row itself
+    if (opts.lines > 1) { const n = tiered ? parts.length - 1 : parts.length; per = Math.max(1, Math.ceil(n / Math.max(1, opts.lines - (tiered ? 1 : 0)))); }
     let rest = parts; if (tiered) { lines.push([parts[0]]); rest = parts.slice(1); }
     for (let i = 0; i < rest.length; i += per) lines.push(rest.slice(i, i + per));
     const gap = unitH * row.gap, lineW = lines.map((ln) => ln.reduce((a, p) => a + p.w, 0) + gap * (ln.length - 1)), W = Math.max(...lineW);

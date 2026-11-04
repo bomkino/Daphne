@@ -49,11 +49,13 @@ Then open http://127.0.0.1:5178/. `serve.py` is a small static server for `proto
 | `prototype/studio.js`, `fixer.js` | The Export studio (kit, print, social, video, web, email, accolades, festival pack) and the official-laurel fixer |
 | `prototype/poster.js`, `row.js`, `motion.js` | The On poster, Row and Motion views |
 | `prototype/outline.js`, `zip.js` | Outlined SVG, PDF and ZIP |
+| `prototype/jobs.js` | The progress card for long exports: phase, progress, Stop and Try again |
 | `prototype/presets.js`, `layouts.js`, `rules.js`, `fonts.js` | Looks, layouts, the festival rules registry and the font list |
 | `prototype/assets/`, `manifest.webmanifest` | Daphne's logo, favicons, app icons, social card and leaf brackets, and the PD fonts (CC0) trimmed to Latin and to the weights the app uses. Copied from the identity in `brand/` |
 | `prototype/vendor/` | harfbuzzjs, jsPDF, svg2pdf.js and mp4-muxer, copied unchanged with their MIT licenses |
 | `tests/` | Unit and browser tests, the headless stress runner and the look baseline (see Tests) |
 | `prototype/stress.html`, `qa*.html`, `perf.html`, `lab.html` | The stress suite, visual QA pages, timing and leaf-craft specimens |
+| `tools/` | The pitch.dog build, the story page's marks, and `subset-fonts.py`, the recipe that makes the interface fonts from the brand fonts |
 | `prototype/tools/` | Headless Chrome runners for the stress suite and screenshots, a feature sheet, and every look on one page (`looks.html`) |
 | `spike/` | The engine's first draft, kept for reference |
 
@@ -67,7 +69,7 @@ node tests/stress.mjs     # the 1,702-case stress suite: overlaps, clipping, tex
 node tests/looks.mjs      # every look rendered and compared with tests/looks-baseline.json
 ```
 
-`node tests/run.mjs row` runs only the test files whose names contain "row". When a look is meant to change, check it with `node tests/looks.mjs --sheet looks.png`, then accept it with `--update`. The stress suite can also be opened at http://127.0.0.1:5178/stress.html?px=160, and every look at /tools/looks.html. GitHub runs the tests and the stress suite on every push.
+`node tests/run.mjs row` runs only the test files whose names contain "row". When a look is meant to change, check it with `node tests/looks.mjs --sheet looks.png`, then accept it with `--update`. The stress suite can also be opened at http://127.0.0.1:5178/stress.html?px=160, and every look at /tools/looks.html. GitHub runs the tests, the stress suite, the look baseline and the font recipe check on every push.
 
 ## Publish to pitch.dog
 

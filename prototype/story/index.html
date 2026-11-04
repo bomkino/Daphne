@@ -25,6 +25,7 @@
 <style>
   @font-face { font-family: 'PD Head'; src: url('../assets/fonts/pd-head.woff2') format('woff2'); font-weight: 300 700; font-display: swap; }
   @font-face { font-family: 'PD Body'; src: url('../assets/fonts/pd-body.woff2') format('woff2'); font-weight: 300 800; font-display: swap; }
+  @font-face { font-family: 'PD Body'; src: url('../assets/fonts/pd-body-italic.woff2') format('woff2'); font-weight: 400; font-style: italic; font-display: swap; } /* A17: a real italic for the odd italic word, not a slanted upright */
   @font-face { font-family: 'PD Body Alt'; src: url('../assets/fonts/pd-body-alt.woff2') format('woff2'); font-weight: 300 700; font-display: swap; }
   @font-face { font-family: 'PD Eyebrow'; src: url('../assets/fonts/pd-eyebrow.woff2') format('woff2'); font-weight: 400 700; font-display: swap; }
   /* Daphne's story: one frame scrolled like a film, its lines set as subtitles, then a quiet chapter on Grove.
@@ -120,7 +121,7 @@
   footer { background: var(--deep); padding-block: 40px calc(env(safe-area-inset-bottom, 0px) + 48px); color: var(--mist); font: 400 14px/1.6 var(--text); }
   footer p { margin: 0 0 10px; max-width: 62ch; }
   footer .by { color: var(--paper); font: 400 16px/1.5 var(--lead); margin-bottom: 18px; }
-  footer .data { font: 500 12px/1.6 var(--data); letter-spacing: .06em; }
+  footer .data { font: 500 12px/1.6 var(--data); letter-spacing: .052em; } /* the type system's metadata role */
 
   @media (prefers-reduced-motion: reduce) {
     .hint { display: none !important; }

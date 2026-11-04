@@ -198,7 +198,7 @@ export function posterMode(ctx) {
         contrastEl = h('span', { class: 'contrast' }),
         h('span', { class: 'grow' }),
         h('label', { title: 'See it the size it will be in a poster row or a listing: 160 px tall, on a standard screen' }, h('input', { type: 'checkbox', checked: !!p.actual, onchange: (e) => { ctx.change('poster.actual', e.target.checked); } }), 'At 160 px'),
-        h('button', { class: 'btn small', title: 'The poster with the laurel on it, as a PNG (for sharing a draft)', onclick: () => mockup().catch((e) => ctx.toast(e.message || 'Couldn’t make the mockup')) }, 'Mockup PNG'));
+        h('button', { class: 'btn small', title: 'The poster with the laurel on it, as a PNG (for sharing a draft)', onclick: () => mockup() }, 'Mockup PNG'));
       ctx.modepanel.append(
         h('div', { class: 'rowtools' }, h('b', { style: 'color:var(--text)' }, 'Colors from your poster'), h('span', { class: 'swatches' }, (data ? data.palette : []).map((sw) => h('i', { style: `background:${sw.c}`, title: sw.c }))), h('span', { class: 'hint' }, 'Each is checked against what’s behind the laurel. Click one to use it.')),
         h('div', { class: 'suggest', id: 'poster-suggest' }));
@@ -222,15 +222,24 @@ export function posterMode(ctx) {
     Object.assign(layer.style, { left: b.x0 * dw + 'px', top: b.y0 * dh + 'px', width: (b.x1 - b.x0) * dw + 'px', height: b.hf * dh + 'px' });
   }
 
+  // A16: the mockup is a job in the corner card, like every longer export
+  let making = false;
   async function mockup() {
     if (!img) return;
-    ctx.toast('Rendering mockup…');
+    if (making) { ctx.toast('One export at a time: the last one is still being made.'); return; }
+    making = true; const job = ctx.jobs.start('Poster mockup', { retry: () => mockup() });
+    job.phase('Drawing the laurel at the poster’s size'); job.progress(null);
+    try { await makeMockup(); job.done('Downloaded'); } catch (e) { job.fail(e); } finally { making = false; }
+  }
+  async function makeMockup() {
     const r = ctx.render(ctx.doc, 1), W = img.naturalWidth, H = img.naturalHeight, b = box(r.viewBox);
     const c = document.createElement('canvas'); c.width = W; c.height = H; const x = c.getContext('2d'); x.drawImage(img, 0, 0);
     const lw = Math.max(1, Math.round((b.x1 - b.x0) * W)), png = await ctx.toPng(r.svg, r.viewBox, lw, false);
     const li = new Image(); li.src = URL.createObjectURL(png); await li.decode();
     x.drawImage(li, b.x0 * W, b.y0 * H, lw, b.hf * H);
-    c.toBlob((bl) => ctx.download(bl, ctx.fileName() + '-on-poster.png'), 'image/png');
+    const bl = await new Promise((res) => c.toBlob(res, 'image/png'));
+    if (!bl) throw new Error('the browser couldn’t make the PNG. Try a smaller poster.');
+    ctx.download(bl, ctx.fileName() + '-on-poster.png');
   }
 
   // at 160 px: the laurel and the poster round it, drawn at the size a poster row shows them, on a 1× screen
@@ -251,6 +260,20 @@ export function posterMode(ctx) {
   }
 
   return {
+    // A03: what Export shows when it's opened from On poster: the poster with the laurel where it sits, and its mockup
+    sceneExport: {
+      dest: 'poster', t: 'This poster mockup', s: 'The poster with the laurel on it',
+      empty: () => (has() && img ? '' : P().src ? 'This link’s poster stays on the device it was added on. Upload it again under On poster to make the mockup.' : 'Upload your poster under On poster first: then its mockup downloads from here.'),
+      summary: () => (img ? [`${img.naturalWidth} × ${img.naturalHeight} PNG`, P().name || 'Your poster', P().autoInk ? 'Auto ink on' : null] : []),
+      preview: () => {
+        if (!img || !ctx.last) return null;
+        const b = box(ctx.last.viewBox), pct = (v) => (v * 100).toFixed(3) + '%';
+        return h('div', { class: 'poster-prev' }, h('img', { src: ctx.ASSETS[P().src], alt: 'Your poster with the laurel on it' }),
+          h('div', { class: 'lay', style: `left:${pct(b.x0)};top:${pct(b.y0)};width:${pct(b.x1 - b.x0)};height:${pct(b.hf)}`, html: ctx.last.svg.replace(/<rect data-bg="1"[^>]*\/>/, '').replace(/width="[^"]+" height="[^"]+"/, 'width="100%" height="100%"') }));
+      },
+      items: () => [{ id: 'mockup', label: 'Mockup PNG', note: 'The poster at its own size with the laurel on it, for sharing a draft.', run: () => mockup() }],
+      busy: () => making,
+    },
     enter() { load().then(() => { buildBar(); ctx.schedule(); }); buildBar(); },
     refresh() { load().then(() => { buildBar(); ctx.schedule(); }); },
     leave() { layer = null; wrap = null; actualBusy++; gen++; },
