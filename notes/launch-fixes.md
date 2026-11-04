@@ -49,7 +49,7 @@ Each wave is one group of commits on the working branch, verified before the nex
 
 **Wave 6 · Journey polish.** The smaller audit items (A01 to A24, C01 to C08, K01, K02), each fixed or closed with a reason here.
 
-**Not in this repository.** The website README's merge-protection claim and the site's CI filter (D41, the site half of D40) belong to the site's owner. We hand them over with the exact changes; we don't touch the site nav.
+**Wave 7 · The rest (November 4, 2026).** The journey improvements left after launch (A01, A03, A04, A16, A17, C06), the font recipe (A18), and the site's half of D40 and D41, done in the site's repository (bomkino/pitchdog-cloudflare-sites#49) without touching its nav.
 
 ## Shipping
 
@@ -60,7 +60,7 @@ All work goes on the branch `claude/project-thread-tx7lhm` with one draft PR. Me
 | ID | Wave | Status | Test / note |
 | --- | --- | --- | --- |
 | D17 | 0 | fixed | Repo public (November 4, 2026), MIT detected by GitHub; tests and CI in the open |
-| D40 | 0 | fixed (Daphne half) | CI runs unit, browser, stress (no allowance) and looks on every push and PR, on the same Playwright as local runs. Site half with D41 |
+| D40 | 0 | fixed | CI runs unit, browser, stress (no allowance) and looks on every push and PR, on the same Playwright as local runs. Site half: bomkino/pitchdog-cloudflare-sites#49 runs Daphne's browser checks on every Daphne release (JS-only ones too), always compares Daphne's build record, page and core modules live, and checks production serves the exact release commit |
 | D01 | 1 | fixed | Status read per sentence about this film; unsure results unticked; tests/unit/email.test.mjs (6 of 12 fail on main) |
 | D08 | 1 | fixed | Social caption and its Copy follow the title as typed; tests/browser/social.test.mjs (fails on main) |
 | D20 | 1 | fixed | Smallest words read from the drawn SVG in every slot (flank, arcs, ribbon, medallion); no words means no size claim; pack guidelines use the variant that needs the most room; tests/browser/print.test.mjs (main says 99.0 pt), tests/unit/engine.test.mjs |
@@ -127,7 +127,7 @@ All work goes on the branch `claude/project-thread-tx7lhm` with one draft PR. Me
 | L03 | 5 | fixed | Picking words glows them on the stage without a redraw and opens a placing strip (arrows, Center, Reset, Edit words, Done); Reset is there right after a drag, on the strip and the line; on a phone the panel no longer scrolls the laurel away and the strip sits under the laurel; tests/browser/place.test.mjs (fails on main) |
 | Placement | 5 | built | Snapping to the center line and the line's own row, Alt (Option) to place freely, pink guides while snapped, an optional grid (off by default, snaps when on), arrow keys (Shift ×10, a held key is one undo step), Esc lets go; none of it reaches a file; tests/browser/place.test.mjs |
 | Nudge undo | 5 | fixed | Found by CI: an arrow press in the page's first 0.7 s joined no undo step, so Undo had nothing to take back. Each run of presses now starts its own step and joins only presses on the same words with nothing in between; tests/browser/place.test.mjs (fails before the fix) |
-| D41 | site | todo | |
+| D41 | site | fixed | The site README said CI blocks merging; `main` has no protection or rulesets. Corrected the README (site #49) rather than requiring checks: a required check would block worker-only PRs, which never run that workflow |
 | K01 | 6 | fixed | the words-only badge (stress B37) now fits its canvas through D04; the stress suite runs with no allowance |
 | A02 | 6 | fixed | The Looks hint says Hover only with a hovering pointer on the laurel; touch screens read "Tap a look to use it; Undo takes it back"; tests/browser/wave6.test.mjs (fails on main) |
 | A05 | 6 | fixed | Accolades list and sentence wrap as prose (HTML stays code); Copy names what it copies and is disabled when there is nothing; tests/browser/wave6.test.mjs (fails on main) |
@@ -138,7 +138,7 @@ All work goes on the branch `claude/project-thread-tx7lhm` with one draft PR. Me
 | A11 | 6 | fixed | The Row's Show column has a heading; each Show box and Remove button names its laurel; tests/browser/wave6.test.mjs (fails on main) |
 | A12 | 6 | fixed | The Website preview says it is enlarged to fit, apart from the width it shows on the page; tests/browser/wave6.test.mjs (fails on main) |
 | A15 | 6 | fixed | Outline width and color show only when Draw has an outline; their values wait for it; tests/browser/wave6.test.mjs (fails on main) |
-| A18 | 6 | part | Runtime font hashes, weights and sizes recorded in notes/fonts.md; the subset recipe (source hashes, ranges, features) is still to be written down by whoever made the subsets |
+| A18 | 6 | fixed | `tools/subset-fonts.py` is the recipe (axis limits, one Latin character set, every layout feature, WOFF2); it rebuilds all four original files with identical glyphs, outlines at every weight, cmaps and layout tables. Hashes, sources and the character set in notes/fonts.md; CI checks the recipe on every push |
 | A19 | 6 | fixed | README and the build describe the site analytics as they are: page views plus the site's scroll-depth and contact-link events, no replay, the #l= link never sent |
 | A20 | 6 | closed | Already true: the Accolades list leaves hidden Row laurels out and says so; tests/unit/accolades.test.mjs "hidden row laurels are left out" |
 | A21 | 6 | fixed | Start over asks "Start this laurel over from the default? Your Row of laurels stays as it is, and Undo brings this one back."; tests/browser/wave6.test.mjs (fails on main) |
@@ -155,10 +155,10 @@ All work goes on the branch `claude/project-thread-tx7lhm` with one draft PR. Me
 | K02 | 6 | closed | Verified: the PDF leaves effects out on purpose, said in Color › Effects and in Export › PDF when effects are on; D25 (tinted logos) was fixed separately |
 | A13 | 6 | closed | Kept as is: at 861 px the side panel keeps the options beside the preview; stacking (≤860 px) was reviewed with D45 and offers no clear gain |
 | A14 | 6 | closed | Kept as is for launch: the pinned type roles already separate actions, values and hints; no root-size change |
-| A01 | 6 | later | Journey improvement (compact Preview/Export on phones while editing below the stage); not a bug. L03 keeps the laurel in view when picking words |
-| A03 | 6 | later | Journey improvement: Export finishing the active Poster or Motion task in place; Poster and Motion export work today from their own bars |
-| A04 | 6 | later | Layout judgment: Fit or reflow offers for wide Rows in portrait Social cards |
+| A01 | 7 | fixed | On a phone, once the laurel is scrolled away a dock shows it as it is now (tap to go back to it) and Export, when Daphne's own bar has scrolled away (on pitch.dog). It steps aside while a text field has the keyboard and while a dialog is open; the panel and toasts make room for it. tests/browser/wave7.test.mjs |
+| A03 | 7 | fixed | Export opened from Motion starts on This animation (its last frame, its settings and the same MP4, PNG sequence and animated SVG the Motion bar makes); from On poster, on This poster mockup. The laurel's destinations follow; the choice isn't remembered. tests/browser/wave7.test.mjs |
+| A04 | 7 | fixed | A row of three or more on a social card can sit as built, in two lines or in three, for the card only (the row is untouched). A thin band on a tall card is offered Stack it in two lines or Landscape; nothing changes until chosen. tests/browser/wave7.test.mjs |
 | A10 | 6 | fixed | Labels sit 6 px from their selects and sliders in the Row and Motion bars; on a phone the Row's notes and controls wrap and only its table scrolls sideways; checked at 1440/390/320; tests/browser/wave6.test.mjs (Row at 390/320) |
-| A16 | 6 | later | Persistent export progress for long jobs; today the job's button shows its state and a toast reports the end or the error |
-| A17 | 6 | later | Inspect then decide: the footer's synthetic italic and small role differences |
-| C06 | 6 | later | Source candidate, not reproduced yet: capture the widest Row at the Social card's maximum size and repair any unintended crop |
+| A16 | 7 | fixed | Long exports (Motion's three files, the poster mockup, any Export job that takes a moment) keep a card in the corner, outside the panels: phase, frame count or progress, Stop (nothing downloads), and Try again with the reason when one fails. Screen readers hear phases, not frames. Leaving Motion mid-export no longer puts Motion's controls in another view's bar. tests/browser/wave7.test.mjs |
+| A17 | 7 | fixed | Inspected: the italic was a slanted upright. PD Body now has a real italic (31 KB, one weight) for the Story footer and the Row's example rows. All interface weights sit inside the font files' ranges; Story's uppercase labels are kept as its title cards and documented; the footer's source line follows the metadata role. notes/fonts.md; tests/browser/wave7.test.mjs |
+| C06 | 7 | fixed | Reproduced: at Laurel size 1.25 a wide row on a square card was 1161 px wide on a 1080 px card, 40 px off each side. The card now keeps it inside its safe width (92%) and says when it's as big as the card allows. tests/browser/wave7.test.mjs (fails on the old code) |

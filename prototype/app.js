@@ -14,6 +14,7 @@ import { wordsTab } from './words.js';
 import { openStudio } from './studio.js';
 import { keepFocus } from './modal.js';
 import { zip } from './zip.js';
+import { jobTray } from './jobs.js';
 
 // ── measurement: real glyph widths from the browser ──
 const mctx = document.createElement('canvas').getContext('2d');
@@ -167,7 +168,7 @@ async function draw() {
   if (!r || !r.viewBox.every(Number.isFinite)) { const el = document.getElementById('report'); if (el) el.innerHTML = '<span class="warn">These settings don’t draw a laurel: Undo, or change the last setting.</span>'; return; }
   last = r;
   if (!peeking) MODES[mode].draw(last);
-  showReport(last.report);
+  showReport(last.report); dockDraw();
   if (mode !== 'row') showNotes(checkLaurel(doc));
   // fonts that arrive while this drawing was made: draw again with their real widths (only when one did arrive; D42)
   pending.then(() => { if (fontsReady === pending && fontEpoch !== epoch) { const r2 = timed(doc); if (r2.svg !== last.svg) { last = r2; if (!peeking) MODES[mode].draw(last); showReport(last.report); } } });
@@ -946,10 +947,11 @@ const ctx = {
   ensureFonts, svgWithFonts, exportSvgText, toPng, toPdf, fileName, slug, stamp, altText, ASSETS, saveAssets, addAsset, readLogo, stage, modebar, modepanel, showNotes, layoutFields, layoutById, LAYOUTS, PRESETS, applyPreset, zip,
   pushUndo: () => remember(), batch, logoTarget, settle: () => { lastSnap = JSON.stringify(doc); saveHash(); }, rebuild: () => buildPanel(), get last() { return last; }, get mode() { return mode; }, get modes() { return MODES; },
   prefs: () => ({ pngW: (doc.out && doc.out.pngW) || 3000, bg: !(doc.out && doc.out.pngBg === false) }),
-  fixNote: null, openFixer: null, shareLink: async () => location.href.split('#')[0] + '#l=' + (await pack(doc)),
+  jobs: null, fixNote: null, openFixer: null, shareLink: async () => location.href.split('#')[0] + '#l=' + (await pack(doc)),
   // size an SVG to the stage, keeping its shape (no letterboxing)
   fit: (svg, vb) => { stage.classList.add('fitted'); const sw2 = document.getElementById('stagewrap'), k = Math.min((sw2.clientWidth - 56) / vb[2], (sw2.clientHeight - 92) / vb[3]); Object.assign(svg.style, { width: Math.max(1, vb[2] * k) + 'px', height: Math.max(1, vb[3] * k) + 'px', maxWidth: 'none', maxHeight: 'none' }); },
 };
+ctx.jobs = jobTray(h);
 const MODES = {
   laurel: { draw: (r) => { stage.className = 'stage'; stage.innerHTML = r.svg; decorateStage(); drawPlacebar(); }, enter() {} },
   poster: posterMode(ctx), row: rowMode(ctx), motion: motionMode(ctx),
@@ -1013,6 +1015,35 @@ new ResizeObserver(() => placeSmallSizes()).observe(document.getElementById('sta
 
 // the phone layout keeps the rail just under the header, however tall the header wraps
 { const top = document.querySelector('header.top'); new ResizeObserver(() => document.documentElement.style.setProperty('--hh', top.offsetHeight + 'px')).observe(top); }
+
+// A01: on a phone, editing below the laurel takes it (and Daphne's own bar, with Export) off screen. A small dock
+// keeps both in reach: the laurel as it is now, which scrolls back up to it, and Export. It shows only while the
+// laurel is out of view, steps aside while a text field has the keyboard, and never covers an open dialog.
+const dockArt = h('span', { class: 'art', 'aria-hidden': 'true' });
+const dock = h('div', { class: 'dock', hidden: true },
+  h('button', { class: 'dock-peek', 'aria-label': 'Show the laurel', title: 'Back to the laurel', onclick: () => { document.getElementById('stagearea').scrollIntoView({ block: 'start', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' }); } }, dockArt, h('span', { class: 'lbl' }, 'Laurel')),
+  h('button', { class: 'btn primary dock-export', onclick: () => openExport() }, 'Export'));
+document.body.append(dock);
+// where Daphne's own bar stays on screen (a page without the pitch.dog bar), its Export is enough: no second one
+new IntersectionObserver(([e]) => dock.classList.toggle('bar-seen', e.isIntersecting)).observe(document.getElementById('open-export'));
+const dockState = { narrow: matchMedia('(max-width: 860px)'), away: false, typing: false };
+const typingIn = (el) => !!el && (el.isContentEditable || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || (el.tagName === 'INPUT' && !/^(range|checkbox|radio|button|color|file)$/.test(el.type)));
+function dockDraw() {
+  if (dock.hidden || !last) return;
+  const svg = last.svg.replace(/width="[^"]+" height="[^"]+"/, '');
+  if (dockArt.dataset.svg !== svg) { dockArt.dataset.svg = svg; dockArt.innerHTML = svg; }
+}
+function dockUpdate() {
+  const show = dockState.narrow.matches && dockState.away && !dockState.typing && !document.querySelector('.scrim');
+  if (dock.hidden === !show) return;
+  dock.hidden = !show; document.documentElement.style.setProperty('--dock-h', show ? '72px' : '0px');
+  if (show) dockDraw();
+}
+new IntersectionObserver(([e]) => { dockState.away = e.intersectionRatio < 0.25; dockUpdate(); }, { threshold: [0, 0.25, 0.5] }).observe(document.getElementById('stagewrap'));
+dockState.narrow.addEventListener('change', dockUpdate);
+document.addEventListener('focusin', (e) => { dockState.typing = typingIn(e.target); dockUpdate(); });
+document.addEventListener('focusout', () => setTimeout(() => { dockState.typing = typingIn(document.activeElement); dockUpdate(); }, 0));
+new MutationObserver(dockUpdate).observe(document.body, { childList: true });
 
 // ── boot ──
 (async () => {

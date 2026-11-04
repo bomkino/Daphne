@@ -28,6 +28,7 @@
 <style>
   @font-face { font-family: 'PD Head'; src: url('assets/fonts/pd-head.woff2') format('woff2'); font-weight: 300 700; font-display: swap; }
   @font-face { font-family: 'PD Body'; src: url('assets/fonts/pd-body.woff2') format('woff2'); font-weight: 300 800; font-display: swap; }
+  @font-face { font-family: 'PD Body'; src: url('assets/fonts/pd-body-italic.woff2') format('woff2'); font-weight: 400; font-style: italic; font-display: swap; } /* A17: a real italic for the odd italic word, not a slanted upright */
   @font-face { font-family: 'PD Body Alt'; src: url('assets/fonts/pd-body-alt.woff2') format('woff2'); font-weight: 300 700; font-display: swap; }
   @font-face { font-family: 'PD Eyebrow'; src: url('assets/fonts/pd-eyebrow.woff2') format('woff2'); font-weight: 400 700; font-display: swap; }
   :root {
@@ -441,6 +442,8 @@
   .studio .olabel { display: flex; align-items: center; justify-content: space-between; font: 600 11.5px/1.3 var(--sans); letter-spacing: .01em; color: var(--faint); margin-bottom: -8px; }
   .studio .oblock { display: grid; gap: 8px; }
   .studio .oblock .olabel { margin-bottom: 0; }
+  .linkbtn { background: none; border: 0; padding: 0; font: inherit; color: var(--leaf); text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
+  .fitnote:empty { display: none; }
   .studio .ometa { display: flex; flex-wrap: wrap; gap: 6px 14px; color: var(--mute); font: 500 11.5px var(--data); font-variant-numeric: tabular-nums; }
   .studio .inrow { display: flex; gap: 8px; align-items: center; }
   .studio .inrow input[type=number] { width: 110px; flex: none; }
@@ -449,6 +452,10 @@
   .studio .preview .frame.light { background: repeating-conic-gradient(#ebe7df 0 25%, #f7f5f0 0 50%) 0 0/16px 16px; }
   .studio .preview .frame.dark { background: repeating-conic-gradient(#1d1d22 0 25%, #141418 0 50%) 0 0/16px 16px; }
   .studio .preview .frame.card { background: #000; border-radius: 10px; }
+  .studio .preview .poster-prev { position: relative; line-height: 0; width: fit-content; max-width: 100%; box-shadow: 0 30px 80px #000c, 0 0 0 1px #ffffff12; border-radius: 6px; overflow: hidden; }
+  .studio .preview .poster-prev img { display: block; max-width: 100%; max-height: min(62vh, 640px); width: auto; height: auto; }
+  .studio .preview .poster-prev .lay { position: absolute; }
+  .studio .preview .poster-prev .lay svg { display: block; width: 100%; height: 100%; overflow: visible; }
   .studio .preview .frame.footage { background: repeating-conic-gradient(#ffffff0a 0 25%, transparent 0 50%) 0 0/24px 24px, linear-gradient(135deg, #2b3440, #151a21 55%, #322a22); }
   .studio .preview .frame.bare { background: none; box-shadow: none; border-radius: 0; max-width: 100%; overflow-x: auto; }
   .studio .preview .frame.bare svg { max-width: none; } /* an actual-size proof stays actual size; a wide one scrolls */
@@ -516,9 +523,37 @@
   .pd-tie .pd-note { font-size: 11.5px; color: var(--faint); }
 
   /* ── toast ── */
-  .toasts { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); display: grid; gap: 8px; z-index: 90; justify-items: center; pointer-events: none; }
+  .toasts { position: fixed; bottom: calc(20px + var(--dock-h, 0px)); left: 50%; transform: translateX(-50%); display: grid; gap: 8px; z-index: 90; justify-items: center; pointer-events: none; }
   .toast { background: #1c3b2df2; color: var(--text); border: 1px solid #b8e59a55; padding: 9px 16px; border-radius: 999px; font-weight: 600; box-shadow: 0 16px 40px #000b; animation: rise .25s var(--ease); backdrop-filter: blur(8px); display: flex; gap: 9px; align-items: center; }
   .toast::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: var(--leaf); box-shadow: 0 0 10px var(--leaf); }
+
+  /* ── A01: the phone dock, the laurel and Export in reach while editing below ── */
+  .dock { position: fixed; left: 12px; right: 12px; bottom: calc(10px + env(safe-area-inset-bottom, 0px)); z-index: 30; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 6px 6px 6px 8px; background: #16301ff2; border: 1px solid var(--line2); border-radius: 14px; box-shadow: 0 14px 36px #000a; backdrop-filter: blur(10px); animation: rise .2s var(--ease); }
+  .dock[hidden] { display: none; }
+  .dock-peek { display: flex; align-items: center; gap: 10px; min-width: 0; background: none; border: 0; padding: 2px 6px 2px 2px; color: var(--mute); font: 500 12px var(--sans); cursor: pointer; border-radius: 10px; }
+  .dock-peek .art { display: block; height: 44px; width: 84px; flex: none; }
+  .dock-peek .art svg { display: block; width: 100%; height: 100%; }
+  .dock .btn.primary { flex: none; min-height: 44px; padding-inline: 18px; }
+  .dock.bar-seen .dock-export { display: none; }
+
+  /* ── A16: a long export's card, in view until it ends ── */
+  .sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .jobs { position: fixed; left: 20px; bottom: calc(20px + var(--dock-h, 0px)); z-index: 95; display: grid; gap: 8px; width: min(320px, calc(100vw - 40px)); }
+  .jobs:empty { display: none; }
+  .job { background: #16301ff5; border: 1px solid var(--line2); border-radius: 12px; padding: 12px 14px; display: grid; gap: 7px; box-shadow: 0 16px 40px #000b; animation: rise .25s var(--ease); backdrop-filter: blur(8px); }
+  .job .top { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; }
+  .job b { font-size: 13px; color: var(--text); }
+  .job .detail { font: 500 11.5px var(--data); color: var(--mute); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .job .phase { font-size: 12.5px; color: #cbd6c7; line-height: 1.4; }
+  .job .meter { height: 4px; background: var(--line); border-radius: 2px; overflow: hidden; }
+  .job .meter i { display: block; height: 100%; width: 0; background: var(--leaf); transition: width .15s; }
+  .job .meter.busy i { width: 30%; animation: jobslide 1.1s ease-in-out infinite alternate; }
+  @keyframes jobslide { from { transform: translateX(-10%); } to { transform: translateX(250%); } }
+  .job .acts { display: flex; gap: 8px; }
+  .job .acts:empty { display: none; }
+  .job.failed { border-color: #e0a07a88; }
+  .job.failed .phase { color: #f2c9b0; }
+  .job.ok .meter i { background: var(--leaf); }
 
   /* ── about ── */
   .about-pane p { color: #cbd6c7; font-size: 13px; line-height: 1.6; margin: 0; }
@@ -565,7 +600,7 @@
     .rail button { flex: 1 0 64px; }
     .rail button.on::before { left: 12px; right: 12px; top: auto; bottom: -6px; width: auto; height: 3px; border-radius: 3px 3px 0 0; }
     .rail .grow { display: none; } /* A08: About stays in the rail, at its end, so the guide is always one tap away */
-    aside.panel { order: 3; overflow: visible; border-right: 0; }
+    aside.panel { order: 3; overflow: visible; border-right: 0; padding-bottom: var(--dock-h, 0px); }
     .tabhead { position: static; }
     .stagewrap { padding: 16px 16px 56px; }
     .stage svg { max-height: 52vh; }

@@ -26,7 +26,7 @@ function spine(B, shift, sx, over) {
 
 export function motionMode(ctx) {
   const { h } = ctx;
-  let playing = true, t0 = 0, tNow = 0, raf = 0, live = null, scrub = null, busy = false, built = '';
+  let playing = true, t0 = 0, tNow = 0, raf = 0, live = null, scrub = null, busy = false, built = '', active = false;
   let frozen = null; // D29: while a video is made, every frame uses the settings it started with
   const M = () => frozen || ({ ...MOTION_DEFAULT, ...(ctx.doc.motion || {}) });
   const dims = () => M().frame.split('x').map(Number);
@@ -165,8 +165,10 @@ export function motionMode(ctx) {
     }
     return out;
   }
-  async function frames(onFrame, { transparent = false } = {}) {
-    const m = M(), [W, H] = dims(), S = subjects(), svgs = await exportSvgs(S);
+  async function frames(onFrame, { transparent = false } = {}, job = null) {
+    const m = M(), [W, H] = dims(), S = subjects();
+    job?.phase('Drawing the words as shapes'); const svgs = await exportSvgs(S);
+    job?.phase('Drawing the frames');
     const sc = buildScene(S, svgs, W, H, transparent ? null : bgColor() || '#000000');
     const n = Math.round(m.dur * m.fps), c = document.createElement('canvas'); c.width = W; c.height = H;
     const x = c.getContext('2d'), ser = new XMLSerializer();
@@ -176,18 +178,18 @@ export function motionMode(ctx) {
       const img = new Image(); img.src = url; await img.decode(); URL.revokeObjectURL(url);
       x.clearRect(0, 0, W, H); x.drawImage(img, 0, 0, W, H);
       await onFrame(c, f, n);
-      progress(f / n);
+      progress(f / n); job?.progress(f / n, `Frame ${f + 1} of ${n}`); job?.check();
     }
-    progress(1);
+    progress(1); job?.progress(1, `${n} frames`);
     return { W, H, n };
   }
-  async function exportMp4() {
-    if (!('VideoEncoder' in window)) { alert('This browser can’t make video files. Try Chrome, Edge or Safari 17 or later, or export the PNG sequence.'); return; }
+  async function exportMp4(job) {
+    if (!('VideoEncoder' in window)) throw new Error('this browser can’t make video files. Try Chrome, Edge or Safari 17 or later, or export the PNG sequence.');
     const m = M(), [W, H] = dims(), { Muxer, ArrayBufferTarget } = await import('./vendor/mp4-muxer.mjs');
     const codecs = W * H > 1920 * 1088 ? ['avc1.640033', 'avc1.4d0033', 'avc1.42e033'] : ['avc1.640028', 'avc1.4d0028', 'avc1.42e028', 'avc1.42001f'];
     let cfg = null;
     for (const codec of codecs) { const c = { codec, width: W, height: H, bitrate: W * H > 1920 * 1088 ? 40e6 : 14e6, framerate: m.fps }; try { if ((await VideoEncoder.isConfigSupported(c)).supported) { cfg = c; break; } } catch (e) { /* try the next */ } }
-    if (!cfg) { alert('This browser can’t encode H.264 video at this size. Try a smaller frame or the PNG sequence.'); return; }
+    if (!cfg) throw new Error('this browser can’t encode H.264 video at this size. Try a smaller frame or the PNG sequence.');
     const target = new ArrayBufferTarget(), muxer = new Muxer({ target, video: { codec: 'avc', width: W, height: H, frameRate: m.fps }, fastStart: 'in-memory' });
     let err = null;
     const enc = new VideoEncoder({ output: (chunk, meta) => muxer.addVideoChunk(chunk, meta), error: (e) => (err = e) });
@@ -197,20 +199,24 @@ export function motionMode(ctx) {
       enc.encode(vf, { keyFrame: f % (m.fps * 2) === 0 }); vf.close();
       while (enc.encodeQueueSize > 6) await new Promise((r) => setTimeout(r, 5));
       if (err) throw err;
-    });
+    }, {}, job).catch((e) => { try { enc.close(); } catch (x) { /* already closed */ } throw e; });
+    job?.phase('Finishing the video'); job?.progress(null, '');
     await enc.flush(); enc.close(); muxer.finalize();
     ctx.download(new Blob([target.buffer], { type: 'video/mp4' }), `${name()}-${W}x${H}.mp4`);
   }
-  async function exportPngSeq() {
+  async function exportPngSeq(job) {
     const files = [], m = M();
-    await frames(async (c, f) => { files.push({ name: `${name()}_${String(f).padStart(4, '0')}.png`, data: await new Promise((r) => c.toBlob(r, 'image/png')) }); }, { transparent: true });
+    await frames(async (c, f) => { files.push({ name: `${name()}_${String(f).padStart(4, '0')}.png`, data: await new Promise((r) => c.toBlob(r, 'image/png')) }); }, { transparent: true }, job);
+    job?.phase('Packing the ZIP'); job?.progress(null, '');
     const [W, H] = dims();
     files.push({ name: 'README.txt', data: `An animated laurel made with Daphne (pitch.dog/daphne).\n\n${files.length} frames, ${m.fps} fps, ${W} × ${H}, transparent background.\nImport as an image sequence: in Premiere Pro, File > Import, pick the first frame and tick "Image Sequence"; in DaVinci Resolve the frames appear as one clip in the Media Pool; in After Effects, File > Import > File with "PNG Sequence" ticked. Set the frame rate to ${m.fps}.\n\nNot affiliated with or endorsed by any festival: the claim is the filmmaker's own.\n` });
     ctx.download(await zip(files), `${name()}-png-sequence.zip`);
   }
   // an animated SVG: the same timeline written as SMIL animations, plays once and holds; for websites and EPKs
-  async function exportAnimatedSvg() {
+  async function exportAnimatedSvg(job) {
+    job?.phase('Drawing the words as shapes');
     const m = M(), [W, H] = dims(), S = subjects(), svgs = await exportSvgs(S), sc = buildScene(S, svgs, W, H, m.bg === 'transparent' ? null : bgColor());
+    job?.check(); job?.phase('Writing the animation');
     const D = m.dur, doc = sc.root.ownerDocument, kt = (v) => n2(clamp01(v / D));
     const anim = (el, attr, vals, times, splines) => { const a = doc.createElementNS(NS, 'animate'); a.setAttribute('attributeName', attr); a.setAttribute('values', vals.join(';')); a.setAttribute('keyTimes', times.join(';')); a.setAttribute('dur', D + 's'); a.setAttribute('fill', 'freeze'); if (splines) { a.setAttribute('calcMode', 'spline'); a.setAttribute('keySplines', splines.join(';')); } el.append(a); };
     const animT = (el, vals, times) => { const a = doc.createElementNS(NS, 'animateTransform'); a.setAttribute('attributeName', 'transform'); a.setAttribute('type', 'translate'); a.setAttribute('values', vals.join(';')); a.setAttribute('keyTimes', times.join(';')); a.setAttribute('dur', D + 's'); a.setAttribute('fill', 'freeze'); a.setAttribute('calcMode', 'spline'); a.setAttribute('keySplines', vals.slice(1).map(() => '0.2 0.7 0.3 1').join(';')); el.append(a); };
@@ -238,13 +244,28 @@ export function motionMode(ctx) {
     ctx.download(new Blob([txt], { type: 'image/svg+xml' }), `${name()}-animated.svg`);
   }
   const name = () => (M().what === 'row' ? 'laurel-row' : ctx.fileName());
+  // the three files Motion makes; Export lists the same three when it's opened from Motion (A03)
+  const EXPORTS = [
+    { id: 'mp4', fn: exportMp4, label: 'MP4 video', button: 'MP4 video', title: 'H.264 video for editors and social. No transparency: the background is filled', note: 'For editors and social. The background is filled.' },
+    { id: 'png', fn: exportPngSeq, label: 'PNG sequence', button: 'PNG sequence (transparent)', title: 'Every frame as a PNG with transparency, for Premiere, Resolve or After Effects', note: 'Every frame, transparent, for Premiere, Resolve or After Effects.' },
+    { id: 'svg', fn: exportAnimatedSvg, label: 'Animated SVG', button: 'Animated SVG', title: 'Plays once in any browser, then holds. Small, sharp at any size, for websites and EPKs', note: 'Plays once, then holds. For websites and EPKs.' },
+  ];
   let progEl = null;
   const progress = (p) => { if (progEl) progEl.firstChild.style.width = Math.round(p * 100) + '%'; };
+  // A16: each export is a job in the corner card: its phase, its frames, Stop, and Try again if it fails. It keeps
+  // going if the filmmaker leaves Motion, and when it ends it never starts playback or touches another view's bar.
+  let expBtns = [];
+  const setBusy = (b) => { busy = b; for (const x of expBtns) x.disabled = b || !!x.dataset.none; };
   async function run(fn, label) {
     const S = subjects(); if (S.empty) { ctx.toast(S.empty, 6000); return; }
-    if (busy) return; busy = true; const was = playing; pause(); ctx.toast(label); frozen = M();
-    try { await fn(); } catch (e) { console.warn(e); ctx.toast('The export stopped: ' + (e && e.message ? e.message : e), 6000); }
-    frozen = null; busy = false; progress(0); if (was) play(); else if (!raf) raf = requestAnimationFrame(tick); // D16: an export never starts playback
+    if (busy) { ctx.toast('One export at a time: the last one is still being made.'); return; }
+    setBusy(true); const was = playing; if (active) pause(); else playing = false; frozen = M();
+    const job = ctx.jobs.start(label, { cancel: true, retry: () => run(fn, label) });
+    job.phase('Getting ready'); job.progress(null);
+    try { await fn(job); job.done('Downloaded'); }
+    catch (e) { if (e && e.name === 'Stopped') job.stop(); else { console.warn(e); job.fail(e); } }
+    frozen = null; setBusy(false); progress(0);
+    if (active) { if (was) play(); else if (!raf) raf = requestAnimationFrame(tick); } // D16: an export never starts playback
   }
 
   // ── controls ──
@@ -283,18 +304,26 @@ export function motionMode(ctx) {
         h('label', {}, 'Size', h('input', { type: 'range', min: 0.2, max: 0.95, step: 0.01, value: m.size, onchange: (e) => { ctx.change('motion', { ...M(), size: +e.target.value }); built = ''; } })),
         sel('Background', 'bg', [['look', 'The look’s'], ['black', 'Black'], ['white', 'White'], ['transparent', 'Transparent']])),
       h('div', { class: 'rowtools' },
-        h('button', { class: 'btn small primary', title: 'H.264 video for editors and social. No transparency: the background is filled', disabled: !!none, onclick: () => run(exportMp4, 'Rendering the video…') }, 'MP4 video'),
-        h('button', { class: 'btn small', title: 'Every frame as a PNG with transparency, for Premiere, Resolve or After Effects', disabled: !!none, onclick: () => run(exportPngSeq, 'Rendering the frames…') }, 'PNG sequence (transparent)'),
-        h('button', { class: 'btn small', title: 'Plays once in any browser, then holds. Small, sharp at any size, for websites and EPKs', disabled: !!none, onclick: () => run(exportAnimatedSvg, 'Writing the animated SVG…') }, 'Animated SVG'),
+        ...(expBtns = EXPORTS.map((X, i) => h('button', { class: 'btn small' + (i ? '' : ' primary'), title: X.title, disabled: !!none || busy, 'data-none': none ? '1' : null, onclick: () => run(X.fn, X.label) }, X.button))),
         progEl = h('div', { class: 'progress', title: 'Export progress' }, h('i')),
         h('span', { class: 'hint' }, `${m.fps} fps · ${m.dur * m.fps} frames. Exports draw the text as shapes, so no fonts are needed.`)));
   }
 
   return {
-    enter() { built = ''; live = null; bar(); panel(); start(); },
+    enter() { active = true; built = ''; live = null; bar(); panel(); start(); },
     refresh() { built = ''; bar(); panel(); },
-    leave() { cancelAnimationFrame(raf); raf = 0; live = null; built = ''; },
+    leave() { active = false; cancelAnimationFrame(raf); raf = 0; live = null; built = ''; },
     draw() { buildPreview(); if (!raf) raf = requestAnimationFrame(tick); },
+    // A03: what Export shows when it's opened from Motion: this animation's last frame, its settings, and the same
+    // three files, made by the same code as the buttons under the stage
+    sceneExport: {
+      dest: 'motion', t: 'This animation', s: 'MP4, PNG sequence, animated SVG',
+      empty: () => subjects().empty || '',
+      summary: () => { const m = M(), [W, H] = dims(); return [`${W} × ${H}`, `${m.dur} s at ${m.fps} fps`, m.what === 'row' ? 'The row' : 'This laurel', m.bg === 'transparent' ? 'Transparent background' : null]; },
+      still: () => { const S = subjects(); if (S.empty) return ''; const [W, H] = dims(), sc = buildScene(S, S.items.map((it) => (it.r ? it.r.svg : '')), W, H, bgColor() || null); apply(sc, M().dur); return new XMLSerializer().serializeToString(sc.root).replace(/\bmv(\d+)/g, 'mvx$1'); },
+      items: () => EXPORTS.map((X) => ({ id: X.id, label: X.button, note: X.note, run: () => run(X.fn, X.label) })),
+      busy: () => busy,
+    },
     _test: { frames, exportMp4, exportPngSeq, exportAnimatedSvg, apply, buildScene, subjects },
   };
 }
