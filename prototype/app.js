@@ -4,7 +4,7 @@
 import { render, DEFAULT_DOC, FORMS, METALS, PROFILES, FAMILIES, FRAMES, FILLABLE_FRAMES, ASSETS, LOGO_SLOTS, merge, clone, applyForm, shuffleBranch, rngOf } from './engine.mjs';
 import { FONTS, fontInfo, loadFont, embedFontCss, cssUrl, loadPreviewFonts } from './fonts.js';
 import { PRESETS, GROUPS } from './presets.js';
-import { LAYOUTS, LAYOUT_GROUPS, layoutFields, applyLayout } from './layouts.js';
+import { LAYOUTS, LAYOUT_GROUPS, layoutFields, applyLayout, EXAMPLE } from './layouts.js';
 import { checkLaurel } from './rules.js';
 import { outlineSvg, svgToPdf, preloadOutlines } from './outline.js';
 import { posterMode } from './poster.js';
@@ -35,7 +35,7 @@ const saveUi = () => { try { localStorage.setItem('daphne.ui', JSON.stringify({ 
 // layout of their own (ribbon, medallion, big year); leaving one of those returns to the user's layout.
 const layoutById = (id) => LAYOUTS.find((L) => L.id === id);
 const APP_KEYS = ['row', 'poster', 'motion', 'out']; // the app's own state, kept in the document so links and undo carry it
-function applyPreset(p, keepText = true, newId = () => 'f' + ++uid, from = doc) {
+function applyPreset(p, keepText = true, newId = () => 'f' + ++uid, from = doc, o = {}) {
   let fields = clone(from.fields);
   let d = merge(clone(DEFAULT_DOC), { roles: from.roles });
   if (p.doc.form) d = applyForm(d, p.doc.form);
@@ -47,7 +47,7 @@ function applyPreset(p, keepText = true, newId = () => 'f' + ++uid, from = doc) 
   for (const k of Object.keys(d.roles)) if (!(p.doc.roles && p.doc.roles[k] && 'paint' in p.doc.roles[k])) d.roles[k].paint = null;
   if (keepText) {
     const lay = p.layout || (from.layoutBy === 'preset' ? from.userLayoutId || 'year-below' : null);
-    if (lay) fields = layoutFields(fields, layoutById(lay), newId);
+    if (lay) fields = layoutFields(fields, layoutById(lay), newId, o);
     d.fields = fields;
     d.layoutId = lay || from.layoutId; d.userLayoutId = from.userLayoutId;
     d.layoutBy = p.layout ? 'preset' : from.layoutBy === 'preset' ? (from.userLayoutId ? 'user' : null) : from.layoutBy;
@@ -125,7 +125,7 @@ function showNotes(list) {
   const el = document.getElementById('notes');
   el.classList.toggle('on', !!list.length);
   el.innerHTML = '';
-  for (const n of list) el.append(h('div', { class: 'note ' + n.level }, h('span', {}, n.level === 'rule' ? h('b', {}, 'Festival rule. ') : null, n.text, ' ', n.source ? h('a', { href: n.source.url, target: '_blank', rel: 'noopener', title: n.source.label }, 'Source') : null, n.fix && ctx.fixNote ? h('button', { class: 'btn small', onclick: () => ctx.fixNote(n.fix) }, 'Fix') : null)));
+  for (const n of list) el.append(h('div', { class: 'note ' + n.level }, h('span', {}, n.level === 'rule' && !n.check ? h('b', {}, 'Festival rule. ') : null, n.text, ' ', n.source ? h('a', { href: n.source.url, target: '_blank', rel: 'noopener', title: n.source.label }, 'Source') : null, n.fix && ctx.fixNote ? h('button', { class: 'btn small', onclick: () => ctx.fixNote(n.fix) }, 'Fix') : null)));
 }
 
 // drag a line to nudge it (stored as dx/dy on its field); double-click resets
@@ -273,7 +273,7 @@ function roleEditor(key, label, note) {
 function addField(k) {
   const fs = clone(doc.fields);
   const f = { id: 'f' + ++uid, kind: k, text: k === 'logo' ? '' : k === 'icon' ? 'star' : k === 'year' ? String(new Date().getFullYear()) : '', role: KIND_ROLE[k], slot: 'inside', show: true };
-  if (k !== 'logo' && k !== 'icon' && k !== 'year') { f.text = { status: 'Official Selection', festival: 'Festival name', award: 'Best Documentary', category: 'Section', location: 'City', edition: '10th Edition', custom: 'Your line' }[k]; f.added = true; }
+  if (k !== 'logo' && k !== 'icon' && k !== 'year') f.added = true; // arrives empty: the example is only a placeholder
   fs.push(f); selected = f.id; state.everyOpen = true;
   change('fields', fs, true);
   setTimeout(() => { const el = document.querySelector(`.field[data-id="${f.id}"] input[type=text]`); if (el) { el.focus(); el.select(); } }, 30);
@@ -297,7 +297,7 @@ function fieldRow(f, i) {
   };
   const textInput = f.kind === 'logo' ? logoInput() : f.kind === 'icon'
     ? h('select', { 'aria-label': 'Ornament', onchange: (e) => upd('text', e.target.value) }, [['star', '★ Star'], ['stars', '★★★ Three stars'], ['crown', '♛ Crown'], ['dot', '• Dot'], ['diamond', '◆ Diamond'], ['rule', '— Rule']].map(([x, l]) => h('option', { value: x, selected: x === f.text }, l)))
-    : h('input', { type: 'text', class: f.added ? 'example' : '', title: f.added ? 'Example text: type over it' : '', value: f.text, placeholder: KIND_LABEL[f.kind], 'aria-label': KIND_LABEL[f.kind] + ' text', oninput: (e) => { e.target.classList.remove('example'); upd('text', e.target.value); }, onfocus: (e) => { if (f.added) e.target.select(); } });
+    : h('input', { type: 'text', class: f.added && f.text ? 'example' : '', title: f.added && f.text ? 'Example text: type over it' : '', value: f.text, placeholder: f.added && EXAMPLE[f.kind] && f.kind !== 'icon' ? 'e.g. ' + EXAMPLE[f.kind] : KIND_LABEL[f.kind], 'aria-label': KIND_LABEL[f.kind] + ' text', oninput: (e) => { e.target.classList.remove('example'); upd('text', e.target.value); }, onfocus: (e) => { if (f.added) e.target.select(); } });
   el.append(
     h('div', { class: 'handle', title: 'Drag to reorder' }, '⋮⋮'),
     h('div', {},
@@ -387,24 +387,31 @@ function looksTab() {
     const groups = ['All', ...GROUPS];
     pane.append(h('div', { class: 'filter' }, groups.map((g) => h('button', { class: 'chip' + (state.group === g ? ' on' : ''), onclick: () => { state.group = g; saveUi(); buildPanel(); } }, g))));
     const list = PRESETS.filter((p) => state.group === 'All' || p.group === state.group);
-    const tile = (p) => h('button', { class: 'preset' + (doc.presetName === p.name ? ' on' : ''), title: p.name, onclick: () => { endPeek(); replaceDoc(applyPreset(p)); toast(`${p.name}: your words kept`); }, onpointerenter: (e) => { if (e.pointerType === 'mouse') peek(() => applyPreset(p, true, tmpId)); }, onpointerleave: endPeek, onfocus: (e) => { if (e.target.matches(':focus-visible')) peek(() => applyPreset(p, true, tmpId)); }, onblur: endPeek },
+    const tile = (p) => h('button', { class: 'preset' + (doc.presetName === p.name ? ' on' : ''), title: p.name, onclick: () => { endPeek(); replaceDoc(applyPreset(p)); if (!askFor(p, 'look')) toast(`${p.name}: your words kept`); }, onpointerenter: (e) => { if (e.pointerType === 'mouse') peek(() => applyPreset(p, true, tmpId)); }, onpointerleave: endPeek, onfocus: (e) => { if (e.target.matches(':focus-visible')) peek(() => applyPreset(p, true, tmpId)); }, onblur: endPeek },
       h('div', { class: 'thumb', 'data-i': PRESETS.indexOf(p) }), h('span', {}, p.name));
     if (state.group === 'All') for (const g of GROUPS) { const ps = list.filter((p) => p.group === g); pane.append(h('div', { class: 'label' }, g, h('span', { class: 'opt' }, String(ps.length)), h('span', { class: 'grow' })), h('div', { class: 'presets', id: 'presets-' + GROUPS.indexOf(g) }, ps.map(tile))); }
     else pane.append(h('div', { class: 'presets' }, list.map(tile)));
   } else {
     // the layout lit up is the one the words are actually in (so hand edits that land on a layout light it too)
-    const sig = (x) => `${x.role || 'eyebrow'}:${x.slot || 'inside'}:${x.join ? 1 : 0}`, vis = doc.fields.filter((f) => f.show !== false && (f.text || f.kind === 'icon' || (f.kind === 'logo' && f.src)));
+    const sig = (x) => `${x.role || 'eyebrow'}:${x.slot || 'inside'}:${x.join ? 1 : 0}`, vis = doc.fields.filter((f) => f.show !== false && (f.text || f.added || f.kind === 'icon' || (f.kind === 'logo' && f.src)));
     const fits = (ln, f) => ln.kind.split('|').includes(f.kind) || (f.kind === 'logo' && ln.role === 'hero');
-    const activeId = (LAYOUTS.find((L) => L.lines.length === vis.length && L.lines.every((ln, i) => fits(ln, vis[i]) && sig(ln) === sig(vis[i]))) || {}).id;
+    const shown = (L) => (L.lines.some((ln) => ln.kind === 'status') ? vis : vis.filter((f) => !(f.kind === 'status' && f.role === 'eyebrow')));
+    const activeId = (LAYOUTS.find((L) => { const v = shown(L); return L.lines.length === v.length && L.lines.every((ln, i) => fits(ln, v[i]) && sig(ln) === sig(v[i])); }) || {}).id;
     const apply = (L, d = doc, idf = () => 'f' + ++uid) => ({ ...applyLayout(d, L, idf), layoutBy: 'user', userLayoutId: L.id });
-    const tile = (L) => h('button', { class: 'preset' + (activeId === L.id ? ' on' : ''), title: L.note, onclick: () => { endPeek(); replaceDoc(apply(L)); }, onpointerenter: (e) => { if (e.pointerType === 'mouse') peek(() => apply(L, clone(doc), tmpId)); }, onpointerleave: endPeek, onfocus: (e) => { if (e.target.matches(':focus-visible')) peek(() => apply(L, clone(doc), tmpId)); }, onblur: endPeek },
+    const tile = (L) => h('button', { class: 'preset' + (activeId === L.id ? ' on' : ''), title: L.note, onclick: () => { endPeek(); replaceDoc(apply(L)); askFor(L); }, onpointerenter: (e) => { if (e.pointerType === 'mouse') peek(() => apply(L, clone(doc), tmpId)); }, onpointerleave: endPeek, onfocus: (e) => { if (e.target.matches(':focus-visible')) peek(() => apply(L, clone(doc), tmpId)); }, onblur: endPeek },
       h('div', { class: 'thumb', 'data-l': LAYOUTS.indexOf(L) }), h('span', {}, L.name), h('small', {}, L.note));
-    pane.append(h('div', { class: 'hint' }, 'Layouts move your words and keep the look. Lines a layout leaves out are hidden, not deleted; new lines arrive as examples to type over.'));
+    pane.append(h('div', { class: 'hint' }, 'Layouts move your words and keep the look. Lines a layout leaves out are hidden, not deleted; new lines arrive empty, for you to fill in.'));
     for (const g of LAYOUT_GROUPS) pane.append(h('div', { class: 'label' }, g, h('span', { class: 'grow' })), h('div', { class: 'presets' }, LAYOUTS.filter((L) => L.group === g).map(tile)));
   }
   return [top, pane];
 }
 let tmpK = 0; const tmpId = () => 'tmp' + tmpK++;
+// a layout that adds a line asks for its words, rather than writing a fact the film may not have
+function askFor(L, what = 'layout') {
+  const need = [...new Set(doc.fields.filter((f) => f.added && !f.text && f.show !== false && f.kind !== 'icon').map((f) => KIND_LABEL[f.kind].toLowerCase()))];
+  if (need.length) toast(`The ${L.name} ${what} has a line for the ${need.join(' and the ')}: type ${need.length > 1 ? 'them' : 'it'} on the Words tab.`, 4200);
+  return need.length > 0;
+}
 // preview a look on the stage without changing anything
 let peekTimer = 0;
 function peek(make) {
@@ -562,7 +569,7 @@ function aboutTab() {
 function drawThumb(el) {
   delete el.dataset.dirty;
   let k = 0; const tmp = () => 'tmp' + k++;
-  const d = el.dataset.l != null ? applyLayout(clone(doc), LAYOUTS[+el.dataset.l], tmp) : applyPreset(PRESETS[+el.dataset.i], true, tmp);
+  const d = el.dataset.l != null ? applyLayout(clone(doc), LAYOUTS[+el.dataset.l], tmp, { examples: true }) : applyPreset(PRESETS[+el.dataset.i], true, tmp, doc, { examples: true });
   d.canvas.aspect = 1; d.canvas.pad = 10;
   el.innerHTML = render(d, { measure, scale: 1 }).svg; // draw now, sharpen when the fonts arrive
   ensureFonts(d).then(() => { el.innerHTML = render(d, { measure, scale: 1 }).svg; });

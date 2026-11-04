@@ -71,7 +71,7 @@ export function rowMode(ctx) {
     const vals = { status: it.status, festival: it.festival, award: it.award, year: it.year };
     d.fields = fields.map((f) => {
       // a row has no logos, so a name the look hid behind a logo comes back
-      if (f.kind in vals) { const v = String(vals[f.kind] || '').trim(); return { ...f, text: v, show: (f.show !== false || f.added || (logoIsName && f.kind === 'festival')) && !!v }; }
+      if (f.kind in vals) { const v = String(vals[f.kind] || '').trim(), { added, ...g } = f; return { ...g, text: v, show: (f.show !== false || added || (logoIsName && f.kind === 'festival')) && !!v }; }
       if (f.kind === 'icon') return f;
       return { ...f, show: false };
     });

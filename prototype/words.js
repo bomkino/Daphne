@@ -143,9 +143,9 @@ export function wordsTab(ui) {
   const q3 = showAward ? h('section', { class: 'q' },
     h('h3', {}, h('span', { class: 'num' }, '3'), 'What was the ', h('em', {}, 'award'), '?'),
     awF && vis(awF)
-      ? h('input', { type: 'text', class: 'bigin' + (awF.added ? ' example' : ''), value: award, placeholder: 'Best Documentary', list: 'w-awards', 'aria-label': 'Award', oninput: (e) => setKind('award', e.target.value), onfocus: (e) => { if (awF.added) e.target.select(); } })
+      ? h('input', { type: 'text', class: 'bigin' + (awF.added && awF.text ? ' example' : ''), value: award, placeholder: 'Best Documentary', list: 'w-awards', 'aria-label': 'Award', oninput: (e) => setKind('award', e.target.value), onfocus: (e) => { if (awF.added) e.target.select(); } })
       : h('button', { class: 'btn', onclick: () => applyLayoutId('winner') }, '+ Add the award line'),
-    awF && awF.added ? h('div', { class: 'hint' }, 'Example text: type the award exactly as the festival named it.') : null,
+    awF && awF.added ? h('div', { class: 'hint' }, awF.text ? 'Example text a layout added: type the award exactly as the festival named it.' : 'Type the award exactly as the festival named it.') : null,
     h('datalist', { id: 'w-awards' }, AWARDS.map((s) => h('option', { value: s })))) : null;
 
   // ── 4. the year ──

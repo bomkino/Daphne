@@ -77,7 +77,10 @@ export function checkLaurel(d) {
   const text = (k) => vis.filter((f) => f.kind === k).map((f) => f.text || '').join(' ');
   const all = vis.map((f) => f.text || '').join(' ');
   const logo = vis.find((f) => f.kind === 'logo' && f.src);
-  return checkItem({ status: text('status'), festival: text('festival'), award: text('award'), all, logo: !!logo, tint: !!(logo && logo.tint) });
+  // a line an older layout filled with example words the user never changed: it may say something the film didn't get
+  const examples = vis.filter((f) => f.added && f.text && f.kind !== 'icon').map((f) => `"${f.text}"`);
+  const out = examples.length ? [{ level: 'rule', check: true, text: `${examples.join(' and ')} ${examples.length > 1 ? 'are' : 'is'} example text a layout added. Type what the festival gave you, or hide the line.` }] : [];
+  return out.concat(checkItem({ status: text('status'), festival: text('festival'), award: text('award'), all, logo: !!logo, tint: !!(logo && logo.tint) }));
 }
 function checkItem({ status = '', festival = '', award = '', all = '', logo = false, tint = false, row = false }) {
   const out = [], F = festivalOf(festival) || festivalOf(all), place = row ? 'add it to the row with "+ Official artwork"' : 'add it as a logo line';
