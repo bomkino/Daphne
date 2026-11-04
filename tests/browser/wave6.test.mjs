@@ -98,7 +98,10 @@ test('C03: two awards that slug alike get their own folders in the pack', async 
 
 test('C05: a second pointer can’t take over a move, and a cancelled move puts the line back with no undo step', async () => {
   const { page, errors, context } = await openApp();
+  // the stage redraws once its fonts arrive, so wait for that before measuring the year
+  await settle(page, 900);
   const year = page.locator('#stage svg [data-ids]').filter({ hasText: /2026/ }).last();
+  await year.waitFor();
   const b = await year.boundingBox(), x = b.x + b.width / 2, y = b.y + b.height / 2;
   const fire = (type, id, dx, dy) => page.evaluate(([type, id, x, y]) => {
     const t = document.elementFromPoint(x, y) || window;
