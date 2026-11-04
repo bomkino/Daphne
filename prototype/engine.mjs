@@ -535,7 +535,7 @@ function roughMeasure(s, font, weight, italic, size) {
   for (const ch of s) w += ch === ' ' ? 0.28 : /[IJ1.,'’:;!|]/.test(ch) ? 0.34 : /[MW]/.test(ch) ? 0.92 : /[a-z]/.test(ch) ? capW * 0.74 : /[　-鿿가-힯]/.test(ch) ? 1 : capW;
   return w * size;
 }
-const caseOf = (s, c) => (c === 'upper' ? s.toLocaleUpperCase() : c === 'lower' ? s.toLocaleLowerCase() : c === 'title' ? s.toLocaleLowerCase().replace(/(^|[\s\-–])(\p{L})/gu, (m, a, b) => a + b.toLocaleUpperCase()) : s);
+export const caseOf = (s, c) => (c === 'upper' ? s.toLocaleUpperCase() : c === 'lower' ? s.toLocaleLowerCase() : c === 'title' ? s.toLocaleLowerCase().replace(/(^|[\s\-–])(\p{L})/gu, (m, a, b) => a + b.toLocaleUpperCase()) : s);
 const splitTwo = (s) => { const w = s.split(' '); if (w.length < 2) return null; let best = null; for (let i = 1; i < w.length; i++) { const a = w.slice(0, i).join(' '), b = w.slice(i).join(' '), d = Math.abs(a.length - b.length); if (!best || d < best.d) best = { a, b, d }; } return [best.a, best.b]; };
 const ICONS = ['star', 'stars', 'crown', 'dot', 'diamond', 'rule', 'none'];
 // an uploaded logo (official artwork, SVG or PNG): a line of its own, as tall as LOGO_H × its role's size, as wide as its aspect ratio makes it.
@@ -1118,3 +1118,6 @@ export function smallestText(svg) {
   }
   return m;
 }
+
+// an uploaded image lives on the device it was added on: a reference without its bytes here is missing
+export const assetMissing = (src) => /^asset:/.test(src || '') && !ASSETS[src];

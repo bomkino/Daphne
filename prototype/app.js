@@ -1,7 +1,7 @@
 // app.js — Daphne's editor. Vanilla ES modules, no build step.
 // The shell: a rail of tabs (Words first, because the words are the first thing anyone does), a panel, and the stage.
 // The engine (engine.mjs) turns one JSON document into the laurel; everything here edits that document.
-import { render, DEFAULT_DOC, FORMS, METALS, PROFILES, FAMILIES, FRAMES, FILLABLE_FRAMES, ASSETS, LOGO_SLOTS, merge, clone, applyForm, shuffleBranch, rngOf } from './engine.mjs';
+import { render, DEFAULT_DOC, FORMS, METALS, PROFILES, FAMILIES, FRAMES, FILLABLE_FRAMES, ASSETS, LOGO_SLOTS, merge, clone, applyForm, shuffleBranch, rngOf, assetMissing } from './engine.mjs';
 import { FONTS, fontInfo, loadFont, embedFontCss, cssUrl, loadPreviewFonts } from './fonts.js';
 import { PRESETS, GROUPS } from './presets.js';
 import { LAYOUTS, LAYOUT_GROUPS, layoutFields, applyLayout, EXAMPLE } from './layouts.js';
@@ -158,7 +158,7 @@ function altText(d = doc) {
   const vis = d.fields.filter((f) => f.show !== false && f.text && f.kind !== 'icon' && f.kind !== 'logo');
   const by = (k) => vis.filter((f) => f.kind === k).map((f) => f.text.trim()).filter(Boolean);
   const parts = [...by('status'), ...by('award'), ...by('category'), [...by('festival'), ...by('edition')].join(' '), [...by('location'), ...by('year')].join(' '), ...by('custom')].filter((s) => s && s.trim());
-  const logo = d.fields.some((f) => f.kind === 'logo' && f.show !== false && f.src);
+  const logo = d.fields.some((f) => f.kind === 'logo' && f.show !== false && f.src && !assetMissing(f.src)); // only a logo that's drawn
   return (parts.join(', ') || 'Festival laurel') + (logo ? ' (with the festival’s logo)' : '') + '.';
 }
 
@@ -664,7 +664,7 @@ async function pack(o) { const cs = new CompressionStream('deflate-raw'); const 
 async function unpack(s) { const ds = new DecompressionStream('deflate-raw'); const w = ds.writable.getWriter(); w.write(unb64u(s)); w.close(); return JSON.parse(await new Response(ds.readable).text()); }
 let hashTimer = 0;
 function saveHash() { clearTimeout(hashTimer); hashTimer = setTimeout(async () => { try { const p = await pack(doc); window.history.replaceState(null, '', '#l=' + p); try { localStorage.setItem('daphne.autosave', p); } catch (e) { /* storage is a convenience */ } } catch (e) { /* hash is a convenience */ } }, 500); }
-document.getElementById('copy-link').onclick = async () => { const url = location.href.split('#')[0] + '#l=' + (await pack(doc)); try { await navigator.clipboard.writeText(url); toast('Link copied: it holds the whole laurel'); } catch { prompt('Copy this link', url); } };
+document.getElementById('copy-link').onclick = async () => { const url = location.href.split('#')[0] + '#l=' + (await pack(doc)); try { await navigator.clipboard.writeText(url); toast(JSON.stringify([doc.fields, doc.row && doc.row.items, doc.poster]).includes('"asset:') ? 'Link copied: it holds the words and the look. Uploaded logos and artwork stay on this device.' : 'Link copied: it holds the whole laurel', 3600); } catch { prompt('Copy this link', url); } };
 function toast(msg, ms = 2200) { const t = h('div', { class: 'toast', role: 'status' }, msg); document.getElementById('toasts').append(t); setTimeout(() => { t.style.transition = 'opacity .3s'; t.style.opacity = 0; setTimeout(() => t.remove(), 320); }, ms); }
 
 // ── export ──

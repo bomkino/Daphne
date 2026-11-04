@@ -2,6 +2,7 @@
 // a selection and mustn't pretend to. The rules come from what festivals publish (research/01 §2); the sources are
 // linked so anyone can check them. This file is open data on purpose: festivals and designers can add to it.
 import { festivalFromText } from './festivals.js';
+import { assetMissing } from './engine.mjs';
 
 // Festivals that publish rules about laurels. `aliases` match the festival line (case-insensitive, whole words).
 //   artwork: 'required' (the festival supplies official artwork and requires it), 'supplied' (it supplies artwork and
@@ -76,10 +77,13 @@ export function checkLaurel(d) {
   const vis = (d.fields || []).filter((f) => f.show !== false);
   const text = (k) => vis.filter((f) => f.kind === k).map((f) => f.text || '').join(' ');
   const all = vis.map((f) => f.text || '').join(' ');
-  const logo = vis.find((f) => f.kind === 'logo' && f.src);
+  const logo = vis.find((f) => f.kind === 'logo' && f.src && !assetMissing(f.src));
+  // a logo uploaded on another device: the artwork goes out without it, so say so before anyone exports
+  const lost = vis.some((f) => f.kind === 'logo' && f.src && assetMissing(f.src));
   // a line an older layout filled with example words the user never changed: it may say something the film didn't get
   const examples = vis.filter((f) => f.added && f.text && f.kind !== 'icon').map((f) => `"${f.text}"`);
-  const out = examples.length ? [{ level: 'rule', check: true, text: `${examples.join(' and ')} ${examples.length > 1 ? 'are' : 'is'} example text a layout added. Type what the festival gave you, or hide the line.` }] : [];
+  const out = lost ? [{ level: 'rule', check: true, text: 'The festival logo isn’t on this device: uploaded logos stay on the device they were added on. Upload it again in Every line, or the files go out without it.' }] : [];
+  if (examples.length) out.push({ level: 'rule', check: true, text: `${examples.join(' and ')} ${examples.length > 1 ? 'are' : 'is'} example text a layout added. Type what the festival gave you, or hide the line.` });
   return out.concat(checkItem({ status: text('status'), festival: text('festival'), award: text('award'), all, logo: !!logo, tint: !!(logo && logo.tint) }));
 }
 function checkItem({ status = '', festival = '', award = '', all = '', logo = false, tint = false, row = false }) {

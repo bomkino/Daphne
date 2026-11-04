@@ -3,7 +3,7 @@
 // card, an end-card frame) and packs it. The settings people pick are remembered on this device.
 import { checkLaurel, accoladesOf } from './rules.js';
 import { STATUS_COMMON } from './words.js';
-import { smallestText } from './engine.mjs';
+import { smallestText, caseOf } from './engine.mjs';
 
 const AWARD_LAYOUTS = ['winner', 'award-detail', 'award-festival-hero', 'star-winner'];
 
@@ -59,6 +59,11 @@ const accolades = (ctx) => accoladesOf(ctx.doc);
 const NO_SENTENCE = 'No sentence yet: none of these laurels says what the festival gave the film. Add a status (Official Selection, a premiere, Winner) and it writes itself.';
 
 // a first line for the post that goes with the card; the filmmaker makes it theirs
+// for the row: what the shown laurels say, in one breath
+function rowCaption(items, title) {
+  const a = accoladesOf({ fields: [], row: { items } }), film = title || 'Our film';
+  return a.sentence ? `${film}: ${a.sentence}` : `${film} at ${[...new Set(items.map((it) => it.festival).filter(Boolean))].join(', ') || 'festivals'}.`;
+}
 function caption(ctx, title) {
   const d = ctx.doc, t = (k) => d.fields.filter((f) => f.kind === k && f.show !== false && f.text).map((f) => f.text.trim()).join(' ');
   const film = title || 'Our film', st = t('status'), fest = [t('festival'), t('year')].filter(Boolean).join(' ') || 'the festival', aw = t('award');
@@ -146,6 +151,12 @@ export function openStudio(ctx) {
   const save = () => { try { localStorage.setItem('daphne.studio', JSON.stringify(P)); } catch (e) { /* a convenience */ } };
   const d0 = () => ctx.doc;
   const hasRow = () => !!(d0().row && d0().row.items && d0().row.items.length && ctx.rowScene);
+  // the row as it's drawn: its laurels in order, without hidden ones or artwork missing on this device
+  const rowShown = () => { const sc = hasRow() && ctx.rowScene({ bg: false }); return sc ? sc.parts.map((p) => p.it) : []; };
+  const rowMissing = () => (hasRow() ? d0().row.items.filter((it) => it.show !== false && it.src && !ctx.ASSETS[it.src]) : []);
+  const rowLine = (it) => (it.src && !it.status && !it.award ? `the official laurel of ${[it.festival, it.year].filter(Boolean).join(' ') || 'a festival'}` : [it.status, it.award, [it.festival, it.year].filter(Boolean).join(' ')].filter(Boolean).join(', '));
+  const rowAlt = () => { const its = rowShown(); return its.length ? `Festival laurels: ${its.map(rowLine).join('; ')}.` : ctx.altText(d0()); };
+  const showsRow = (what) => what === 'row' && rowShown().length > 0;
   const base = () => ctx.fileName();
   const docOf = (way) => colorway(d0(), way, ctx.clone);
   const cache = new Map();
@@ -194,7 +205,7 @@ export function openStudio(ctx) {
     }));
   }
   const bgToggle = () => (P.way === 'color' && d0().canvas.bg ? toggle('Keep the background color', P.bg !== false, (v) => set('bg', v)) : null);
-  const altBlock = () => { const a = ctx.altText(d0()); return h('div', { class: 'oblock' }, label('Alt text', h('button', { class: 'btn small ghost', onclick: () => copy(a, 'Alt text copied') }, 'Copy')), h('div', { class: 'alt' }, a), h('div', { class: 'hint' }, 'Paste it wherever the image goes: it’s what screen readers say.')); };
+  const altBlock = (a = ctx.altText(d0())) => { return h('div', { class: 'oblock' }, label('Alt text', h('button', { class: 'btn small ghost', onclick: () => copy(a, 'Alt text copied') }, 'Copy')), h('div', { class: 'alt' }, a), h('div', { class: 'hint' }, 'Paste it wherever the image goes: it’s what screen readers say.')); };
   // the studio that made Daphne, said once, where a deck is already on the filmmaker's mind
   const pitchdog = () => h('aside', { class: 'pd-tie', 'aria-labelledby': 'pd-tie-title' },
     h('p', { class: 'pd-eyebrow' }, 'Made by pitch.dog'),
@@ -206,7 +217,9 @@ export function openStudio(ctx) {
       h('a', { class: 'btn ghost', href: 'mailto:hello@pitch.dog?subject=A%20deck%20for%20my%20film' }, 'Email us')),
     h('p', { class: 'pd-note' }, 'No pressure, no strings. Daphne stays free either way.'));
   function rulesBlock() {
-    const notes = checkLaurel(d0()).filter((n) => n.level === 'rule');
+    const notes = checkLaurel(d0()).filter((n) => n.level === 'rule'), gone = rowMissing();
+    const rowOut = P.dest === 'row' || (P.dest === 'social' && P.social.what === 'row') || (P.dest === 'video' && P.video.what === 'row');
+    if (rowOut && gone.length) notes.unshift({ level: 'rule', text: `${gone.length === 1 ? 'One official artwork' : gone.length + ' official artworks'} in your row (${gone.map((it) => it.festival || 'untitled').join(', ')}) ${gone.length === 1 ? 'isn’t' : 'aren’t'} on this device, so the row goes out without ${gone.length === 1 ? 'it' : 'them'}. Add ${gone.length === 1 ? 'it' : 'them'} again in Row.` });
     if (!notes.length) return null;
     return h('div', { class: 'oblock' }, notes.map((n) => h('div', { class: 'note rule' }, h('span', {}, n.text, n.source ? [' ', h('a', { href: n.source.url, target: '_blank', rel: 'noopener' }, 'Source')] : null))));
   }
@@ -231,7 +244,7 @@ export function openStudio(ctx) {
     const tp = hex(d.text.paint), ink = P.way === 'color' && tp && contrast(tp, bg) > 3 ? tp : dark ? '#ffffff' : '#141414';
     const hero = d.roles.hero, sub = d.roles.sub, story = S.fmt === '9:16', wide = S.fmt === '16:9';
     const top = H * (story ? 0.15 : 0.08), bot = H * (story ? 0.8 : 0.92), maxW = W * 0.84;
-    const cased = (s, r) => (r.case === 'upper' ? s.toUpperCase() : r.case === 'lower' ? s.toLowerCase() : s);
+    const cased = (s, r) => caseOf(s, r.case); // the laurel's own casing, Title Case included
     const title = cased(S.title.trim(), hero), line = cased(S.line.trim(), sub);
     let tS = Math.min(W, H) * (wide ? 0.07 : 0.088), lines = [];
     const width = (s, size) => ctx.measure(s, hero.font, hero.weight, hero.italic, size) + Math.max(0, s.length - 1) * hero.track * size;
@@ -249,7 +262,7 @@ export function openStudio(ctx) {
     const n = nest(sc.svg, (W - lwid) / 2, y0, lwid, lh);
     let y = y0 + lh + gap, txt = '';
     lines.forEach((l, i) => { y += i ? tS * 1.08 : tS * 0.78; txt += `<text x="${W / 2}" y="${r2(y)}" text-anchor="middle" font-family="${esc(hero.font)}" font-weight="${hero.weight}"${hero.italic ? ' font-style="italic"' : ''} font-size="${r2(tS)}" letter-spacing="${r2(hero.track * tS)}" fill="${ink}">${esc(l)}</text>`; });
-    if (line) { y += (lines.length ? tS * 0.55 : 0) + lS * 0.8; txt += `<text x="${W / 2}" y="${r2(y)}" text-anchor="middle" font-family="${esc(sub.font)}" font-weight="${sub.weight}" font-size="${r2(lS)}" letter-spacing="${r2(0.16 * lS)}" fill="${ink}" opacity="0.86">${esc(line)}</text>`; }
+    if (line) { y += (lines.length ? tS * 0.55 : 0) + lS * 0.8; txt += `<text x="${W / 2}" y="${r2(y)}" text-anchor="middle" font-family="${esc(sub.font)}" font-weight="${sub.weight}"${sub.italic ? ' font-style="italic"' : ''} font-size="${r2(lS)}" letter-spacing="${r2(0.16 * lS)}" fill="${ink}" opacity="0.86">${esc(line)}</text>`; }
     const ph = S.bg === 'photo' && photo ? `<image href="${photo.url}" x="0" y="0" width="${W}" height="${H}" preserveAspectRatio="xMidYMid slice"/><rect width="${W}" height="${H}" fill="#000" opacity="${S.dim}"/>` : '';
     return { svg: root(W, H, `<rect width="${W}" height="${H}" fill="${bg}"/>${ph}${n.el}${txt}`), W, H, bg, light: !dark };
   }
@@ -377,30 +390,31 @@ export function openStudio(ctx) {
         h('div', { class: 'hint' }, 'Hand the PDF to your printer or designer: it’s vector, the exact size, with the text outlined. It’s in RGB, which most printers convert for you; for a one-ink job, send the Black version and ask for it on the black plate only.'));
     } else if (D.id === 'social') {
       const S = P.social, file = h('input', { type: 'file', accept: 'image/*', hidden: true, onchange: async (e) => { const fl = e.target.files[0]; if (!fl) return; if (fl.size > 12e6) { ctx.toast('That image is over 12 MB: try a smaller one'); return; } photo = { url: await new Promise((ok) => { const fr = new FileReader(); fr.onload = () => ok(fr.result); fr.readAsDataURL(fl); }), name: fl.name }; set('social.bg', 'photo'); } });
-      const title = h('input', { type: 'text', value: S.title, placeholder: 'Your film’s title', 'aria-label': 'Film title', oninput: (e) => set('social.title', e.target.value, { opts: false }) });
+      // the caption and alt text follow what the card shows, and the title as it's typed
+      const capNow = () => (showsRow(S.what) ? rowCaption(rowShown(), S.title.trim()) : caption(ctx, S.title.trim())), capEl = h('div', { class: 'alt' }, capNow());
+      const title = h('input', { type: 'text', value: S.title, placeholder: 'Your film’s title', 'aria-label': 'Film title', oninput: (e) => { set('social.title', e.target.value, { opts: false }); capEl.textContent = capNow(); } });
       const line = h('input', { type: 'text', value: S.line, placeholder: 'e.g. Screening June 12 · Park City', 'aria-label': 'Detail line', oninput: (e) => set('social.line', e.target.value, { opts: false }) });
-      const cap = caption(ctx, S.title.trim());
       put(label('Format'), h('div', { class: 'fmtgrid' }, Object.entries(SOCIAL).map(([k, v]) => h('button', { class: 'chip' + (k === S.fmt ? ' on' : ''), onclick: () => set('social.fmt', k) }, v[2], h('small', {}, k)))),
-        hasRow() ? seg([['laurel', 'This laurel'], ['row', `The row (${d0().row.items.length})`]], S.what, (v) => set('social.what', v), 'What to show') : null,
+        hasRow() ? seg([['laurel', 'This laurel'], ['row', `The row (${rowShown().length})`]], S.what, (v) => set('social.what', v), 'What to show') : null,
         label('Words'), title, line,
         label('Background'), chips([['laurel', 'The laurel’s'], ['dark', 'Dark'], ['light', 'Light'], ['custom', 'Color'], ['photo', photo ? 'Photo' : 'Photo…']], S.bg, (v) => { if (v === 'photo' && !photo) file.click(); else set('social.bg', v); }), file,
         S.bg === 'custom' ? h('div', { class: 'inrow' }, h('input', { type: 'color', value: hex(S.color) || '#0b0b0d', 'aria-label': 'Background color', oninput: (e) => set('social.color', e.target.value, { opts: false }) }), h('span', { class: 'hint' }, 'Any color')) : null,
         S.bg === 'photo' && photo ? h('div', { class: 'row' }, h('label', {}, 'Darken'), h('input', { type: 'range', 'aria-label': 'Darken the photo', min: 0, max: 0.85, step: 0.05, value: S.dim, oninput: (e) => set('social.dim', +e.target.value, { opts: false }) }), h('button', { class: 'btn small ghost', onclick: () => file.click() }, 'Change')) : null,
         h('div', { class: 'row' }, h('label', {}, 'Laurel size'), h('input', { type: 'range', 'aria-label': 'Laurel size', min: 0.5, max: 1.25, step: 0.05, value: S.size, oninput: (e) => set('social.size', +e.target.value, { opts: false }) }), h('span', {})),
         label('Colorway'), ways(),
-        go(run('Download the card', async () => { const c = socialSvg(); ctx.download(await composedPng(c), `${base()}-${S.fmt.replace(':', 'x')}.png`); })),
-        h('div', { class: 'oblock' }, label('A first line for the post', h('button', { class: 'btn small ghost', onclick: () => copy(cap, 'Caption copied') }, 'Copy')), h('div', { class: 'alt' }, cap), h('div', { class: 'hint' }, 'A starting point: make it yours. Tag the festival; they often share. Many festivals ask films to wait for the line-up announcement before posting.')),
-        altBlock());
+        go(run('Download the card', async () => { const c = socialSvg(); ctx.download(await composedPng(c), `${base()}${showsRow(S.what) ? '-row' : ''}-${S.fmt.replace(':', 'x')}.png`); })),
+        h('div', { class: 'oblock' }, label('A first line for the post', h('button', { class: 'btn small ghost', onclick: () => copy(capNow(), 'Caption copied') }, 'Copy')), capEl, h('div', { class: 'hint' }, 'A starting point: make it yours. Tag the festival; they often share. Many festivals ask films to wait for the line-up announcement before posting.')),
+        altBlock(showsRow(S.what) ? rowAlt() : undefined));
     } else if (D.id === 'video') {
       const V = P.video;
       put(label('Frame'), seg([[1080, 'HD 1920 × 1080'], [2160, '4K 3840 × 2160']], V.res, (v) => set('video.res', v), 'Resolution'),
-        hasRow() ? seg([['laurel', 'This laurel'], ['row', `The row (${d0().row.items.length})`]], V.what, (v) => set('video.what', v), 'What to show') : null,
+        hasRow() ? seg([['laurel', 'This laurel'], ['row', `The row (${rowShown().length})`]], V.what, (v) => set('video.what', v), 'What to show') : null,
         label('Placement'), seg([['center', 'Center'], ['third', 'Lower third'], ['corner', 'Corner']], V.pos, (v) => set('video.pos', v), 'Placement'),
         h('div', { class: 'row' }, h('label', {}, 'Height'), h('input', { type: 'range', 'aria-label': 'Laurel height', min: 0.12, max: 0.7, step: 0.01, value: V.size, oninput: (e) => set('video.size', +e.target.value, { opts: false }) }), h('span', {})),
         label('Background'), seg([['none', 'Transparent'], ['black', 'Black']], V.bg, (v) => set('video.bg', v), 'Background'),
         label('Colorway'), ways(),
-        go(run('Download the frame', async () => { const c = videoSvg(); ctx.download(await composedPng(c), `${base()}-endcard-${c.W}x${c.H}.png`); })),
-        h('div', { class: 'hint' }, 'For animated laurels (a reveal, a shimmer), use Motion in the top bar: it makes MP4s and PNG sequences.'));
+        go(run('Download the frame', async () => { const c = videoSvg(); ctx.download(await composedPng(c), `${base()}${showsRow(V.what) ? '-row' : ''}-endcard-${c.W}x${c.H}.png`); })),
+        h('div', { class: 'hint' }, 'For animated laurels (a reveal, a shimmer), use Motion in the top bar: it makes MP4s and PNG sequences.'), altBlock(showsRow(V.what) ? rowAlt() : undefined));
     } else if (D.id === 'web') {
       const ar = vb[3] / vb[2], wpx = P.web.w, hpx = Math.round(wpx * ar), alt = ctx.altText(d0());
       const html = `<img src="/images/${base()}${suffix(P.way)}.svg" alt="${esc(alt)}" width="${wpx}" height="${hpx}" loading="lazy">`;
