@@ -1,7 +1,7 @@
 // app.js — Daphne's editor. Vanilla ES modules, no build step.
 // The shell: a rail of tabs (Words first, because the words are the first thing anyone does), a panel, and the stage.
 // The engine (engine.mjs) turns one JSON document into the laurel; everything here edits that document.
-import { render, DEFAULT_DOC, FORMS, METALS, PROFILES, FAMILIES, FRAMES, FILLABLE_FRAMES, ASSETS, LOGO_SLOTS, merge, clone, applyForm, shuffleBranch, rngOf, assetMissing, sanitizeDoc } from './engine.mjs';
+import { render, DEFAULT_DOC, FORMS, METALS, PROFILES, FAMILIES, FRAMES, FILLABLE_FRAMES, ASSETS, LOGO_SLOTS, merge, clone, applyForm, shuffleBranch, rngOf, assetMissing, sanitizeDoc, parsePath, drawable } from './engine.mjs';
 import { FONTS, fontInfo, loadFont, embedFontCss, cssUrl, loadPreviewFonts } from './fonts.js';
 import { PRESETS, GROUPS } from './presets.js';
 import { LAYOUTS, LAYOUT_GROUPS, layoutFields, applyLayout, EXAMPLE } from './layouts.js';
@@ -510,7 +510,7 @@ function wreathTab() {
     fold('Leaves', `${family} · ${get(LF + 'n')} a side`, true,
       select('Family', LF + 'family', opt(Object.keys(FAMILIES)), { rebuild: true }),
       ['simple', 'twig', 'trefoil'].includes(family) ? select('Shape', LF + 'profile', opt(Object.keys(PROFILES).filter((k) => k !== 'rachis'))) : null,
-      family === 'custom' ? h('div', { class: 'row wide' }, h('label', {}, 'Your shape'), h('textarea', { placeholder: 'Paste any SVG path (d="…"): a leaf, a star, a film frame. Base on the left, tip on the right.', onchange: (e) => change(LF + 'path', e.target.value) }, get(LF + 'path') || '')) : null,
+      family === 'custom' ? h('div', { class: 'row wide' }, h('label', {}, 'Your shape'), h('textarea', { placeholder: 'Paste any SVG path (d="…"): a leaf, a star, a film frame. Base on the left, tip on the right.', onchange: (e) => setShape(e.target, LF) }, get(LF + 'path') || '')) : null,
       select('Style', LF + 'style', [['solid', 'Solid'], ['slit', 'Slit (hairline midrib)'], ['carved', 'Carved veins'], ['inline', 'Inline (engraved outline)'], ['engraved', 'Engraved (outline + veins)'], ['hatch', 'Hatched (etching)'], ['split', 'Split two-tone']]),
       range('Fold shading', LF + 'fold', 0, 0.6, 0.01), select('Shaded half', LF + 'foldSide', [[1, 'Lower half'], [-1, 'Upper half']], { num: true }),
       range('Line weight', LF + 'ring', 0.06, 0.3, 0.01),
@@ -740,6 +740,12 @@ function flushSave() {
 addEventListener('pagehide', flushSave);
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') flushSave(); });
 document.getElementById('copy-link').onclick = async () => { const url = location.href.split('#')[0] + '#l=' + (await pack(doc)); try { await navigator.clipboard.writeText(url); toast(JSON.stringify([doc.fields, doc.row && doc.row.items, doc.poster]).includes('"asset:') ? 'Link copied: it holds the words and the look. Uploaded logos and artwork stay on this device.' : 'Link copied: it holds the whole laurel', 3600); } catch { prompt('Copy this link', url); } };
+// D26: a pasted shape is kept only when it can be drawn; a whole <path d="…"> is trimmed to its d
+function setShape(el, LF) {
+  const v = el.value.trim(), m = /\bd\s*=\s*["']([^"']*)["']/.exec(v), d = (m ? m[1] : v).trim();
+  if (d && !drawable(parsePath(d))) { toast('That shape couldn’t be read, so the last one stays. Paste the d="…" of one SVG path.', 4200); el.value = get(LF + 'path') || ''; return; }
+  el.value = d; change(LF + 'path', d);
+}
 function toast(msg, ms = 2200) { const t = h('div', { class: 'toast', role: 'status' }, msg); document.getElementById('toasts').append(t); setTimeout(() => { t.style.transition = 'opacity .3s'; t.style.opacity = 0; setTimeout(() => t.remove(), 320); }, ms); }
 
 // ── export ──

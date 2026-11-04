@@ -80,7 +80,7 @@ All work goes on the branch `claude/project-thread-tx7lhm` with one draft PR. Me
 | D13 | 2 | fixed | Saves carry a number and a late older one is dropped; an edit made as the page closes is kept and restored; a 'Not saved' badge and one toast when storage refuses; tests/browser/saving.test.mjs (fails on main). Reverse-order completion is guarded in code, not reproduced in a test |
 | D18 | 2 | fixed | Row edits work on a fresh copy, so every edit redraws, saves to the link and undoes; tests/browser/history.test.mjs (fails on main) |
 | D19 | 2 | fixed | A zero-length arc gets a one-degree span (6,496-case sweep finite); a drawing with no size never replaces the stage and says so; tests/unit/engine.test.mjs |
-| D26 | 2 | todo | |
+| D26 | 2 | fixed | bounded parser reads M L H V C S Q T A Z, exponents and packed arc flags; an unreadable paste keeps the last shape (tests: unit engine D26, browser shape) |
 | D31 | 2 | todo | |
 | D35 | 2 | todo | |
 | D38 | 2 | fixed | Non-text strings can't carry quotes or markup, colors and gradient values are validated in paintRef, ids are sanitized, decompression is capped at 4 MB; tests/unit/engine.test.mjs, tests/browser/links.test.mjs (fails on main) |

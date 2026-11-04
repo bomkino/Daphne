@@ -212,24 +212,67 @@ function profileD(prof, L, W, bend, xf, o = {}) {
 }
 
 // a user's own leaf: any SVG path (M L H V C S Q T Z, absolute or relative). Fitted base→tip along +x.
-export function parsePath(d) {
-  const toks = String(d).match(/[a-zA-Z]|-?\d*\.?\d+(?:e-?\d+)?/g) || [], out = [];
-  let i = 0, cmd = '', x = 0, y = 0, sx = 0, sy = 0, lc = null;
-  const n = () => +toks[i++];
-  while (i < toks.length) {
-    if (/[a-zA-Z]/.test(toks[i])) cmd = toks[i++];
-    const rel = cmd === cmd.toLowerCase(), C = cmd.toUpperCase(), ox = rel ? x : 0, oy = rel ? y : 0;
-    if (C === 'Z') { out.push(['Z']); x = sx; y = sy; lc = null; continue; }
-    if (C === 'M') { x = ox + n(); y = oy + n(); sx = x; sy = y; out.push(['M', x, y]); cmd = rel ? 'l' : 'L'; lc = null; }
-    else if (C === 'L') { x = ox + n(); y = oy + n(); out.push(['L', x, y]); lc = null; }
-    else if (C === 'H') { x = ox + n(); out.push(['L', x, y]); lc = null; }
-    else if (C === 'V') { y = (rel ? y : 0) + n(); out.push(['L', x, y]); lc = null; }
-    else if (C === 'C') { const a = [ox + n(), oy + n(), ox + n(), oy + n()]; x = ox + n(); y = oy + n(); out.push(['C', ...a, x, y]); lc = [a[2], a[3]]; }
-    else if (C === 'S') { const r = lc ? [2 * x - lc[0], 2 * y - lc[1]] : [x, y], a = [ox + n(), oy + n()]; const px = x, py = y; x = ox + n(); y = oy + n(); out.push(['C', r[0], r[1], a[0], a[1], x, y]); lc = a; void px; void py; }
-    else if (C === 'Q') { const a = [ox + n(), oy + n()]; x = ox + n(); y = oy + n(); out.push(['Q', ...a, x, y]); lc = null; }
-    else { i++; }
+// an SVG path's commands as absolute M, L, C, Q and Z, for custom leaves. Every SVG command is read (T and A included;
+// arcs become curves), every step moves forward, and a path that runs out of numbers stops at the last whole command.
+const arcToCubics = (x1, y1, rx, ry, phi, large, sweep, x2, y2) => {
+  if (!rx || !ry) return [[x2, y2, x2, y2, x2, y2]];
+  rx = Math.abs(rx); ry = Math.abs(ry);
+  const r = (phi * Math.PI) / 180, cs = Math.cos(r), sn = Math.sin(r), dx = (x1 - x2) / 2, dy = (y1 - y2) / 2;
+  const xp = cs * dx + sn * dy, yp = -sn * dx + cs * dy, lam = (xp * xp) / (rx * rx) + (yp * yp) / (ry * ry);
+  if (lam > 1) { rx *= Math.sqrt(lam); ry *= Math.sqrt(lam); }
+  const num = rx * rx * ry * ry - rx * rx * yp * yp - ry * ry * xp * xp, den = rx * rx * yp * yp + ry * ry * xp * xp;
+  const k = (large === sweep ? -1 : 1) * Math.sqrt(Math.max(0, num / (den || 1))), cxp = (k * rx * yp) / ry, cyp = (-k * ry * xp) / rx;
+  const cx = cs * cxp - sn * cyp + (x1 + x2) / 2, cy = sn * cxp + cs * cyp + (y1 + y2) / 2;
+  const ang = (ux, uy, vx, vy) => { const a = Math.atan2(ux * vy - uy * vx, ux * vx + uy * vy); return a; };
+  const t1 = ang(1, 0, (xp - cxp) / rx, (yp - cyp) / ry); let dt = ang((xp - cxp) / rx, (yp - cyp) / ry, (-xp - cxp) / rx, (-yp - cyp) / ry);
+  if (!sweep && dt > 0) dt -= 2 * Math.PI; else if (sweep && dt < 0) dt += 2 * Math.PI;
+  const segs = Math.max(1, Math.ceil(Math.abs(dt) / (Math.PI / 2))), dd = dt / segs, al = (4 / 3) * Math.tan(dd / 4), out = [];
+  const pt = (t) => [cx + rx * Math.cos(t) * cs - ry * Math.sin(t) * sn, cy + rx * Math.cos(t) * sn + ry * Math.sin(t) * cs];
+  const dv = (t) => [-rx * Math.sin(t) * cs - ry * Math.cos(t) * sn, -rx * Math.sin(t) * sn + ry * Math.cos(t) * cs];
+  for (let i = 0; i < segs; i++) {
+    const a0 = t1 + i * dd, a1 = a0 + dd, p0 = pt(a0), p1 = pt(a1), d0 = dv(a0), d1 = dv(a1);
+    out.push([p0[0] + al * d0[0], p0[1] + al * d0[1], p1[0] - al * d1[0], p1[1] - al * d1[1], ...(i === segs - 1 ? [x2, y2] : p1)]);
   }
   return out;
+};
+export function parsePath(d) {
+  let src = String(d ?? '').slice(0, 20000);
+  const attr = /\bd\s*=\s*["']([^"']*)["']/.exec(src); if (attr) src = attr[1]; // a whole <path d="…"> pasted in: read its d
+  const toks = (src.match(/[MmLlHhVvCcSsQqTtAaZz]|[-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?/g) || []).slice(0, 8000), out = [];
+  let i = 0, cmd = '', x = 0, y = 0, sx = 0, sy = 0, lc = null, lq = null;
+  const isCmd = (t) => /^[a-zA-Z]$/.test(t);
+  const n = () => { if (i >= toks.length || isCmd(toks[i])) throw 0; const v = +toks[i++]; if (!Number.isFinite(v)) throw 0; return v; };
+  // arc flags can be written run together ("a1 1 0 01 2 3"): take one digit at a time
+  const flag = () => { if (i >= toks.length || isCmd(toks[i])) throw 0; const t = toks[i]; if (t === '0' || t === '1') { i++; return +t; } if (/^[01]/.test(t)) { toks[i] = t.slice(1); return +t[0]; } throw 0; };
+  try {
+    while (i < toks.length) {
+      const start = i;
+      if (isCmd(toks[i])) cmd = toks[i++]; else if (!cmd || cmd === 'Z' || cmd === 'z') { i++; continue; } // a number with no command: skip it
+      const rel = cmd === cmd.toLowerCase(), C = cmd.toUpperCase(), ox = rel ? x : 0, oy = rel ? y : 0;
+      if (C === 'Z') { out.push(['Z']); x = sx; y = sy; lc = lq = null; }
+      else if (C === 'M') { x = ox + n(); y = oy + n(); sx = x; sy = y; out.push(['M', x, y]); cmd = rel ? 'l' : 'L'; lc = lq = null; }
+      else if (C === 'L') { const nx = ox + n(), ny = oy + n(); x = nx; y = ny; out.push(['L', x, y]); lc = lq = null; }
+      else if (C === 'H') { x = ox + n(); out.push(['L', x, y]); lc = lq = null; }
+      else if (C === 'V') { y = oy + n(); out.push(['L', x, y]); lc = lq = null; }
+      else if (C === 'C') { const a = [ox + n(), oy + n(), ox + n(), oy + n()], nx = ox + n(), ny = oy + n(); x = nx; y = ny; out.push(['C', ...a, x, y]); lc = [a[2], a[3]]; lq = null; }
+      else if (C === 'S') { const r = lc ? [2 * x - lc[0], 2 * y - lc[1]] : [x, y], a = [ox + n(), oy + n()], nx = ox + n(), ny = oy + n(); x = nx; y = ny; out.push(['C', r[0], r[1], a[0], a[1], x, y]); lc = a; lq = null; }
+      else if (C === 'Q') { const a = [ox + n(), oy + n()], nx = ox + n(), ny = oy + n(); x = nx; y = ny; out.push(['Q', ...a, x, y]); lq = a; lc = null; }
+      else if (C === 'T') { const a = lq ? [2 * x - lq[0], 2 * y - lq[1]] : [x, y], nx = ox + n(), ny = oy + n(); x = nx; y = ny; out.push(['Q', ...a, x, y]); lq = a; lc = null; }
+      else if (C === 'A') { const rx = n(), ry = n(), phi = n(), la = flag(), sw = flag(), nx = ox + n(), ny = oy + n(); for (const c of arcToCubics(x, y, rx, ry, phi, la, sw, nx, ny)) out.push(['C', ...c]); x = nx; y = ny; lc = lq = null; }
+      const last = out[out.length - 1];
+      if (last && !last.every((v, k) => k === 0 || Number.isFinite(v))) { out.pop(); break; } // numbers too big to draw: stop
+      if (i === start) i++; // always move forward
+    }
+  } catch (e) { /* ran out of numbers: keep the whole commands read so far */ }
+  return out;
+}
+// a custom leaf's commands, read once per shape; a shape with nothing to draw falls back to the plain leaf
+const SHAPES = new Map(), PLAIN = 'M0 0C30 -20 70 -20 100 0C70 20 30 20 0 0Z';
+export const drawable = (cmds) => cmds.some((c) => c[0] !== 'M' && c[0] !== 'Z');
+function shapeOf(p) {
+  const key = String(p || PLAIN);
+  if (!SHAPES.has(key)) { if (SHAPES.size > 32) SHAPES.clear(); const c = parsePath(key); SHAPES.set(key, drawable(c) ? c : parsePath(PLAIN)); }
+  return SHAPES.get(key);
 }
 function customD(cmds, L, W, xf) {
   let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
@@ -300,7 +343,7 @@ export const FAMILIES = {
     return out;
   },
   star: (L, W, o, xf) => [polyD(starPts(L * 0.55, 0, L * 0.45, 5, 0.45, o.phase || 0).map((p) => sink(xf(p))))],
-  custom: (L, W, o, xf) => { if (!o._cmds) o._cmds = parsePath(o.path || 'M0 0C30 -20 70 -20 100 0C70 20 30 20 0 0Z'); return [customD(o._cmds, L, W, xf)]; },
+  custom: (L, W, o, xf) => [customD(shapeOf(o.path), L, W, xf)],
 };
 
 // ── spine ──

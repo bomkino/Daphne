@@ -82,3 +82,41 @@ test('a broken or hostile document is cleaned or refused', () => {
   const g = sanitizeDoc({ fields: [{ id: 'a" b', kind: 'festival', text: 'Fest "<b>"' }] });
   assert.equal(g.fields.length, 1); assert.match(g.fields[0].id, /^[\w-]+$/); assert.equal(g.fields[0].text, 'Fest "<b>"');
 });
+
+// D26: any pasted leaf shape is read in bounded time, with every SVG command, and never draws NaN
+import { parsePath } from '../../prototype/engine.mjs';
+const leafDoc = (path) => { const d = clone(DEFAULT_DOC); d.branch.leaf.family = 'custom'; d.branch.leaf.path = path; return d; };
+test('a number after a closed path does not hang', () => {
+  const t = Date.now();
+  assert.deepEqual(parsePath('M0 0 L100 0 Z 0'), [['M', 0, 0], ['L', 100, 0], ['Z']]);
+  assert.ok(Date.now() - t < 200);
+});
+test('smooth curves and arcs are drawn, not dropped', () => {
+  const q = parsePath('M0 0 Q25 -20 50 0 T100 0');
+  assert.deepEqual(q.map((c) => c[0]), ['M', 'Q', 'Q']);
+  assert.deepEqual(q[2], ['Q', 75, 20, 100, 0]);
+  const a = parsePath('M0 0 A50 25 0 0 1 100 0');
+  assert.ok(a.length >= 3 && a.slice(1).every((c) => c[0] === 'C'), JSON.stringify(a));
+  assert.deepEqual(a.at(-1).slice(-2), [100, 0]);
+  assert.ok(a.slice(1).some((c) => c[2] < -10 || c[4] < -10), 'the arc bows away from the line');
+  assert.deepEqual(parsePath('M0 0a5 5 0 1020 0').at(-1).slice(-2), [20, 0], 'arc flags written together');
+});
+test('exponent forms are numbers', () => {
+  assert.deepEqual(parsePath('M1E2 0 L2e-1 3'), [['M', 100, 0], ['L', 0.2, 3]]);
+});
+test('a cut-off or broken shape keeps only whole commands', () => {
+  assert.deepEqual(parsePath('M0 0 L10'), [['M', 0, 0]]);
+  assert.deepEqual(parsePath(''), []);
+  assert.deepEqual(parsePath('hello'), []);
+  assert.deepEqual(parsePath('M0 0 L1e308 0 l1e308 0'), [['M', 0, 0], ['L', 1e308, 0]]);
+  assert.deepEqual(parsePath('<path d="M0 0 L5 5"/>'), [['M', 0, 0], ['L', 5, 5]]);
+  const big = 'M0 0' + ' L1 1'.repeat(50000), t = Date.now();
+  assert.ok(parsePath(big).length <= 4001 && Date.now() - t < 500);
+});
+test('every pasted shape draws a finite laurel', () => {
+  for (const p of ['M0 0 L100 0 Z 0', 'M0 0 A50 25 0 0 1 100 0 A50 25 0 0 1 0 0Z', 'M0 0 Q25 -20 50 0 T100 0 T0 0', 'M0 0 L10', 'garbage', 'M0 0', 'M1E2 0 L2E1 3 L0 0Z']) {
+    const r = render(leafDoc(p), { measure });
+    assert.ok(r.viewBox.every(Number.isFinite) && !/NaN|Infinity/.test(r.svg), p);
+    assert.match(r.svg, /<path[^>]+d="M[\d.-]+ [\d.-]+[CQL]/, `${p} draws leaves`);
+  }
+});
