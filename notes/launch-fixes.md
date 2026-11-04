@@ -68,10 +68,10 @@ All work goes on the branch `claude/project-thread-tx7lhm` with one draft PR. Me
 | D22 | 1 | fixed | Outcome read from qualifiers before award words; ranking is order only; no status, a submission or artwork metadata is never a selection; hidden row laurels left out; tests/unit/accolades.test.mjs (10 of 11 fail on main) |
 | D32 | 1 | fixed | The card follows the name as it reads now; Every line and email edits drop a stale festival id; tests/browser/festival.test.mjs (fails on main) |
 | D33 | 1 | fixed | Social and end-card caption, alt text, row count and file name describe the row as drawn (hidden and missing artwork left out); tests/browser/social.test.mjs (fails on main) |
-| D34 | 1 | todo | |
+| D34 | 1 | fixed | Kit and pack build from one plan: the count matches the files (on-background PNG and README included), zero colorways or formats disables Download and says why, no hidden fallback; tests/browser/export.test.mjs (fails on main) |
 | J01 | 1 | fixed | Layouts and added lines arrive empty with a placeholder and a prompt; a status that qualifies an award stays shown; old untouched examples flagged; thumbnails keep examples as demos; tests/unit/layouts.test.mjs (6 of 8 fail on main), tests/browser/layouts.test.mjs (fails on main: "Best Documentary" in stage and alt text) |
 | J06 | 1 | fixed | A logo missing on this device is not in the alt text, gets a note on the stage and at Export; missing row artwork is named when the output shows the row; Share says uploads stay on the device; tests/browser/social.test.mjs (fails on main) |
-| J07 | 1 | todo | |
+| J07 | 1 | fixed | PNG destination no longer promises transparency; the Download area says Background included or Transparent background, also on phones; tests/browser/export.test.mjs (fails on main) |
 | J08 | 1 | fixed | Festivals that moved (Sundance, Slamdance) carry dated cities; the city offered follows the year (2026, MMXXVI, ’26), an unread year offers none, and a city from another year gets a note; tests/unit/festivals.test.mjs, tests/browser/festival.test.mjs (fails on main) |
 | L04 | 1 | fixed | The medallion shows every line assigned to it, joined like a ribbon; warns when the text is too long to read or a star and words compete; the slot picker names who is already in it; tests/unit/engine.test.mjs (2 of 3 new fail on main) |
 | V03 | 1 | fixed | Social card uses the laurel's casing (Title Case included) and italics for title and detail; tests/browser/social.test.mjs (fails on main) |

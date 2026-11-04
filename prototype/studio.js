@@ -114,7 +114,7 @@ const ICONS = {
 const DESTS = [
   { id: 'kit', t: 'Laurel kit', s: 'Everything, in one ZIP', kit: true },
   { g: 'Files' },
-  { id: 'png', t: 'PNG', s: 'Transparent, any size' },
+  { id: 'png', t: 'PNG', s: 'Any size, clear or on your color' },
   { id: 'svg', t: 'SVG', s: 'Vector, for designers and the web' },
   { id: 'pdf', t: 'PDF', s: 'Vector, for printers' },
   { g: 'Where it’s going' },
@@ -300,9 +300,9 @@ export function openStudio(ctx) {
     const pv = h('div', { class: 'pv' }), cap = (t) => h('div', { class: 'cap' }, t);
     const D = P.dest;
     if (D === 'kit') {
-      const ws = P.kit.ways.length ? P.kit.ways : ['color'], bw = Math.max(120, (preview.clientWidth - 90) / ws.length - 14);
+      const K = kitPlan(), ws = K.ways.length ? K.ways : ['color'], bw = Math.max(120, (preview.clientWidth - 90) / ws.length - 14);
       pv.append(h('div', { class: 'kitgrid' }, ws.map((w) => { const r = rendered(w); return h('figure', {}, frameOf(w === 'color' && d0().canvas.bg ? r.svg : stripBg(r.svg), wayCls(w), bw, preview.clientHeight * 0.5), h('figcaption', {}, WAYS.find((x) => x.id === w).label)); })),
-        cap(`${ws.length * P.kit.fmts.length + 1} files: ${P.kit.fmts.map((f) => f.toUpperCase()).join(', ')} in ${ws.length === 1 ? 'one colorway' : ws.length + ' colorways'}, with a README holding the alt text, the fonts and the sizes that stay readable.`));
+        cap(!K.ready ? 'Pick at least one colorway and one format.' : `${K.plan.length + 1} files: ${K.fmts.map((f) => f.toUpperCase()).join(', ')} in ${K.ways.length === 1 ? 'one colorway' : K.ways.length + ' colorways'}${K.plan.some((f) => /-on-background\.png$/.test(f.name)) ? ', a PNG on your background color' : ''}, and a README holding the alt text, the fonts and the sizes that stay readable.`));
     } else if (D === 'social') {
       const c = socialSvg(); pv.append(frameOf(c.svg, 'card'), cap(`${c.W} × ${c.H} px · ${SOCIAL[P.social.fmt][2]}`));
     } else if (D === 'video') {
@@ -319,7 +319,7 @@ export function openStudio(ctx) {
     } else if (D === 'pack') {
       const vs = packList();
       pv.append(h('div', { class: 'packgrid' }, vs.slice(0, 24).map((v) => { const r = ctx.render(colorway(v.doc, 'color', ctx.clone)); return h('figure', {}, h('div', { class: 'pt', html: (d0().canvas.bg ? r.svg : stripBg(r.svg)).replace(/width="[^"]+" height="[^"]+"/, '') }), h('figcaption', {}, v.label)); })),
-        cap(vs.length ? `${vs.length} laurels × ${P.pack.ways.length || 1} colorways × ${P.pack.fmts.length || 1} formats = ${vs.length * (P.pack.ways.length || 1) * (P.pack.fmts.length || 1)} files, plus guidelines to send your filmmakers.` : 'Pick the statuses and awards your festival gives.'));
+        cap(!vs.length ? 'Pick the statuses and awards your festival gives.' : !P.pack.ways.length || !P.pack.fmts.length ? 'Pick at least one colorway and one format.' : `${vs.length} laurels × ${P.pack.ways.length} colorway${P.pack.ways.length > 1 ? 's' : ''} × ${P.pack.fmts.length} format${P.pack.fmts.length > 1 ? 's' : ''} = ${vs.length * P.pack.ways.length * P.pack.fmts.length} files, plus a README and guidelines to send your filmmakers.`));
     } else if (D === 'row') {
       const sc = ctx.rowScene({ bg: true }); if (sc) pv.append(frameOf(sc.svg, ''), cap(`${d0().row.items.length} laurels, drawn at one scale so the type matches.`));
     } else {
@@ -362,11 +362,11 @@ export function openStudio(ctx) {
     if (D.id === 'kit') {
       put(label('Colorways'), h('div', { class: 'checks' }, WAYS.map((W) => h('label', {}, h('input', { type: 'checkbox', checked: P.kit.ways.includes(W.id), onchange: (e) => { P.kit.ways = WAYS.map((x) => x.id).filter((id) => (id === W.id ? e.target.checked : P.kit.ways.includes(id))); save(); show(); } }), W.label, h('small', {}, W.note)))),
         label('Formats'), h('div', { class: 'checks' }, [['svg', 'SVG', 'vector'], ['png', 'PNG', `${P.pngW} px wide`], ['pdf', 'PDF', `${P.pdfMm} mm wide`]].map(([f, l, n]) => h('label', {}, h('input', { type: 'checkbox', checked: P.kit.fmts.includes(f), onchange: (e) => { P.kit.fmts = ['svg', 'png', 'pdf'].filter((id) => (id === f ? e.target.checked : P.kit.fmts.includes(id))); save(); show(); } }), l, h('small', {}, n)))),
-        go(run('Download the laurel kit', makeKit)), altBlock());
+        (() => { const K = kitPlan(), b = run('Download the laurel kit', makeKit); b.disabled = !K.ready; return go(b, K.ready ? null : h('div', { class: 'hint' }, 'Pick at least one colorway and one format.')); })(), altBlock());
     } else if (D.id === 'png') {
       put(label('Colorway'), ways(), bgToggle(), label('Width'), chips([[1000, '1000'], [2000, '2000'], [3000, '3000'], [5000, '5000 px']], P.pngW, (v) => { set('pngW', v); remember('pngW', v); }),
         info(isFinite(sm) ? `Smallest words ${Math.round(sm * P.pngW / vb[2])} px tall` : null),
-        go(run('Download PNG', async () => ctx.download(await pngOf(P.way, P.pngW), base() + suffix(P.way) + '.png'))), altBlock());
+        go(run('Download PNG', async () => ctx.download(await pngOf(P.way, P.pngW), base() + suffix(P.way) + '.png')), h('div', { class: 'hint gostate' }, bgOn() ? `Background included: ${hex(d0().canvas.bg) || 'your color'}` : 'Transparent background')), altBlock());
     } else if (D.id === 'svg') {
       put(label('Colorway'), ways(), bgToggle(), label('Text'), seg([['outlined', 'Drawn as shapes'], ['live', 'Live, editable text']], P.svgText, (v) => set('svgText', v), 'Text in the SVG'),
         h('div', { class: 'hint' }, P.svgText === 'live' ? 'Editable in Illustrator or Figma if the fonts are installed. They’re all free on Google Fonts.' : 'Looks the same everywhere, with no fonts needed. Best for print and handing to others.'),
@@ -457,7 +457,7 @@ export function openStudio(ctx) {
         h('div', { class: 'inrow' }, h('span', { class: 'hint', style: 'flex:none' }, 'Over each award:'), h('input', { type: 'text', value: K.winner, list: 'pk-winner', 'aria-label': 'Line over each award', oninput: (e) => set('pack.winner', e.target.value, { opts: false }) }), h('datalist', { id: 'pk-winner' }, ['Winner', 'Award Winner', 'Jury Award', ''].map((x) => h('option', { value: x })))),
         label('Colorways'), tick(K.ways, 'ways', WAYS.map((W) => [W.id, W.label])),
         label('Formats'), tick(K.fmts, 'fmts', [['svg', 'SVG', 'vector'], ['png', 'PNG', `${P.pngW} px wide`], ['pdf', 'PDF', `${P.pdfMm} mm wide`]]),
-        go(run(`Download the festival pack${n ? ` (${n} laurels)` : ''}`, makePack)),
+        (() => { const ok = n && P.pack.ways.length && P.pack.fmts.length, b = run(`Download the festival pack${n ? ` (${n} laurels)` : ''}`, makePack); b.disabled = !ok; return go(b, ok ? null : h('div', { class: 'hint' }, n ? 'Pick at least one colorway and one format.' : 'Pick the statuses and awards your festival gives.')); })(),
         h('div', { class: 'hint' }, 'Comes with a guidelines file to edit and send with the laurels: what each one may be used for, sizes, and who to ask.'));
     } else if (D.id === 'row') {
       const X = ctx.modes.row && ctx.modes.row.exports;
@@ -467,19 +467,25 @@ export function openStudio(ctx) {
   }
 
   // ── the laurel kit: every chosen format in every chosen colorway, with a README that answers the questions ──
-  async function makeKit(say) {
-    const ways = P.kit.ways.length ? P.kit.ways : ['color'], fmts = P.kit.fmts.length ? P.kit.fmts : ['svg', 'png'];
-    const b = base(), files = [], total = ways.length * fmts.length + (ways.includes('color') && d0().canvas.bg && fmts.includes('png') ? 1 : 0);
-    let n = 0; const tick = () => say(`Making ${++n} of ${total}…`);
+  // the kit's files, planned once: the preview counts them, the button makes them, in the same order
+  function kitPlan() {
+    const ways = WAYS.map((W) => W.id).filter((w) => P.kit.ways.includes(w)), fmts = ['svg', 'png', 'pdf'].filter((f) => P.kit.fmts.includes(f)), b = base(), plan = [];
     for (const w of ways) {
       const dir = `${b}/${w}/`, name = `${b}-${w}`;
-      if (fmts.includes('svg')) { tick(); files.push({ name: dir + name + '.svg', data: await svgOf(w, { bg: false, text: 'outlined' }) }); }
+      if (fmts.includes('svg')) plan.push({ name: dir + name + '.svg', make: () => svgOf(w, { bg: false, text: 'outlined' }) });
       if (fmts.includes('png')) {
-        tick(); files.push({ name: dir + name + '.png', data: await pngOf(w, P.pngW, { bg: false }) });
-        if (w === 'color' && d0().canvas.bg) { tick(); files.push({ name: dir + name + '-on-background.png', data: await pngOf(w, P.pngW, { bg: true }) }); }
+        plan.push({ name: dir + name + '.png', make: () => pngOf(w, P.pngW, { bg: false }) });
+        if (w === 'color' && d0().canvas.bg) plan.push({ name: dir + name + '-on-background.png', make: () => pngOf(w, P.pngW, { bg: true }) });
       }
-      if (fmts.includes('pdf')) { tick(); const r = rendered(w); files.push({ name: dir + name + '.pdf', data: await ctx.toPdf(stripBg(r.svg), docOf(w), 'Laurel', P.pdfMm) }); }
+      if (fmts.includes('pdf')) plan.push({ name: dir + name + '.pdf', make: () => { const r = rendered(w); return ctx.toPdf(stripBg(r.svg), docOf(w), 'Laurel', P.pdfMm); } });
     }
+    return { ways, fmts, b, plan, ready: ways.length > 0 && fmts.length > 0 };
+  }
+  async function makeKit(say) {
+    const { ways, fmts, b, plan, ready } = kitPlan();
+    if (!ready) { ctx.toast('Pick at least one colorway and one format'); return; }
+    const files = [];
+    for (const [i, f] of plan.entries()) { say(`Making ${i + 1} of ${plan.length}…`); files.push({ name: f.name, data: await f.make() }); }
     say('Packing…');
     files.push({ name: `${b}/README.txt`, data: readme(ways, fmts, ctx.shareLink ? await ctx.shareLink() : location.href) });
     ctx.download(await ctx.zip(files), `${b}-laurel-kit.zip`);
@@ -491,7 +497,8 @@ export function openStudio(ctx) {
   }
   async function makePack(say) {
     const vs = packList(); if (!vs.length) { ctx.toast('Pick at least one status or award'); return; }
-    const ways = P.pack.ways.length ? P.pack.ways : ['color'], fmts = P.pack.fmts.length ? P.pack.fmts : ['svg', 'png'];
+    const ways = WAYS.map((W) => W.id).filter((w) => P.pack.ways.includes(w)), fmts = ['svg', 'png', 'pdf'].filter((f) => P.pack.fmts.includes(f));
+    if (!ways.length || !fmts.length) { ctx.toast('Pick at least one colorway and one format'); return; }
     const t = (k) => d0().fields.filter((f) => f.kind === k && f.show !== false && f.text).map((f) => f.text.trim()).join(' ');
     const fest = t('festival') || 'festival', year = (t('year').match(/\d{4}/) || [''])[0], stem = ctx.slug([year, fest].filter(Boolean).join(' ')) || 'festival', rootDir = stem + '-laurels/';
     const files = [], total = vs.length * ways.length * fmts.length; let n = 0, minPx = 0, minIn = 0; // readable sizes for the variant that needs the most room
