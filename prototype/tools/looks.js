@@ -1,5 +1,5 @@
 // Every look, rendered with the default words, for before/after comparison (tests/looks.mjs).
-// window.__looks = [{ name, hash }]: a hash of the SVG with its generated ids normalized.
+// window.__looks = [{ name, hash }]: a hash of the SVG with its generated ids normalized, drawn with fixed text widths.
 import { render, DEFAULT_DOC, merge, clone, applyForm } from '../engine.mjs';
 import { loadFont } from '../fonts.js';
 import { PRESETS } from '../presets.js';
@@ -7,6 +7,16 @@ import { LAYOUTS, layoutFields } from '../layouts.js';
 
 const mctx = document.createElement('canvas').getContext('2d');
 const measure = (s, font, weight, italic, size) => { mctx.font = `${italic ? 'italic ' : ''}${weight} ${size}px "${font}", sans-serif`; return mctx.measureText(s).width; };
+// The hash uses widths worked out from the words alone, never from a browser's fonts: real text widths differ from one
+// machine to the next (font hinting and rasterizer settings), which made the same look hash differently on CI. The
+// sheet still draws every look with its real fonts. The made-up widths still depend on the font, weight, slant and
+// letters, so changing any of them in a look still shows up as a change.
+const fontFactor = (font) => { let h = 7; for (const c of String(font)) h = (h * 31 + c.charCodeAt(0)) % 1000; return 0.9 + h / 5000; };
+const charWidth = (c) => (/[A-Z]/.test(c) ? 0.68 : /[a-z]/.test(c) ? 0.52 : /[0-9]/.test(c) ? 0.56 : c === ' ' ? 0.28 : 0.4);
+const fixedMeasure = (s, font, weight, italic, size) => {
+  let w = 0; for (const c of String(s)) w += charWidth(c);
+  return w * size * fontFactor(font) * (1 + ((weight || 400) - 400) / 2000) * (italic ? 0.97 : 1);
+};
 
 // the app's applyPreset, for a fresh document (app.js)
 let uid = 100; const newId = () => 'f' + ++uid;
@@ -38,8 +48,8 @@ async function sha(s) { const b = await crypto.subtle.digest('SHA-256', new Text
   await document.fonts.ready;
   const grid = document.getElementById('grid'), out = [];
   for (const [name, d] of docs) {
+    out.push({ name, hash: await sha(normalize(render(d, { measure: fixedMeasure, scale: 1 }).svg)) });
     const r = render(d, { measure, scale: 1 });
-    out.push({ name, hash: await sha(normalize(r.svg)) });
     const fig = document.createElement('figure'); fig.innerHTML = r.svg; const cap = document.createElement('figcaption'); cap.textContent = name; fig.append(cap); grid.append(fig);
   }
   window.__looks = out;
