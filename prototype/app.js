@@ -119,8 +119,20 @@ async function readLogo(file) {
     const t = await file.text(), vb = t.match(/viewBox\s*=\s*["']\s*[-\d.e]+[\s,]+[-\d.e]+[\s,]+([\d.e]+)[\s,]+([\d.e]+)/i), w = t.match(/<svg[^>]*\swidth\s*=\s*["']([\d.]+)/i), hh = t.match(/<svg[^>]*\sheight\s*=\s*["']([\d.]+)/i);
     if (vb && +vb[2]) ar = +vb[1] / +vb[2]; else if (w && hh && +hh[1]) ar = +w[1] / +hh[1];
   }
-  if (!ar) ar = await new Promise((ok) => { const im = new Image(); im.onload = () => ok(im.naturalWidth && im.naturalHeight ? im.naturalWidth / im.naturalHeight : 1); im.onerror = () => ok(1); im.src = url; });
-  return addAsset(url, ar, file.name);
+  const seen = await new Promise((ok) => { const im = new Image(); im.onload = () => ok(im.naturalWidth && im.naturalHeight ? im.naturalWidth / im.naturalHeight : 1); im.onerror = () => ok(0); im.src = url; });
+  if (!seen) { toast('Couldn’t read that image. Try an SVG or PNG.'); return null; }
+  return addAsset(url, ar || seen, file.name);
+}
+// D31: a logo lands on the line it was meant for, found by id when it arrives; a newer replacement wins, a removed line gets nothing
+const logoGen = new Map();
+function logoTarget(id) {
+  const g = (logoGen.get(id) || 0) + 1; logoGen.set(id, g);
+  return (a) => {
+    if (!a || logoGen.get(id) !== g) return false;
+    const k = doc.fields.findIndex((x) => x.id === id);
+    if (k < 0) { toast('That line was removed before its logo arrived.'); return false; }
+    const fs = clone(doc.fields); Object.assign(fs[k], a); delete fs[k].added; change('fields', fs, true); return true;
+  };
 }
 function addAsset(url, ar, name) { const key = 'asset:' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); ASSETS[key] = url; return { src: key, ar: Math.round(ar * 1000) / 1000, name }; }
 
@@ -337,11 +349,11 @@ function fieldRow(f, i) {
   });
   const upd = (k, v, rebuild = false) => { const fs = clone(doc.fields); fs[i][k] = v; if (k === 'text') { delete fs[i].added; if (fs[i].kind === 'festival') delete fs[i].fid; } if (k === 'kind' && v === 'logo' && !LOGO_SLOTS.includes(fs[i].slot || 'inside')) fs[i].slot = 'inside'; change('fields', fs, rebuild); };
   const logoInput = () => {
-    const file = h('input', { type: 'file', accept: 'image/svg+xml,image/png,image/webp,image/jpeg', style: 'display:none', onchange: async (e) => { const fl = e.target.files[0]; const a = fl && (await readLogo(fl)); if (a) { const fs = clone(doc.fields); Object.assign(fs[i], a); delete fs[i].added; change('fields', fs, true); } } });
+    const file = h('input', { type: 'file', accept: 'image/svg+xml,image/png,image/webp,image/jpeg', style: 'display:none', onchange: async (e) => { const fl = e.target.files[0]; e.target.value = ''; if (!fl) return; const put = logoTarget(f.id); put(await readLogo(fl).catch(() => null)); } });
     const has = !!(f.src && ASSETS[f.src]);
     return h('div', { class: 'logo-in' }, file,
       h('button', { class: 'btn small', onclick: () => file.click() }, has ? 'Replace logo' : 'Upload logo'),
-      h('button', { class: 'btn small', title: 'A festival file on white or black? Make it transparent and recolor it first', onclick: () => ctx.openFixer && ctx.openFixer((a) => { const fs = clone(doc.fields); Object.assign(fs[i], a); delete fs[i].added; change('fields', fs, true); }) }, 'Clean up a file…'),
+      h('button', { class: 'btn small', title: 'A festival file on white or black? Make it transparent and recolor it first', onclick: () => ctx.openFixer && ctx.openFixer((a) => logoTarget(f.id)(a)) }, 'Clean up a file…'),
       h('span', { class: 'logo-name' }, has ? f.name || 'Logo' : f.src ? 'Upload it again: logos stay on the device they were added on' : 'The festival’s official artwork, SVG or PNG'),
       h('label', { title: 'Color the logo with this line’s paint (best for one-color artwork). Many festivals ask for their artwork unchanged: check their rules first.' }, h('input', { type: 'checkbox', checked: !!f.tint, onchange: (e) => upd('tint', e.target.checked) }), ' tint'));
   };
@@ -798,7 +810,7 @@ const modebar = document.getElementById('modebar'), modepanel = document.getElem
 const ctx = {
   get doc() { return doc; }, change, replaceDoc, schedule, clone, merge, h, toast, download, measure, render: (d, scale = 1) => render(d, { measure, scale }),
   ensureFonts, svgWithFonts, exportSvgText, toPng, toPdf, fileName, slug, stamp, altText, ASSETS, saveAssets, addAsset, readLogo, stage, modebar, modepanel, showNotes, layoutFields, layoutById, LAYOUTS, PRESETS, applyPreset, zip,
-  pushUndo: () => remember(), batch, settle: () => { lastSnap = JSON.stringify(doc); saveHash(); }, rebuild: () => buildPanel(), get last() { return last; }, get mode() { return mode; }, get modes() { return MODES; },
+  pushUndo: () => remember(), batch, logoTarget, settle: () => { lastSnap = JSON.stringify(doc); saveHash(); }, rebuild: () => buildPanel(), get last() { return last; }, get mode() { return mode; }, get modes() { return MODES; },
   prefs: () => ({ pngW: (doc.out && doc.out.pngW) || 3000, bg: !(doc.out && doc.out.pngBg === false) }),
   fixNote: null, openFixer: null, shareLink: async () => location.href.split('#')[0] + '#l=' + (await pack(doc)),
   // size an SVG to the stage, keeping its shape (no letterboxing)

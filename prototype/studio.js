@@ -151,6 +151,15 @@ export function openStudio(ctx) {
   const { h } = ctx, P = loadPrefs(), d0 = () => ctx.doc;
   // the film's title and detail line travel with this laurel (its link, its autosave), never to the next one
   P.social.title = (d0().film && d0().film.title) || ''; P.social.line = (d0().film && d0().film.line) || '';
+  // D35: a festival pack's recipe travels with its laurel, so the link in its README opens the same set on any device
+  const R = d0().pack, strs = (a, ok) => (Array.isArray(a) ? a.filter((x) => typeof x === 'string' && (!ok || ok.includes(x))) : null);
+  if (R && typeof R === 'object') {
+    const st = strs(R.statuses), ws = strs(R.ways, WAYS.map((W) => W.id)), fs = strs(R.fmts, ['svg', 'png', 'pdf']);
+    if (st) P.pack.statuses = st; if (ws) P.pack.ways = ws; if (fs) P.pack.fmts = fs;
+    if (typeof R.awards === 'string') P.pack.awards = R.awards; if (typeof R.winner === 'string') P.pack.winner = R.winner;
+    if (R.pngW > 0 && R.pngW <= 12000) P.pngW = Math.round(R.pngW); if (R.pdfMm > 0 && R.pdfMm <= 2000) P.pdfMm = R.pdfMm;
+  }
+  const keepPack = () => { const K = P.pack; d0().pack = { statuses: [...K.statuses], awards: K.awards, winner: K.winner, ways: [...K.ways], fmts: [...K.fmts], pngW: P.pngW, pdfMm: P.pdfMm }; ctx.settle(); };
   const save = () => { try { const { title, line, ...social } = P.social; localStorage.setItem('daphne.studio', JSON.stringify({ ...P, social })); } catch (e) { /* a convenience */ } };
   const hasRow = () => !!(d0().row && d0().row.items && d0().row.items.length && ctx.rowScene);
   // the row as it's drawn: its laurels in order, without hidden ones or artwork missing on this device
@@ -200,6 +209,7 @@ export function openStudio(ctx) {
   const set = (k, v, o = {}) => {
     const path = k.split('.'); let t = P; while (path.length > 1) t = t[path.shift()]; t[path[0]] = v; save();
     if (k === 'social.title' || k === 'social.line') { const d = d0(); d.film = { ...(d.film || {}), [k.slice(7)]: v }; if (!d.film.title && !d.film.line) delete d.film; ctx.settle(); }
+    if (k.startsWith('pack.')) keepPack();
     if (o.opts !== false) show(); else drawPreview();
   };
   const copy = async (text, what = 'Copied') => { try { await navigator.clipboard.writeText(text); ctx.toast(what); } catch (e) { window.prompt('Copy this', text); } };
@@ -456,7 +466,7 @@ export function openStudio(ctx) {
         altBlock());
     } else if (D.id === 'pack') {
       const K = P.pack, n = packList().length;
-      const tick = (list, key, all) => h('div', { class: 'checks' }, all.map(([v, l, note]) => h('label', {}, h('input', { type: 'checkbox', checked: list.includes(v), onchange: (e) => { K[key] = all.map((x) => x[0]).filter((x) => (x === v ? e.target.checked : K[key].includes(x))); save(); show(); } }), l, note ? h('small', {}, note) : null)));
+      const tick = (list, key, all) => h('div', { class: 'checks' }, all.map(([v, l, note]) => h('label', {}, h('input', { type: 'checkbox', checked: list.includes(v), onchange: (e) => { K[key] = all.map((x) => x[0]).filter((x) => (x === v ? e.target.checked : K[key].includes(x))); save(); keepPack(); show(); } }), l, note ? h('small', {}, note) : null)));
       put(h('div', { class: 'hint' }, 'The festival’s name, year and look come from your laurel: set them on the Words and Looks tabs first.'),
         label('Statuses'), tick(K.statuses, 'statuses', STATUS_COMMON.filter((x) => x !== 'Winner').map((x) => [x, x])),
         label('Awards', h('small', {}, 'one per line')), h('textarea', { rows: 5, 'aria-label': 'Awards, one per line', placeholder: 'Best Feature Film\nBest Short Film\nAudience Award', style: 'font-family:var(--sans);font-size:12.5px', oninput: (e) => set('pack.awards', e.target.value, { opts: false }) }, K.awards),
@@ -515,11 +525,11 @@ export function openStudio(ctx) {
       if (fmts.includes('png')) { say(`Making ${++n} of ${total}…`); files.push({ name: name + '.png', data: await ctx.toPng(r.svg, r.viewBox, P.pngW, false, dv) }); }
       if (fmts.includes('pdf')) { say(`Making ${++n} of ${total}…`); files.push({ name: name + '.pdf', data: await ctx.toPdf(stripBg(r.svg), dv, v.label, P.pdfMm) }); }
     }
-    say('Packing…');
+    say('Packing…'); keepPack(); // the README's link carries this recipe
     const fonts = [...new Set(Object.values(d0().roles).map((x) => x && x.font).filter(Boolean))];
     const title = [fest, year].filter(Boolean).join(' ');
     files.push({ name: rootDir + 'README.txt', data: [
-      `${title}: laurels for selected films`, '', 'Made with Daphne, the free festival laurel maker by pitch.dog: https://pitch.dog/daphne', `Open this set again to edit it: ${ctx.shareLink ? await ctx.shareLink() : location.href}`, '',
+      `${title}: laurels for selected films`, '', 'Made with Daphne, the free festival laurel maker by pitch.dog: https://pitch.dog/daphne', `Open this set again to edit it (then Export, Festival pack): ${ctx.shareLink ? await ctx.shareLink() : location.href}`, '',
       'ONE FOLDER PER LAUREL', ...vs.map((v) => `  ${v.slug}/  ${ctx.altText(v.doc)}`), '',
       'IN EACH FOLDER', ...ways.map((w) => `  -${w}  ${{ color: 'as designed', black: 'one color, black, clear background', white: 'one color, white, clear background' }[w]}`),
       ...fmts.map((f) => `  .${f}  ${{ svg: 'vector, text drawn as shapes (opens anywhere without the fonts)', png: `${P.pngW} px wide, clear background`, pdf: `vector, ${P.pdfMm} mm wide, for print` }[f]}`), '',

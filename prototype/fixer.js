@@ -79,22 +79,26 @@ export function openFixer(ctx, onDone, opt = {}) {
   document.body.append(scrim); window.addEventListener('keydown', onKey, true);
   for (const ev of ['dragover', 'drop']) modal.addEventListener(ev, (e) => { e.preventDefault(); if (ev === 'drop' && e.dataTransfer.files[0]) load(e.dataTransfer.files[0]); });
 
+  // D43: a new file replaces the current one only once it has been read; until then the name, image and result stay together
+  let loading = 0;
   async function load(f) {
     if (f.size > 20e6) { ctx.toast('That file is over 20 MB'); return; }
-    name = f.name.replace(/\.[^.]+$/, '') || name;
-    const url = await new Promise((ok) => { const r = new FileReader(); r.onload = () => ok(r.result); r.readAsDataURL(f); });
-    img = new Image(); img.src = url; await img.decode().catch(() => null);
-    if (!img.naturalWidth) { ctx.toast('Couldn’t read that image'); return; }
-    let w = img.naturalWidth, hh = img.naturalHeight; const k = Math.min(1, 3000 / Math.max(w, hh)), up = /svg/.test(f.type) ? Math.max(1, 2400 / Math.max(w, hh)) : 1;
+    const my = ++loading;
+    const url = await new Promise((ok) => { const r = new FileReader(); r.onload = () => ok(r.result); r.onerror = () => ok(null); r.readAsDataURL(f); });
+    const im = new Image(); if (url) { im.src = url; await im.decode().catch(() => null); }
+    if (my !== loading) return; // a newer file was chosen meanwhile
+    if (!im.naturalWidth) { ctx.toast(src ? `Couldn’t read that image, so ${name} stays` : 'Couldn’t read that image'); return; }
+    let w = im.naturalWidth, hh = im.naturalHeight; const k = Math.min(1, 3000 / Math.max(w, hh)), up = /svg/.test(f.type) ? Math.max(1, 2400 / Math.max(w, hh)) : 1;
     w = Math.round(w * k * up); hh = Math.round(hh * k * up);
-    const c = document.createElement('canvas'); c.width = w; c.height = hh; const g = c.getContext('2d'); g.drawImage(img, 0, 0, w, hh);
+    const c = document.createElement('canvas'); c.width = w; c.height = hh; const g = c.getContext('2d'); g.drawImage(im, 0, 0, w, hh);
+    img = im; name = f.name.replace(/\.[^.]+$/, '') || 'official-laurel';
     src = g.getImageData(0, 0, w, hh); W = w; H = hh;
     bg = readBackground(src.data, w, hh);
     const mono = colorfulness(src.data, bg) < 0.14;
     o.mode = bg.clear ? 'keep' : mono ? (L(...bg.rgb) > 0.5 ? 'dark' : 'light') : 'keep';
     o.tol = 40; o.view = bg.clear ? (mono && L(...bg.rgb) > 0.5 ? 'light' : 'dark') : L(...bg.rgb) > 0.5 ? 'dark' : 'light';
     if (o.mode === 'dark') o.view = 'light';
-    redo();
+    clearTimeout(timer); result = process(src, W, H, { ...o, bg }); draw();
   }
   function redo() { clearTimeout(timer); timer = setTimeout(() => { result = src ? process(src, W, H, { ...o, bg }) : null; draw(); }, 30); }
   const seg = (items, cur, on) => h('div', { class: 'segctl' }, items.map(([v, l]) => h('button', { class: v === cur ? 'on' : '', onclick: () => on(v) }, l)));

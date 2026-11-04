@@ -81,10 +81,10 @@ All work goes on the branch `claude/project-thread-tx7lhm` with one draft PR. Me
 | D18 | 2 | fixed | Row edits work on a fresh copy, so every edit redraws, saves to the link and undoes; tests/browser/history.test.mjs (fails on main) |
 | D19 | 2 | fixed | A zero-length arc gets a one-degree span (6,496-case sweep finite); a drawing with no size never replaces the stage and says so; tests/unit/engine.test.mjs |
 | D26 | 2 | fixed | bounded parser reads M L H V C S Q T A Z, exponents and packed arc flags; an unreadable paste keeps the last shape (tests: unit engine D26, browser shape) |
-| D31 | 2 | todo | |
-| D35 | 2 | todo | |
+| D31 | 2 | fixed | a late logo finds its line by id; a newer upload wins; a removed line gets nothing; unreadable files are refused (tests: browser logos) |
+| D35 | 2 | fixed | the pack recipe (statuses, awards, winner line, colorways, formats, sizes) travels in the laurel and its README link (test: browser pack) |
 | D38 | 2 | fixed | Non-text strings can't carry quotes or markup, colors and gradient values are validated in paintRef, ids are sanitized, decompression is capped at 4 MB; tests/unit/engine.test.mjs, tests/browser/links.test.mjs (fails on main) |
-| D43 | 2 | todo | |
+| D43 | 2 | fixed | the cleaner swaps name, image and result together, only after a file is read (test: browser logos) |
 | D44 | 2 | fixed | Opening another link in the same tab, or Back and Forward between links, loads that laurel (Undo returns); a broken one leaves the design and restores the address; tests/browser/links.test.mjs (fails on main) |
 | J02 | 2 | fixed | A status choice and an email import are one Undo step each (film title included); a click on the stage selects without touching Redo, a drag is one step and pointercancel ends it; menu numbers stored as numbers; Undo/Redo show when unavailable; tests/browser/history.test.mjs (fails on main). Typing stays one step per edit by choice |
 | J03 | 2 | fixed | The Social film title and detail live in the laurel's document (link and autosave), not device prefs; an email's film title goes there too; tests/browser/film.test.mjs (fails on main) |
