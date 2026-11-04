@@ -149,11 +149,17 @@ test('a drag snaps to the center line; Alt places freely', async () => {
 
 test('arrow keys move the picked words, Shift by ten, a held key is one undo step; Esc lets go', async () => {
   const { page, errors, context } = await openApp();
+  await page.evaluate(() => { window.__keys = []; addEventListener('keydown', (e) => window.__keys.push((e.ctrlKey ? 'C-' : '') + e.key), true); });
+  const state = () => page.evaluate(() => JSON.stringify({ undo: document.getElementById('undo').disabled, redo: document.getElementById('redo').disabled, keys: window.__keys.join(' '), active: document.activeElement.tagName + '.' + document.activeElement.className, scrim: !!document.querySelector('.scrim'), toasts: [...document.querySelectorAll('.toast')].map((t) => t.textContent) }));
   await yearOnStage(page).click(); await settle(page, 300);
   await page.keyboard.press('ArrowRight'); await page.keyboard.press('ArrowRight'); await page.keyboard.press('Shift+ArrowDown'); await settle(page, 300);
   assert.deepEqual(Object.values(await yearField(page)).slice(1, 3), [2, 10]);
+  await page.locator('#undo').click(); await settle(page, 300);
+  assert.deepEqual(Object.values(await yearField(page)).slice(1, 3), [0, 0], 'one quick run of nudges, one undo ' + (await state()));
+  await page.locator('#redo').click(); await settle(page, 300);
+  assert.deepEqual(Object.values(await yearField(page)).slice(1, 3), [2, 10], 'and one redo');
   await page.keyboard.press('Control+z'); await settle(page, 300);
-  assert.deepEqual(Object.values(await yearField(page)).slice(1, 3), [0, 0], 'one quick run of nudges, one undo');
+  assert.deepEqual(Object.values(await yearField(page)).slice(1, 3), [0, 0], 'Ctrl+Z undoes it too ' + (await state()));
   await yearOnStage(page).click(); await settle(page, 200);
   await page.keyboard.press('Escape'); await settle(page, 200);
   assert.ok(!(await page.getByRole('toolbar', { name: 'Place the selected words' }).isVisible()), 'Esc closes the strip');
