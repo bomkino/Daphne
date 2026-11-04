@@ -1107,3 +1107,14 @@ export function shuffleBranch(seed) {
     orn: { tip: pick(r, ['leaf', 'leaf', 'bud', 'berry', 'none']), berries: r() < 0.2 ? 2 : 0, flowers: r() < 0.1 ? 3 : 0 },
   };
 }
+
+// the smallest type in a rendered laurel, in viewBox units, read from the SVG itself so every slot counts (inside,
+// flank, outside, arcs, ribbon, medallion); Infinity when the laurel has no words (a logo on its own)
+export function smallestText(svg) {
+  let m = Infinity;
+  for (const [, attrs, body] of String(svg).matchAll(/<text\b([^>]*)>([\s\S]*?)<\/text>/g)) {
+    const fs = /\bfont-size="([\d.]+)"/.exec(attrs);
+    if (fs && body.replace(/<[^>]*>/g, '').trim()) m = Math.min(m, +fs[1]);
+  }
+  return m;
+}

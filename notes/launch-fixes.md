@@ -63,7 +63,7 @@ All work goes on the branch `claude/project-thread-tx7lhm` with one draft PR. Me
 | D40 | 0 | todo | |
 | D01 | 1 | fixed | Status read per sentence about this film; unsure results unticked; tests/unit/email.test.mjs (6 of 12 fail on main) |
 | D08 | 1 | todo | |
-| D20 | 1 | todo | |
+| D20 | 1 | fixed | Smallest words read from the drawn SVG in every slot (flank, arcs, ribbon, medallion); no words means no size claim; pack guidelines use the variant that needs the most room; tests/browser/print.test.mjs (main says 99.0 pt), tests/unit/engine.test.mjs |
 | D21 | 1 | fixed | Each row laurel's own words go in before its layout is chosen, so an inherited award no longer takes the festival's line; tests/browser/row.test.mjs (4 of 5 layouts fail on main) |
 | D22 | 1 | fixed | Outcome read from qualifiers before award words; ranking is order only; no status, a submission or artwork metadata is never a selection; hidden row laurels left out; tests/unit/accolades.test.mjs (10 of 11 fail on main) |
 | D32 | 1 | fixed | The card follows the name as it reads now; Every line and email edits drop a stale festival id; tests/browser/festival.test.mjs (fails on main) |

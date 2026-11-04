@@ -43,3 +43,19 @@ test('a year alone in the medallion reads without a warning', () => {
   const r = render(badgeDoc([]), { measure });
   assert.ok(!r.report.warnings.some((w) => /medallion/.test(w)), r.report.warnings.join(' | '));
 });
+
+// D20: print advice reads the smallest words from what is drawn, in every slot
+import { smallestText, applyForm } from '../../prototype/engine.mjs';
+
+test('the smallest words are measured in a flank laurel too', () => {
+  const d = applyForm(clone(DEFAULT_DOC), 'flank');
+  d.fields = d.fields.map((f) => (f.kind === 'festival' ? { ...f, text: 'Daphne Test Festival' } : f));
+  const r = render(d, { measure });
+  const sizes = [...r.svg.matchAll(/<text\b[^>]*font-size="([\d.]+)"/g)].map((m) => +m[1]);
+  assert.ok(sizes.length, 'flank draws text');
+  assert.equal(smallestText(r.svg), Math.min(...sizes));
+});
+
+test('a laurel with no words has no smallest size', () => {
+  assert.equal(smallestText('<svg><path d="M0 0"/><text font-size="4"> </text></svg>'), Infinity);
+});

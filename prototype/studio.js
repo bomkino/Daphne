@@ -3,6 +3,7 @@
 // card, an end-card frame) and packs it. The settings people pick are remembered on this device.
 import { checkLaurel, accoladesOf } from './rules.js';
 import { STATUS_COMMON } from './words.js';
+import { smallestText } from './engine.mjs';
 
 const AWARD_LAYOUTS = ['winner', 'award-detail', 'award-festival-hero', 'star-winner'];
 
@@ -150,7 +151,7 @@ export function openStudio(ctx) {
   const cache = new Map();
   const rendered = (way) => { if (!cache.has(way)) cache.set(way, ctx.render(docOf(way))); return cache.get(way); }; // the laurel doesn't change while Export is open
   const bgOn = () => P.way === 'color' && !!d0().canvas.bg && P.bg !== false;
-  const smallest = (r) => Math.min(...r.report.lines.filter((l) => !l.icon).map((l) => l.size), Infinity);
+  const smallest = (r) => smallestText(r.svg); // every word that's drawn, in any slot; Infinity when there are none
   const prevFocus = document.activeElement;
 
   // ── shell ──
@@ -312,7 +313,7 @@ export function openStudio(ctx) {
       pv.append(laurelPreview());
       const r = rendered(P.way), vb = r.viewBox, sm = smallest(r);
       if (D === 'png') { const w = P.pngW, hh = Math.round(w * vb[3] / vb[2]); pv.append(cap(`${w} × ${hh} px${bgOn() ? '' : ', transparent'}`)); }
-      if (D === 'print') { const wi = printIn(), pt = isFinite(sm) ? sm * wi * 72 / vb[2] : 99; pv.append(cap(`${fmtLen(wi)} × ${fmtLen(wi * vb[3] / vb[2])} · smallest words ${pt.toFixed(1)} pt`)); }
+      if (D === 'print') { const wi = printIn(); pv.append(cap(`${fmtLen(wi)} × ${fmtLen(wi * vb[3] / vb[2])}${isFinite(sm) ? ` · smallest words ${(sm * wi * 72 / vb[2]).toFixed(1)} pt` : ' · no words to size'}`)); }
       if (D === 'web') pv.append(cap(`Shown ${P.web.w} px wide on the page; sharp at any size, on any screen.`));
     }
     preview.append(pv);
@@ -364,13 +365,13 @@ export function openStudio(ctx) {
         fx && P.way === 'color' ? h('div', { class: 'note' }, 'Soft effects (glow, shadow, grain, foil) don’t exist in PDF and are left out. Use the PNG if you need them.') : null,
         go(run('Download PDF', async () => ctx.download(await pdfOf(P.way, P.pdfMm), base() + suffix(P.way) + '.pdf'))));
     } else if (D.id === 'print') {
-      const wi = printIn(), pt = isFinite(sm) ? sm * wi * 72 / vb[2] : 99, minIn = isFinite(sm) ? 6 * vb[2] / (72 * sm) : 0, px = Math.round(wi * 300);
+      const wi = printIn(), pt = sm * wi * 72 / vb[2], minIn = 6 * vb[2] / (72 * sm), px = Math.round(wi * 300);
       const inp = h('input', { type: 'number', min: P.unit === 'mm' ? 10 : 0.4, max: P.unit === 'mm' ? 1000 : 40, step: P.unit === 'mm' ? 1 : 0.05, value: P.printW, 'aria-label': 'Printed width', onchange: (e) => set('printW', Math.max(+e.target.min, +e.target.value || 1)) });
       put(label('Colorway'), ways(), bgToggle(),
         label('Printed width'), h('div', { class: 'inrow' }, inp, seg([['in', 'in'], ['mm', 'mm']], P.unit, (u) => { P.printW = u === 'mm' ? Math.round(printIn() * 25.4) : r2(P.printW / 25.4); set('unit', u); }, 'Unit')),
         h('div', { class: 'chips' }, PRINT_SIZES.map(([n, w]) => h('button', { class: 'chip', onclick: () => set('printW', P.unit === 'mm' ? Math.round(w * 25.4) : w) }, n, h('small', {}, P.unit === 'mm' ? Math.round(w * 25.4) + ' mm' : w + ' in')))),
         info(`${fmtLen(wi)} × ${fmtLen(wi * vb[3] / vb[2])}`, `${px} × ${Math.round(px * vb[3] / vb[2])} px at 300 dpi`),
-        pt < 6 ? h('div', { class: 'note rule' }, `The smallest words print at ${pt.toFixed(1)} pt. Below about 6 pt they blur on most presses: print it at least ${fmtLen(minIn)} wide, or drop a line.`) : h('div', { class: 'note' }, `The smallest words print at ${pt.toFixed(1)} pt: comfortably readable.`),
+        !isFinite(sm) ? h('div', { class: 'note' }, 'There are no words in this laurel to size: it’s all artwork. Check the logo’s own small details at this width.') : pt < 6 ? h('div', { class: 'note rule' }, `The smallest words print at ${pt.toFixed(1)} pt. Below about 6 pt they blur on most presses: print it at least ${fmtLen(minIn)} wide, or drop a line.`) : h('div', { class: 'note' }, `The smallest words print at ${pt.toFixed(1)} pt: comfortably readable.`),
         go(run('Download PDF at this size', async () => ctx.download(await pdfOf(P.way, wi * 25.4), `${base()}${suffix(P.way)}-${P.unit === 'mm' ? Math.round(P.printW) + 'mm' : r2(P.printW) + 'in'}.pdf`)),
           run('Download PNG at 300 dpi', async () => ctx.download(await withDpi(await pngOf(P.way, px), 300), `${base()}${suffix(P.way)}-${px}px-300dpi.png`), 'btn')),
         h('div', { class: 'hint' }, 'Hand the PDF to your printer or designer: it’s vector, the exact size, with the text outlined. It’s in RGB, which most printers convert for you; for a one-ink job, send the Black version and ask for it on the black plate only.'));
@@ -479,15 +480,15 @@ export function openStudio(ctx) {
     const ways = P.pack.ways.length ? P.pack.ways : ['color'], fmts = P.pack.fmts.length ? P.pack.fmts : ['svg', 'png'];
     const t = (k) => d0().fields.filter((f) => f.kind === k && f.show !== false && f.text).map((f) => f.text.trim()).join(' ');
     const fest = t('festival') || 'festival', year = (t('year').match(/\d{4}/) || [''])[0], stem = ctx.slug([year, fest].filter(Boolean).join(' ')) || 'festival', rootDir = stem + '-laurels/';
-    const files = [], total = vs.length * ways.length * fmts.length; let n = 0;
+    const files = [], total = vs.length * ways.length * fmts.length; let n = 0, minPx = 0, minIn = 0; // readable sizes for the variant that needs the most room
     for (const v of vs) for (const w of ways) {
-      const dv = colorway(v.doc, w, ctx.clone), r = ctx.render(dv), name = `${rootDir}${v.slug}/${stem}-${v.slug}-${w}`;
+      const dv = colorway(v.doc, w, ctx.clone), r = ctx.render(dv), name = `${rootDir}${v.slug}/${stem}-${v.slug}-${w}`, sv = smallest(r);
+      if (isFinite(sv)) { minPx = Math.max(minPx, Math.ceil(6 * r.viewBox[3] / sv)); minIn = Math.max(minIn, 6 * r.viewBox[2] / (72 * sv)); }
       if (fmts.includes('svg')) { say(`Making ${++n} of ${total}…`); files.push({ name: name + '.svg', data: await ctx.exportSvgText(stripBg(r.svg), { ...dv, out: { ...(dv.out || {}), svgText: 'outlined' } }) }); }
       if (fmts.includes('png')) { say(`Making ${++n} of ${total}…`); files.push({ name: name + '.png', data: await ctx.toPng(r.svg, r.viewBox, P.pngW, false, dv) }); }
       if (fmts.includes('pdf')) { say(`Making ${++n} of ${total}…`); files.push({ name: name + '.pdf', data: await ctx.toPdf(stripBg(r.svg), dv, v.label, P.pdfMm) }); }
     }
     say('Packing…');
-    const r0 = rendered('color'), sm = smallest(r0), vb = r0.viewBox, minPx = isFinite(sm) ? Math.ceil(6 * vb[3] / sm) : 120, minIn = isFinite(sm) ? 6 * vb[2] / (72 * sm) : 1;
     const fonts = [...new Set(Object.values(d0().roles).map((x) => x && x.font).filter(Boolean))];
     const title = [fest, year].filter(Boolean).join(' ');
     files.push({ name: rootDir + 'README.txt', data: [
@@ -504,7 +505,7 @@ export function openStudio(ctx) {
       `Congratulations, and thank you for being part of ${title}. Please use our laurels like this:`, '',
       '1. Use the laurel for what your film received: Official Selection for a selection, the award laurel only for the award it won. A nomination or a finalist place is not a win.',
       '2. Use the files as they are. Please don’t redraw, re-letter or recolor them. The black and white versions are there for backgrounds where the color one doesn’t read.',
-      `3. Keep it readable: at least ${minPx} px tall on screen, and at least ${r2(minIn)} in (${Math.round(minIn * 25.4)} mm) wide in print.`,
+      minPx ? `3. Keep it readable: at least ${minPx} px tall on screen, and at least ${r2(minIn)} in (${Math.round(minIn * 25.4)} mm) wide in print.` : '3. Keep it readable: large enough that every detail of the artwork holds.',
       '4. Give it room: keep clear space around it of at least a tenth of its width, and don’t crop or overlap it.',
       '5. Alongside other festivals’ laurels, ours can sit at the same size as the rest.',
       '6. Name us as we are written on the laurel, in captions and press releases too.', '',
@@ -515,7 +516,7 @@ export function openStudio(ctx) {
   }
   function readme(ways, fmts, link) {
     const d = d0(), r = rendered('color'), vb = r.viewBox, sm = smallest(r), alt = ctx.altText(d);
-    const minPx = isFinite(sm) ? Math.ceil(6 * vb[3] / sm) : 120, minIn = isFinite(sm) ? 6 * vb[2] / (72 * sm) : 1;
+    const minPx = Math.ceil(6 * vb[3] / sm), minIn = 6 * vb[2] / (72 * sm);
     const fonts = [...new Set(Object.values(d.roles).map((x) => x && x.font).filter(Boolean))];
     const notes = checkLaurel(d);
     const W = { color: 'The laurel as you designed it.', black: 'One color, pure black (#000000), clear background. For light posters, one-ink print and festival programs.', white: 'One color, pure white (#FFFFFF), clear background. For dark posters, trailers and over photos.' };
@@ -525,7 +526,7 @@ export function openStudio(ctx) {
       'WHAT’S HERE', ...ways.map((w) => `  ${w}/  ${W[w]}`), '', 'In each folder:', ...fmts.map((f) => '  ' + F[f]),
       ways.includes('color') && d.canvas.bg && fmts.includes('png') ? '  -on-background.png  The same, on your background color.' : null, '',
       'ALT TEXT', `  ${alt}`, '  Paste it wherever the image goes: it’s what screen readers say.', '',
-      'SIZES THAT STAY READABLE', `  On screen: at least ${minPx} px tall.`, `  In print: at least ${r2(minIn)} in (${Math.round(minIn * 25.4)} mm) wide, so the smallest words are 6 pt.`, '',
+      'SIZES THAT STAY READABLE', ...(isFinite(sm) ? [`  On screen: at least ${minPx} px tall.`, `  In print: at least ${r2(minIn)} in (${Math.round(minIn * 25.4)} mm) wide, so the smallest words are 6 pt.`] : ['  No words to size: the laurel is all artwork. Keep it large enough that its details hold.']), '',
       'FONTS', `  ${fonts.join(', ')}. From Google Fonts, under open licenses such as the SIL Open Font License: free to use, commercially too.`, '',
       notes.length ? 'BEFORE YOU USE IT' : null, ...notes.map((x) => `  - ${x.text}${x.source ? ` (${x.source.url})` : ''}`), notes.length ? '' : null,
       'Some festivals send official laurels and require them. If yours did, use theirs.',
