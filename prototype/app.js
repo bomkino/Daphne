@@ -24,11 +24,14 @@ const KIND_ROLE = { status: 'eyebrow', festival: 'hero', award: 'hero', category
 const KIND_LABEL = { status: 'Status', festival: 'Festival', award: 'Award', category: 'Section', location: 'Place', year: 'Year', edition: 'Edition', custom: 'Own line', icon: 'Ornament', logo: 'Official logo' };
 const KINDS = Object.keys(KIND_ROLE);
 const SLOTS = [['inside', 'Inside'], ['above', 'Above'], ['below', 'Below'], ['arc-top', 'Curved, top'], ['arc-bottom', 'Curved, inside base'], ['arc-under', 'Curved, under'], ['ribbon', 'On a ribbon'], ['badge', 'In a medallion']];
-const ROLES = [['hero', 'Name size'], ['eyebrow', 'Status size'], ['sub', 'Detail size'], ['big', 'Big numeral']];
+const ROLES = [['hero', 'Name size'], ['eyebrow', 'Status size'], ['sub', 'Detail size'], ['big', 'Big numeral'], ['arc', 'Curved size']];
+// L02: ribbon, medallion and curved lines all take the shared curved-text size (Type › Curved and ribbon text)
+const CURVED = ['ribbon', 'badge', 'arc-top', 'arc-bottom', 'arc-under'];
+const ROLE_NAME = { hero: 'The name', eyebrow: 'Status line', sub: 'Details', big: 'Big numeral', arc: 'Curved and ribbon text' }; // as the Type tab names them
 let doc = clone(DEFAULT_DOC);
 let selected = null, uid = 10;
 const undoStack = [], future = [];
-const state = { tab: 'words', looksView: 'looks', group: 'All', backdrop: 'dark', smallSizes: false }; // UI state, not part of the laurel
+const state = { tab: 'words', looksView: 'looks', group: 'All', backdrop: 'dark', smallSizes: false, grid: false }; // UI state, not part of the laurel
 try { Object.assign(state, JSON.parse(localStorage.getItem('daphne.ui') || '{}')); } catch (e) { /* a convenience */ }
 const saveUi = () => { try { localStorage.setItem('daphne.ui', JSON.stringify({ tab: state.tab, looksView: state.looksView, group: state.group, backdrop: state.backdrop })); } catch (e) { /* a convenience */ } };
 
@@ -194,30 +197,115 @@ function showNotes(list) {
 }
 
 // drag a line to nudge it (stored as dx/dy on its field); double-click resets
+// ── placement (L03 and wave 5): pick words on the stage, move them by hand or by key, snap them home. The selection,
+// the strip, the guides and the grid live only on the stage: none of it ever reaches a file.
+const SNAP_PX = 7, GRID = 10, NS_SVG = 'http://www.w3.org/2000/svg';
+let guide = null, lastNudge = 0, dragging = false;
+const fieldOf = (id) => doc.fields.find((f) => f.id === id);
+const r1 = (v) => Math.round(v * 10) / 10;
 function decorateStage() {
   const svg = stage.querySelector('svg'); if (!svg) return;
   svg.setAttribute('role', 'img'); svg.setAttribute('aria-label', altText(doc));
+  // the selected words glow; the guide lines and the grid are drawn over the artwork, in the stage only
+  if (selected) for (const el of svg.querySelectorAll('[data-ids]')) if (el.dataset.ids.split(' ').includes(selected)) el.classList.add('picked');
+  const vb = (svg.getAttribute('viewBox') || '0 0 1 1').split(/[\s,]+/).map(Number), line = (x1, y1, x2, y2, cls) => { const l = document.createElementNS(NS_SVG, 'line'); for (const [k, v] of Object.entries({ x1, y1, x2, y2, class: cls, 'vector-effect': 'non-scaling-stroke' })) l.setAttribute(k, v); return l; };
+  if (state.grid) { const g = document.createElementNS(NS_SVG, 'g'); g.setAttribute('class', 'grid'); g.setAttribute('aria-hidden', 'true'); for (let x = Math.ceil(vb[0] / GRID) * GRID; x <= vb[0] + vb[2]; x += GRID) g.append(line(x, vb[1], x, vb[1] + vb[3], x === 0 ? 'axis' : '')); for (let y = Math.ceil(vb[1] / GRID) * GRID; y <= vb[1] + vb[3]; y += GRID) g.append(line(vb[0], y, vb[0] + vb[2], y, '')); svg.append(g); }
+  if (guide) { const g = document.createElementNS(NS_SVG, 'g'); g.setAttribute('class', 'guides'); g.setAttribute('aria-hidden', 'true'); if (guide.x) g.append(line(0, vb[1], 0, vb[1] + vb[3], 'guide')); if (guide.y != null) g.append(line(vb[0], guide.y, vb[0] + vb[2], guide.y, 'guide')); svg.append(g); }
   svg.addEventListener('pointerdown', (e) => {
-    const t = e.target.closest('[data-ids]'); if (!t || !t.dataset.ids) return;
-    const ids = t.dataset.ids.split(' '), f0 = doc.fields.find((f) => f.id === ids[0]); if (!f0) return;
-    selectField(f0.id);
-    const m = svg.getScreenCTM().inverse(), p0 = new DOMPoint(e.clientX, e.clientY).matrixTransform(m), base = { dx: f0.dx || 0, dy: f0.dy || 0 };
-    let moved = false;
-    const move = (ev) => { const p = new DOMPoint(ev.clientX, ev.clientY).matrixTransform(m); if (!moved) { if (Math.hypot(ev.clientX - e.clientX, ev.clientY - e.clientY) < 3) return; moved = true; remember(); } f0.dx = Math.round((base.dx + p.x - p0.x) * 10) / 10; f0.dy = Math.round((base.dy + p.y - p0.y) * 10) / 10; schedule(); };
-    const up = () => { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); window.removeEventListener('pointercancel', up); if (!moved) return; lastSnap = JSON.stringify(doc); saveHash(); };
-    window.addEventListener('pointermove', move); window.addEventListener('pointerup', up); window.addEventListener('pointercancel', up);
+    if (dragging || e.button > 0) return; // a second finger (or a right click) doesn’t start a second move
+    const t = e.target.closest('[data-ids]'); if (!t || !t.dataset.ids) { if (selected) pick(null); return; }
+    const ids = t.dataset.ids.split(' '), f0 = fieldOf(ids[0]); if (!f0) return;
+    pick(f0.id);
+    const m = svg.getScreenCTM().inverse(), p0 = new DOMPoint(e.clientX, e.clientY).matrixTransform(m), base = { dx: f0.dx || 0, dy: f0.dy || 0 }, tol = SNAP_PX * Math.abs(m.a);
+    const home = (() => { const b = t.getBBox(); return b.y + b.height / 2 - base.dy; })();
+    // C05: one pointer owns the gesture. Other pointers are ignored; a cancel, a lost window or a document swapped
+    // underneath (Undo, a link) puts the line back, and only a finished move becomes one undo step
+    let moved = false; dragging = true;
+    const mine = (ev) => ev.pointerId === e.pointerId;
+    const move = (ev) => {
+      if (!mine(ev)) return;
+      if (!doc.fields.includes(f0)) return end(false);
+      const p = new DOMPoint(ev.clientX, ev.clientY).matrixTransform(m);
+      if (!moved) { if (Math.hypot(ev.clientX - e.clientX, ev.clientY - e.clientY) < 3) return; moved = true; }
+      let dx = base.dx + p.x - p0.x, dy = base.dy + p.y - p0.y; guide = null;
+      if (!ev.altKey) { // snapping, on unless Alt (Option) is held: to the grid when it shows, then home to the center line and the line's own row
+        if (state.grid) { dx = Math.round(dx / GRID) * GRID; dy = Math.round(dy / GRID) * GRID; }
+        const gx = Math.abs(dx) < tol, gy = Math.abs(dy) < tol; if (gx) dx = 0; if (gy) dy = 0;
+        if (gx || gy) guide = { x: gx, y: gy ? home : null };
+      }
+      f0.dx = r1(dx); f0.dy = r1(dy); schedule();
+    };
+    const end = (keep) => {
+      window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); window.removeEventListener('pointercancel', cancel); window.removeEventListener('blur', lost);
+      dragging = false; guide = null;
+      if (!moved) return;
+      if (keep && doc.fields.includes(f0) && ((f0.dx || 0) !== base.dx || (f0.dy || 0) !== base.dy)) { remember(); lastSnap = JSON.stringify(doc); saveHash(); } // lastSnap still holds the laurel from before the move
+      else { f0.dx = base.dx; f0.dy = base.dy; }
+      schedule(); placed();
+    };
+    const up = (ev) => { if (mine(ev)) end(true); }, cancel = (ev) => { if (mine(ev)) end(false); }, lost = () => end(false);
+    window.addEventListener('pointermove', move); window.addEventListener('pointerup', up); window.addEventListener('pointercancel', cancel); window.addEventListener('blur', lost);
   });
-  svg.addEventListener('dblclick', (e) => { const t = e.target.closest('[data-ids]'); if (!t || !t.dataset.ids) return; const f0 = doc.fields.find((f) => f.id === t.dataset.ids.split(' ')[0]); if (f0 && (f0.dx || f0.dy)) { remember(); f0.dx = 0; f0.dy = 0; lastSnap = JSON.stringify(doc); schedule(); saveHash(); } });
+  svg.addEventListener('dblclick', (e) => { const t = e.target.closest('[data-ids]'); if (!t || !t.dataset.ids) return; const f0 = fieldOf(t.dataset.ids.split(' ')[0]); if (f0) place(f0, 0, 0); });
 }
-function selectField(id) {
+// the arrow keys place words only while the strip is open and the focus is on the page, the stage or the strip
+function placing() {
+  if (!selected || mode !== 'laurel' || !fieldOf(selected)) return false;
+  const a = document.activeElement;
+  return !a || a === document.body || document.getElementById('stagearea').contains(a);
+}
+// one placement change, undoable as one step; arrow keys held down make one step, not dozens
+function place(f, dx, dy, o = {}) {
+  if ((f.dx || 0) === dx && (f.dy || 0) === dy) return;
+  if (!o.held || performance.now() - lastNudge > 700) remember();
+  lastNudge = performance.now(); f.dx = r1(dx); f.dy = r1(dy); lastSnap = JSON.stringify(doc); schedule(); saveHash(); placed();
+}
+// after a move, Reset and Center are there at once, in the strip and on the line's row (L03), focus kept
+function placed() { drawPlacebar(); if (state.tab === 'words' && document.querySelector('.field')) buildPanel(); }
+// select words: the line glows on the stage (no re-render, so a double-click still lands on the same line) and
+// the placing strip opens over the stage
+function pick(id) {
+  selectField(id);
+  const svg = stage.querySelector('svg');
+  if (svg && mode === 'laurel') for (const el of svg.querySelectorAll('[data-ids]')) el.classList.toggle('picked', !!id && el.dataset.ids.split(' ').includes(id));
+  drawPlacebar();
+}
+function selectField(id, force = false) {
   selected = id;
   if (state.tab !== 'words') return;
+  document.querySelectorAll('.field').forEach((el) => el.classList.toggle('sel', !!id && el.dataset.id === id));
+  if (!id) return;
   state.everyOpen = true;
   const det = document.querySelector('#fields')?.closest('details'); if (det && !det.open) det.open = true;
-  document.querySelectorAll('.field').forEach((el) => el.classList.toggle('sel', el.dataset.id === id));
-  const el = document.querySelector(`.field[data-id="${id}"]`); if (el) el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  // L03: on a phone the panel sits under the stage, so following the line there would scroll the laurel away
+  // mid-placement; it follows only when asked (Edit words)
+  const el = document.querySelector(`.field[data-id="${id}"]`);
+  if (el && (force || !matchMedia('(max-width: 860px)').matches)) el.scrollIntoView({ block: force ? 'center' : 'nearest', behavior: 'smooth' });
 }
-
+let placebar = null, placeKey = '';
+function drawPlacebar() {
+  const f = selected && mode === 'laurel' ? fieldOf(selected) : null;
+  const area = document.getElementById('stagearea');
+  area.classList.toggle('placing', !!f);
+  if (!placebar) { placebar = h('div', { class: 'placebar', role: 'toolbar', 'aria-label': 'Place the selected words', hidden: true }); document.getElementById('stagewrap').append(placebar); }
+  if (!f) { placebar.hidden = true; placebar.innerHTML = ''; placeKey = ''; return; }
+  const key = [f.id, f.kind, f.text, f.dx, f.dy].join('|'); if (key === placeKey && !placebar.hidden) return; placeKey = key;
+  keepFocus(placebar, () => {
+    placebar.hidden = false; placebar.innerHTML = '';
+    const dx = f.dx || 0, dy = f.dy || 0, by = (x, y) => (e) => place(f, dx + x * (e.shiftKey ? 10 : 1), dy + y * (e.shiftKey ? 10 : 1));
+    const arrow = (label, x, y, glyph) => h('button', { class: 'btn small icon', 'aria-label': label, title: `${label} (arrow key; Shift moves 10)`, onclick: by(x, y) }, glyph);
+    placebar.append(
+      h('span', { class: 'what' }, h('b', {}, KIND_LABEL[f.kind] || 'Line'), f.text ? ' · ' + (f.text.length > 22 ? f.text.slice(0, 21) + '…' : f.text) : ''),
+      // A07: which Type role styles these words, one click away
+      (() => { const rk = CURVED.includes(f.slot) ? 'arc' : f.role || 'sub'; return h('button', { class: 'btn small ghost role', title: 'Change the font and style of every line in this role', onclick: () => setTab('type') }, 'Type: ', ROLE_NAME[rk] || rk); })(),
+      arrow('Move left', -1, 0, '←'), arrow('Move up', 0, -1, '↑'), arrow('Move down', 0, 1, '↓'), arrow('Move right', 1, 0, '→'),
+      h('button', { class: 'btn small', title: 'Back onto the center line, at its height', disabled: !dx, onclick: () => place(f, 0, dy) }, 'Center'),
+      h('button', { class: 'btn small', title: 'Back where the layout put it (or double-click it)', disabled: !dx && !dy, onclick: () => place(f, 0, 0) }, 'Reset'),
+      h('button', { class: 'btn small ghost edit', onclick: () => { setTab('words'); selectField(f.id, true); } }, 'Edit words'),
+      h('button', { class: 'btn small ghost icon', 'aria-label': 'Done placing', title: 'Done (Esc)', onclick: () => pick(null) }, '✕'),
+      h('span', { class: 'hint' }, 'Snaps to the center; hold Alt (Option) to place freely.'));
+  });
+}
 // the claim in words, for alt text, SVG titles and file metadata: "Winner, Best Documentary, Northlight Film Festival 2026"
 function altText(d = doc) {
   const vis = d.fields.filter((f) => f.show !== false && f.text && f.kind !== 'icon' && f.kind !== 'logo');
@@ -290,6 +378,20 @@ function paintEditor(label, path, o = {}) {
 // a font picker that shows every font in its own face (only the letters of its name are fetched for the preview)
 let fontPop = null;
 function closeFontPop() { if (fontPop) { fontPop.remove(); fontPop = null; } }
+// C04: a new family takes a face it really has, so the preview, the measurements and the outlined files agree: italic
+// only if the family has italics, and its nearest weight. One undo step.
+function setFamily(path, fam) {
+  const info = fontInfo(fam), base = path.replace(/\.font$/, ''), r = get(base);
+  if (!info || base === path || !r) return change(path, fam, true);
+  batch(() => {
+    change(path, fam);
+    if (r.italic && !info.it) change(base + '.italic', false);
+    const w = +r.weight || 400, lo = info.w[0], hi = info.w[info.w.length - 1];
+    const nw = info.v ? Math.min(hi, Math.max(lo, w)) : info.w.reduce((a, b) => (Math.abs(b - w) < Math.abs(a - w) ? b : a));
+    if (nw !== w) change(base + '.weight', nw);
+  });
+  buildPanel();
+}
 function fontPicker(path) {
   const v = get(path), info = fontInfo(v);
   const btn = h('button', { class: 'fontbtn', type: 'button', 'aria-haspopup': 'listbox', style: `font-family:"pv ${v}","${v}",serif`, onclick: (e) => { e.stopPropagation(); openFontPop(btn, path); } }, h('span', {}, v), h('small', {}, info ? info.c : 'Google font'));
@@ -307,7 +409,7 @@ function openFontPop(anchor, path) {
       const fs = FONTS.filter((x) => x.c === c && (!qq || x.f.toLowerCase().includes(qq)));
       if (!fs.length) continue;
       listEl.append(h('div', { class: 'fcat' }, c));
-      for (const x of fs) listEl.append(h('button', { class: 'fopt' + (x.f === cur ? ' on' : ''), role: 'option', style: `font-family:"pv ${x.f}","${x.f}",serif`, onclick: () => { closeFontPop(); change(path, x.f, true); } }, x.f, h('small', {}, x.v ? 'variable' : x.w.length > 1 ? `${x.w.length} weights` : '')));
+      for (const x of fs) listEl.append(h('button', { class: 'fopt' + (x.f === cur ? ' on' : ''), role: 'option', style: `font-family:"pv ${x.f}","${x.f}",serif`, onclick: () => { closeFontPop(); setFamily(path, x.f); } }, x.f, h('small', {}, x.v ? 'variable' : x.w.length > 1 ? `${x.w.length} weights` : '')));
     }
     if (qq && !FONTS.some((x) => x.f.toLowerCase() === qq)) listEl.append(h('div', { class: 'fcat' }, 'Any Google font'), h('button', { class: 'fopt', onclick: () => { closeFontPop(); change(path, q.trim().replace(/\b\w/g, (m) => m.toUpperCase()), true); } }, `Use “${q.trim()}”`, h('small', {}, 'from Google Fonts')));
   };
@@ -381,7 +483,8 @@ function fieldRow(f, i) {
       textInput,
       h('div', { class: 'meta' },
         h('select', { title: 'What it is', 'aria-label': 'What it is', onchange: (e) => upd('kind', e.target.value, true) }, KINDS.map((k) => h('option', { value: k, selected: k === f.kind }, KIND_LABEL[k]))),
-        h('select', { title: 'How big', 'aria-label': 'Size', onchange: (e) => upd('role', e.target.value) }, ROLES.map(([k, l]) => h('option', { value: k, selected: k === f.role }, l))),
+        CURVED.includes(f.slot) ? h('select', { title: 'Curved, ribbon and medallion words share one size: change it under Type › Curved and ribbon text', 'aria-label': 'Size', disabled: true }, h('option', { value: 'arc', selected: true }, 'Curved size'))
+          : h('select', { title: 'How big', 'aria-label': 'Size', onchange: (e) => upd('role', e.target.value) }, ROLES.map(([k, l]) => h('option', { value: k, selected: k === f.role }, l))),
         h('select', { title: 'Where it sits', 'aria-label': 'Where it sits', onchange: (e) => upd('slot', e.target.value) }, (f.kind === 'logo' ? SLOTS.filter(([k]) => LOGO_SLOTS.includes(k)) : SLOTS).map(([k, l]) => h('option', { value: k, selected: k === (f.slot || 'inside') }, k === 'badge' ? l + sharedBadge(f) : l)))),
       h('div', { class: 'flags' },
         h('label', {}, h('input', { type: 'checkbox', checked: f.show !== false, onchange: (e) => upd('show', e.target.checked, true) }), 'Show'),
@@ -458,7 +561,9 @@ function buildPanelNow() {
 // ── Looks: presets and layouts, previewed on the stage as you hover ──
 function looksTab() {
   const shuffles = [h('button', { class: 'btn primary small', title: 'A new look from curated pools. Keeps your words.', onclick: () => shuffle('all') }, '✦ Surprise me'), h('button', { class: 'btn small', onclick: () => shuffle('wreath') }, 'Wreath'), h('button', { class: 'btn small', onclick: () => shuffle('color') }, 'Color'), h('button', { class: 'btn small', onclick: () => shuffle('type') }, 'Type')];
-  const top = head('Looks', 'Hover to preview on the stage, click to use. Your words stay.', ...shuffles);
+  // A02: the hint names what this pointer and this view can do: hover previews only on the laurel, with a mouse
+  const canPeek = mode === 'laurel' && matchMedia('(any-hover: hover)').matches;
+  const top = head('Looks', canPeek ? 'Hover to preview on the stage, click to use. Your words stay.' : 'Tap a look to use it; Undo takes it back. Your words stay.', ...shuffles);
   const view = segctl([['looks', `Looks · ${PRESETS.length}`], ['layouts', `Layouts · ${LAYOUTS.length}`]], state.looksView, (v) => { state.looksView = v; saveUi(); buildPanel(); });
   const pane = h('div', { class: 'pane' }, view);
   if (state.looksView === 'looks') {
@@ -574,9 +679,11 @@ function colorTab() {
       range('Inner dimming', 'paint.depth', 0, 0.9, 0.01),
       paintEditor('Fold shade', 'paint.shade', { nullable: true, noneLabel: 'Black', leaf: false, from: '#000000' }),
       paintEditor('Berries & flowers', 'paint.ornament', { nullable: true, noneLabel: 'Same as leaves', from: 'paint.branch' }),
-      select('Draw', 'paint.mode', [['fill', 'Filled'], ['outline', 'Outline'], ['both', 'Filled + outline']]),
-      range('Outline width', 'paint.stroke.w', 0.2, 4, 0.05),
-      paintEditor('Outline color', 'paint.stroke.paint', { nullable: true, noneLabel: 'Same as leaves', from: 'paint.branch' })),
+      select('Draw', 'paint.mode', [['fill', 'Filled'], ['outline', 'Outline'], ['both', 'Filled + outline']], { rebuild: true }),
+      // A15: the outline's width and color show only when there is an outline; their values wait for its return
+      ...((doc.paint.mode || 'fill') === 'fill' ? [h('p', { class: 'hint' }, 'Outline width and color appear when Draw is Outline or Filled + outline.')] : [
+        range('Outline width', 'paint.stroke.w', 0.2, 4, 0.05),
+        paintEditor('Outline color', 'paint.stroke.paint', { nullable: true, noneLabel: 'Same as leaves', from: 'paint.branch' })])),
     fold('Text', null, true,
       paintEditor('Main text', 'text.paint', { leaf: false }),
       paintEditor('Small text', 'text.sub', { nullable: true, noneLabel: 'Same as main', leaf: false, from: 'text.paint' })),
@@ -621,7 +728,7 @@ function canvasTab() {
       select('Wrapping', L + 'wrap', [['auto', 'Smart'], ['off', 'Never wrap']])),
     fold('Outside text', 'arcs, ribbon, medallion', false,
       range('Arc top radius', L + 'arcTopR', 0.6, 1.6, 0.01), range('Arc base radius', L + 'arcBottomR', 0.3, 1.2, 0.01), range('Arc under radius', L + 'arcUnderR', 0.9, 1.6, 0.01, { def: 1.04 }), range('Ribbon position', L + 'ribbonY', 0.3, 1.1, 0.01), range('Ribbon width', L + 'ribbonW', 0.5, 2, 0.01), range('Medallion size', L + 'badgeR', 0.4, 2, 0.01), range('Outside gap', L + 'outerGap', 0, 30, 0.5), range('Flank fill', L + 'flankFill', 0.3, 0.9, 0.01, { def: 0.56 })),
-    h('div', { class: 'seg' }, h('button', { class: 'btn small', onclick: () => { if (confirm('Start over with the default laurel? (Undo brings this one back.)')) replaceDoc(applyPreset(PRESETS[0], true, undefined, merge(clone(DEFAULT_DOC), { row: doc.row }))); } }, 'Start over')))];
+    h('div', { class: 'seg' }, h('button', { class: 'btn small', onclick: () => { if (confirm('Start this laurel over from the default? Your Row of laurels stays as it is, and Undo brings this one back.')) replaceDoc(applyPreset(PRESETS[0], true, undefined, merge(clone(DEFAULT_DOC), { row: doc.row }))); } }, 'Start over')))];
 }
 
 // ── About ──
@@ -731,7 +838,11 @@ window.addEventListener('keydown', (e) => {
   if (mod && e.key.toLowerCase() === 'z' && !typing) { e.preventDefault(); e.shiftKey ? redo() : undo(); }
   else if (mod && e.key.toLowerCase() === 'e') { e.preventDefault(); openExport(); }
   else if (!mod && !typing && e.key.toLowerCase() === 's') shuffle('all');
-  else if (e.key === 'Escape') { closeFontPop(); endPeek(); }
+  else if (!mod && e.key.startsWith('Arrow') && placing()) { // arrows move the picked words, Shift by ten
+    const f = fieldOf(selected), n = e.shiftKey ? 10 : 1, [x, y] = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[e.key] || [0, 0];
+    if (x || y) { e.preventDefault(); place(f, (f.dx || 0) + x * n, (f.dy || 0) + y * n, { held: true }); }
+  }
+  else if (e.key === 'Escape') { closeFontPop(); endPeek(); if (selected && mode === 'laurel' && !typing) pick(null); }
 });
 
 // ── share link and autosave: the whole document, deflated into the URL hash. No server, no account. ──
@@ -835,7 +946,7 @@ const ctx = {
   fit: (svg, vb) => { stage.classList.add('fitted'); const sw2 = document.getElementById('stagewrap'), k = Math.min((sw2.clientWidth - 56) / vb[2], (sw2.clientHeight - 92) / vb[3]); Object.assign(svg.style, { width: Math.max(1, vb[2] * k) + 'px', height: Math.max(1, vb[3] * k) + 'px', maxWidth: 'none', maxHeight: 'none' }); },
 };
 const MODES = {
-  laurel: { draw: (r) => { stage.className = 'stage'; stage.innerHTML = r.svg; decorateStage(); }, enter() {} },
+  laurel: { draw: (r) => { stage.className = 'stage'; stage.innerHTML = r.svg; decorateStage(); drawPlacebar(); }, enter() {} },
   poster: posterMode(ctx), row: rowMode(ctx), motion: motionMode(ctx),
 };
 let mode = 'laurel';
@@ -848,7 +959,7 @@ function setMode(m) {
   modebar.innerHTML = ''; modepanel.innerHTML = '';
   if (MODES[m].enter) MODES[m].enter();
   modebar.classList.toggle('on', !!modebar.childElementCount); modepanel.classList.toggle('on', !!modepanel.childElementCount);
-  showNotes([]); buildStagebar(); schedule();
+  showNotes([]); buildStagebar(); drawPlacebar(); if (state.tab === 'looks') buildPanel(); schedule();
   try { sessionStorage.setItem('daphne.mode', m); } catch (e) { /* a convenience */ }
 }
 document.querySelectorAll('#modes button').forEach((b) => (b.onclick = () => setMode(b.dataset.mode)));
@@ -858,10 +969,13 @@ const stagebar = document.getElementById('stagebar');
 function buildStagebar() {
   stagebar.innerHTML = '';
   mainEl.classList.toggle('light', state.backdrop === 'light'); mainEl.classList.toggle('check', state.backdrop === 'check');
-  if (mode !== 'laurel') { document.querySelector('.small-sizes')?.remove(); placeSmallSizes(); return; }
+  // A06: the backdrop is a preview setting for the Row too (pale artwork on Light needs a way back to Dark)
+  const backdrop = () => segctl([['dark', h('span', {}, h('i', { class: 'bd', style: 'background:#12291E' }), ' Dark')], ['light', h('span', {}, h('i', { class: 'bd', style: 'background:#F3F6EF' }), ' Light')], ['check', h('span', {}, h('i', { class: 'bd', style: 'background:repeating-conic-gradient(#999 0 25%,#ddd 0 50%) 0 0/7px 7px' }), ' Clear')]], state.backdrop, (v) => { state.backdrop = v; saveUi(); buildStagebar(); });
+  if (mode !== 'laurel') { document.querySelector('.small-sizes')?.remove(); placeSmallSizes(); if (mode === 'row') stagebar.append(backdrop()); return; }
   stagebar.append(
-    segctl([['dark', h('span', {}, h('i', { class: 'bd', style: 'background:#12291E' }), ' Dark')], ['light', h('span', {}, h('i', { class: 'bd', style: 'background:#F3F6EF' }), ' Light')], ['check', h('span', {}, h('i', { class: 'bd', style: 'background:repeating-conic-gradient(#999 0 25%,#ddd 0 50%) 0 0/7px 7px' }), ' Clear')]], state.backdrop, (v) => { state.backdrop = v; saveUi(); buildStagebar(); }),
+    backdrop(),
     h('span', { class: 'grow' }),
+    h('span', { class: 'gridtoggle' }, segctl([[true, state.grid ? '✓ Grid' : 'Grid']], state.grid ? true : null, () => { state.grid = !state.grid; buildStagebar(); schedule(); })),
     segctl([[true, state.smallSizes ? '✓ Small sizes' : 'Small sizes']], state.smallSizes ? true : null, () => { state.smallSizes = !state.smallSizes; buildStagebar(); if (state.smallSizes) drawSmallSizes(); else { document.querySelector('.small-sizes')?.remove(); placeSmallSizes(); } }));
 }
 // the laurel at 160, 100 and 64 px tall, on dark and light: how a poster row, a listing and a thumbnail show it
@@ -935,6 +1049,8 @@ new ResizeObserver(() => placeSmallSizes()).observe(document.getElementById('sta
     location.href = a.href;
   });
   setTimeout(() => preloadOutlines(doc.roles).catch(() => null), 2500); // warm the shaper for the first SVG or PDF
-  import('./fixer.js').then((mod) => { ctx.openFixer = (onDone, o) => mod.openFixer(ctx, onDone, o); }).catch(() => null);
+  // C08: Clean up works from the first click: it loads the tool when needed, and says so if the tool can't load
+  import('./fixer.js').catch(() => null);
+  ctx.openFixer = async (onDone, o) => { let mod; try { mod = await import('./fixer.js'); } catch (e) { toast('Couldn’t load the clean-up tool. Check your connection, then reload the page.'); return; } mod.openFixer(ctx, onDone, o); };
   window.__laurel = { get doc() { return doc; }, get renders() { return renders; }, get lastMs() { return lastMs; }, render: (d) => render(d || doc, { measure }), PRESETS, applyPreset, measure, setMode, get mode() { return mode; }, ctx, MODES, setTab, altText, openExport };
 })();

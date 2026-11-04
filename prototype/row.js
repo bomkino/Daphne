@@ -179,7 +179,7 @@ export function rowMode(ctx) {
         seg('Type', 'uniform', [[true, 'Same size in every laurel'], [false, 'Fit each one']]),
         h('label', {}, 'Gap', h('input', { type: 'range', min: 0, max: 0.6, step: 0.01, value: row.gap, oninput: (e) => { const r = R(); r.gap = +e.target.value; ctx.change('row', r); } })),
         row.arrange === 'tiered' ? h('label', {}, 'Lead size', h('input', { type: 'range', min: 1, max: 1.8, step: 0.01, value: row.lead, oninput: (e) => { const r = R(); r.lead = +e.target.value; ctx.change('row', r); } })) : null),
-      tableEl = table(row),
+      h('div', { class: 'rowscroll' }, (tableEl = table(row))), // V/A: only the table scrolls sideways on a phone; the notes and controls wrap
       h('div', { class: 'rowtools' },
         h('button', { class: 'btn small', onclick: () => { const r = R(); r.items.push({ id: 'r' + ++uid + Date.now().toString(36), status: 'Official Selection', festival: '', award: '', year: String(new Date().getFullYear()) }); setRow(r, true); setTimeout(() => { const ins = P.querySelectorAll('tr.item input[data-k="festival"]'); ins[ins.length - 1]?.focus(); }, 30); } }, '+ Laurel'),
         h('button', { class: 'btn small', title: 'A festival’s own laurel file, placed in the row at the same height', onclick: () => fileInput.click() }, '+ Official artwork'),
@@ -202,8 +202,8 @@ export function rowMode(ctx) {
              h('td', {}, inp('festival', 'Which festival? (for the rules check)')), h('td', {}, inp('year', 'Year', '64px'))]
           : [h('td', {}, inp('status', 'Status')), h('td', {}, inp('festival', 'Festival')), h('td', {}, inp('award', 'Award (if it won)')), h('td', {}, inp('year', 'Year', '64px'))],
         h('td', {}, h('label', { title: 'Lead laurel: first in the row, and on top when tiered' }, h('input', { type: 'checkbox', checked: !!it.lead, onchange: (e) => upd('lead', e.target.checked, true) }), ' lead')),
-        h('td', {}, h('input', { type: 'checkbox', title: 'Show', checked: it.show !== false, onchange: (e) => upd('show', e.target.checked, true) })),
-        h('td', {}, h('button', { class: 'btn small', title: 'Remove', onclick: () => { const r = R(); r.items.splice(i, 1); setRow(r, true); } }, '×')));
+        h('td', {}, h('input', { type: 'checkbox', title: 'Show in the row', 'aria-label': `Show ${it.festival || 'this laurel'} in the row`, checked: it.show !== false, onchange: (e) => upd('show', e.target.checked, true) })),
+        h('td', {}, h('button', { class: 'btn small', title: 'Remove', 'aria-label': `Remove ${it.festival || 'this laurel'}`, onclick: () => { const r = R(); r.items.splice(i, 1); setRow(r, true); } }, '×')));
       // only a row's own drag reorders: text dropped from anywhere stays text
       tr.addEventListener('dragstart', (e) => { if (e.target !== tr) return; rowDrag = it.id; e.dataTransfer.setData('application/x-daphne-row', it.id); e.dataTransfer.effectAllowed = 'move'; });
       tr.addEventListener('dragend', () => { rowDrag = null; });
@@ -217,7 +217,7 @@ export function rowMode(ctx) {
       });
       tb.append(tr);
     });
-    return h('table', { class: 'rowtable' }, h('thead', {}, h('tr', {}, h('th', {}), h('th', {}, 'Status'), h('th', {}, 'Festival'), h('th', {}, 'Award'), h('th', {}, 'Year'), h('th', {}), h('th', {}), h('th', {}))), tb,
+    return h('table', { class: 'rowtable' }, h('thead', {}, h('tr', {}, h('th', {}), h('th', {}, 'Status'), h('th', {}, 'Festival'), h('th', {}, 'Award'), h('th', {}, 'Year'), h('th', {}), h('th', {}, 'Show'), h('th', {}))), tb,
       h('datalist', { id: 'row-statuses' }, STATUSES.map((s) => h('option', { value: s }))));
   }
 

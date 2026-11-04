@@ -3,7 +3,7 @@
 //
 // The app in prototype/ has no build step and works under any base path, so this
 // copies it as it is, minus the test and QA pages, and adds what only pitch.dog
-// needs: the canonical link, pitch.dog's page-view analytics (no session replay)
+// needs: the canonical link, pitch.dog's site analytics (page views, scroll depth, contact links; no session replay)
 // and BUILD.json, which names the commit it came from. It stops on an inline
 // <script>, which pitch.dog's Content-Security-Policy would block.
 //
@@ -40,7 +40,8 @@ function replaceOnce(text, from, to, file = 'index.html') {
   if (at < 0 || text.indexOf(from, at + 1) >= 0) throw new Error(`${file}: expected exactly one ${from}`)
   return text.slice(0, at) + to + text.slice(at + from.length)
 }
-// Page views only: the script drops the URL's #l= laurel link before anything is sent, and replay stays off.
+// A19: the site's own analytics: page views plus its scroll-depth and contact-link events. The script drops the URL's
+// #l= laurel link before anything is sent, and replay stays off.
 const analytics = '<script src="/assets/site-analytics.js" data-analytics-replay="off" defer></script>\n</head>'
 const indexPath = join(out, 'index.html')
 let html = await readFile(indexPath, 'utf8')

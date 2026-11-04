@@ -122,8 +122,42 @@ All work goes on the branch `claude/project-thread-tx7lhm` with one draft PR. Me
 | V07 | 4 | fixed | Mixed wreath is a switch (role=switch, aria-checked) reading ✓ Different right side when on; tests/browser/focus.test.mjs (fails on main) |
 | V08 | 4 | fixed | An inherited paint's swatch shows the paint it inherits with a dashed ring; only a transparent background is a checkerboard; tests/browser/focus.test.mjs (fails on main) |
 | V09 | 4 | fixed | Story's body rule no longer overrides the lead's 40ch measure; tests/browser/narrow.test.mjs (fails on main) |
-| L01 | 5 | todo | |
-| L02 | 5 | todo | |
-| L03 | 5 | todo | |
+| L01 | 5 | fixed | The ribbon's words sit on the band's middle line (baseline half a cap height below it) and are centered without the trailing letter-space, at any tracking; curved top and under text centered the same way; tests/browser/place.test.mjs (fails on main by 11 units) |
+| L02 | 5 | fixed | Ribbon, medallion and curved words carry their fields' ids and move with the first field's nudge (band and tails with them); Every line shows Curved size, disabled, pointing to Type › Curved and ribbon text; italic applies to ribbon and medallion; tests/browser/place.test.mjs (fails on main). Join/unjoin keeps the first field's offset: the moved group is the joined line |
+| L03 | 5 | fixed | Picking words glows them on the stage without a redraw and opens a placing strip (arrows, Center, Reset, Edit words, Done); Reset is there right after a drag, on the strip and the line; on a phone the panel no longer scrolls the laurel away and the strip sits under the laurel; tests/browser/place.test.mjs (fails on main) |
+| Placement | 5 | built | Snapping to the center line and the line's own row, Alt (Option) to place freely, pink guides while snapped, an optional grid (off by default, snaps when on), arrow keys (Shift ×10, a held key is one undo step), Esc lets go; none of it reaches a file; tests/browser/place.test.mjs |
 | D41 | site | todo | |
 | K01 | 6 | fixed | the words-only badge (stress B37) now fits its canvas through D04; the stress suite runs with no allowance |
+| A02 | 6 | fixed | The Looks hint says Hover only with a hovering pointer on the laurel; touch screens read "Tap a look to use it; Undo takes it back"; tests/browser/wave6.test.mjs (fails on main) |
+| A05 | 6 | fixed | Accolades list and sentence wrap as prose (HTML stays code); Copy names what it copies and is disabled when there is nothing; tests/browser/wave6.test.mjs (fails on main) |
+| A06 | 6 | fixed | Dark, Light and Clear stay in the stage bar in Row, as preview settings only; tests/browser/wave6.test.mjs (fails on main) |
+| A07 | 6 | fixed | The placing strip names the Type role styling the picked words (Type: Details) and opens Type; tests/browser/wave6.test.mjs (fails on main) |
+| A08 | 6 | fixed | About stays at the end of the phone rail after the intro is closed; tests/browser/wave6.test.mjs (fails on main) |
+| A09 | 6 | fixed | "Make your laurel · free, no account" right under the Story film's words; tests/browser/wave6.test.mjs (fails on main) |
+| A11 | 6 | fixed | The Row's Show column has a heading; each Show box and Remove button names its laurel; tests/browser/wave6.test.mjs (fails on main) |
+| A12 | 6 | fixed | The Website preview says it is enlarged to fit, apart from the width it shows on the page; tests/browser/wave6.test.mjs (fails on main) |
+| A15 | 6 | fixed | Outline width and color show only when Draw has an outline; their values wait for it; tests/browser/wave6.test.mjs (fails on main) |
+| A18 | 6 | part | Runtime font hashes, weights and sizes recorded in notes/fonts.md; the subset recipe (source hashes, ranges, features) is still to be written down by whoever made the subsets |
+| A19 | 6 | fixed | README and the build describe the site analytics as they are: page views plus the site's scroll-depth and contact-link events, no replay, the #l= link never sent |
+| A20 | 6 | closed | Already true: the Accolades list leaves hidden Row laurels out and says so; tests/unit/accolades.test.mjs "hidden row laurels are left out" |
+| A21 | 6 | fixed | Start over asks "Start this laurel over from the default? Your Row of laurels stays as it is, and Undo brings this one back."; tests/browser/wave6.test.mjs (fails on main) |
+| A22 | 6 | closed | Covered by J05 (wave 3): examples are marked, never exported, with Start with this laurel and Clear the examples |
+| A23 | 6 | closed | Covered by J01 and J05: a layout never adds example facts, and examples can't reach an export |
+| A24 | 6 | closed | Already true: Copy link says when uploaded logos and artwork stay on this device |
+| C01 | 6 | fixed | Curved words longer than their curve (wreath or seal) get a warning in the notes instead of losing letters silently; tests/unit/wave6.test.mjs (fails on main) |
+| C02 | 6 | fixed | Text in the artwork escapes ">" (so "]]>" is safe) and drops characters XML forbids; tests/unit/wave6.test.mjs (fails on main) |
+| C03 | 6 | fixed | Pack folders are unique even when labels slug alike (Best Film, Best-Film); the README maps folders to laurels; tests/browser/wave6.test.mjs (fails on main) |
+| C04 | 6 | fixed | Choosing a family resolves a face it has: italic off if it has none, the nearest weight; one undo step; tests/browser/wave6.test.mjs (fails on main) |
+| C05 | 6 | fixed | One pointer owns a placement: other pointers and right clicks are ignored; cancel, a lost window or a swapped document put the line back with no undo step; tests/browser/wave6.test.mjs (fails on main). Physical touch stays with B04 |
+| C07 | 6 | fixed | While a look is previewed, the stage report, Small sizes and the placing strip hide and the notes dim, so no advice describes the wrong laurel; tests/browser/wave6.test.mjs (fails on main) |
+| C08 | 6 | fixed | Clean up loads its tool on demand and says so if it can't; tests/browser/wave6.test.mjs (fails on main) |
+| K02 | 6 | closed | Verified: the PDF leaves effects out on purpose, said in Color › Effects and in Export › PDF when effects are on; D25 (tinted logos) was fixed separately |
+| A13 | 6 | closed | Kept as is: at 861 px the side panel keeps the options beside the preview; stacking (≤860 px) was reviewed with D45 and offers no clear gain |
+| A14 | 6 | closed | Kept as is for launch: the pinned type roles already separate actions, values and hints; no root-size change |
+| A01 | 6 | later | Journey improvement (compact Preview/Export on phones while editing below the stage); not a bug. L03 keeps the laurel in view when picking words |
+| A03 | 6 | later | Journey improvement: Export finishing the active Poster or Motion task in place; Poster and Motion export work today from their own bars |
+| A04 | 6 | later | Layout judgment: Fit or reflow offers for wide Rows in portrait Social cards |
+| A10 | 6 | fixed | Labels sit 6 px from their selects and sliders in the Row and Motion bars; on a phone the Row's notes and controls wrap and only its table scrolls sideways; checked at 1440/390/320; tests/browser/wave6.test.mjs (Row at 390/320) |
+| A16 | 6 | later | Persistent export progress for long jobs; today the job's button shows its state and a toast reports the end or the error |
+| A17 | 6 | later | Inspect then decide: the footer's synthetic italic and small role differences |
+| C06 | 6 | later | Source candidate, not reproduced yet: capture the widest Row at the Social card's maximum size and repair any unintended crop |

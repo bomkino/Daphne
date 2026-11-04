@@ -16,7 +16,10 @@ const rad = (d) => (d * Math.PI) / 180;
 const f = (v) => Math.round(v * 100) / 100; // two decimals, as a number (the hot path of every outline)
 const lerp = (a, b, t) => a + (b - a) * t;
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
-const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+// C02: text goes into XML, so it is escaped whole (']]>' included) and the characters XML forbids are dropped: control
+// codes other than tab and newlines, and halves of broken surrogate pairs (shown as the replacement mark)
+export const xmlSafe = (s) => String(s).replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\uFFFE\uFFFF]/g, '').replace(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g, '\uFFFD');
+const esc = (s) => xmlSafe(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 export const clone = (o) => JSON.parse(JSON.stringify(o));
 export const merge = (a, b) => { const o = Array.isArray(a) ? [...a] : { ...a }; for (const k of Object.keys(b || {})) o[k] = b[k] && typeof b[k] === 'object' && !Array.isArray(b[k]) && a && a[k] && typeof a[k] === 'object' && !Array.isArray(a[k]) ? merge(a[k], b[k]) : b[k]; return o; };
 const X = (ox, oy, ang) => { const c = Math.cos(ang), s = Math.sin(ang); return ([x, y]) => [ox + x * c - y * s, oy + x * s + y * c]; };
@@ -880,6 +883,7 @@ export function render(docIn, env = {}) {
   if (flank) { const out = best ? best.set.out : [], w = Math.max(0, ...out.map((l) => l.w)); shift = -(w / 2 + padOf(H) * 1.4) - B.innerX; }
 
   const texts = [], shapes = [], items = [];
+  const nudge = (l) => (l && (l.dx || l.dy) ? ` transform="translate(${f(l.dx || 0)} ${f(l.dy || 0)})"` : ''); // a line's own placement, for shapes drawn whole (L02)
   const drawLine = (l, x, base, cls) => {
     const r = roleOf(l.role), fill = paintRef(frameInk && cls === 'inside' ? frameInk : textPaint(l.role), defs, [x - l.w / 2, base - l.size, l.w, l.size]);
     if (l.icon === 'logo') {
@@ -931,7 +935,7 @@ export function render(docIn, env = {}) {
   // several lines in the medallion share it, joined like a ribbon's ("1st · 2026"), so none goes missing
   const badgeF = toLines(fieldsIn('badge'));
   if (badgeF.length) {
-    const words = badgeF.filter((x) => !x.icon), l = words.length ? { s: words.map((x) => x.s).join(L.joinSep), ids: badgeF.flatMap((x) => x.ids) } : badgeF[0];
+    const words = badgeF.filter((x) => !x.icon), l = words.length ? { s: words.map((x) => x.s).join(L.joinSep), ids: badgeF.flatMap((x) => x.ids), dx: words[0].dx, dy: words[0].dy } : badgeF[0];
     if (words.length && words.length < badgeF.length) report.warnings.push('The medallion holds words or a star, not both: the star is left out. Move one of them out of the medallion.');
     const rb = Math.max(8, H * 0.62) * L.badgeR; let cy = B.top + rb * 0.15;
     const inside = FR && (!FG || (FG.hasBand && fieldsIn('arc-top').length));
@@ -945,11 +949,13 @@ export function render(docIn, env = {}) {
     // on a filled frame's face the medallion is struck in the ink, its star in the metal
     const onFace = inside && frameInk, bInk = onFace ? framePaint : ribbonInk;
     const bfill = paintRef(onFace ? frameInk : doc.ribbon.paint || doc.paint.branch, defs, [-rb, cy - rb, 2 * rb, 2 * rb]);
-    shapes.push(`<path d="${circleD(0, cy, rb)}" fill="${bfill}"/>`);
-    if (l.icon) shapes.push(`<path d="${polyD(starPts(0, cy, rb * 0.62))}" fill="${paintRef(bInk, defs, [-rb, cy - rb, 2 * rb, 2 * rb])}"/>`);
-    else { const r = roleOf('arc'), s = caseOf(l.s, r.case); let size = rb * 0.62; while (measure(s, r.font, r.weight, r.italic, size) > rb * 1.6 && size > 3) size *= 0.92; if (size < MS * 0.8) report.warnings.push(`"${l.s}" is too long for the medallion to read: keep it to a year or a short word like "1st".`); texts.push(`<text x="0" y="${f(cy + size * 0.36)}" text-anchor="middle" font-family="${esc(r.font)}" font-weight="${r.weight}" font-size="${f(size)}" fill="${paintRef(bInk, defs, [-rb, cy - rb, 2 * rb, 2 * rb])}">${esc(s)}</text>`); }
-    items.push({ ids: l.ids, slot: 'badge', bbox: [-rb, cy - rb, 2 * rb, 2 * rb] });
-    top = Math.min(top, cy - rb);
+    // L02: the medallion is placed like any line: it carries its field's id and moves with its nudge, as a whole
+    const mv = nudge(l), ids = ` data-ids="${l.ids.join(' ')}"`;
+    shapes.push(`<path d="${circleD(0, cy, rb)}" fill="${bfill}"${mv}${ids}/>`);
+    if (l.icon) shapes.push(`<path d="${polyD(starPts(0, cy, rb * 0.62))}" fill="${paintRef(bInk, defs, [-rb, cy - rb, 2 * rb, 2 * rb])}"${mv}${ids}/>`);
+    else { const r = roleOf('arc'), s = caseOf(l.s, r.case); let size = rb * 0.62; while (measure(s, r.font, r.weight, r.italic, size) > rb * 1.6 && size > 3) size *= 0.92; if (size < MS * 0.8) report.warnings.push(`"${l.s}" is too long for the medallion to read: keep it to a year or a short word like "1st".`); texts.push(`<text x="0" y="${f(cy + size * 0.36)}" text-anchor="middle" font-family="${esc(r.font)}" font-weight="${r.weight}"${r.italic ? ' font-style="italic"' : ''} font-size="${f(size)}" fill="${paintRef(bInk, defs, [-rb, cy - rb, 2 * rb, 2 * rb])}"${mv}${ids}>${esc(s)}</text>`); }
+    items.push({ ids: l.ids, slot: 'badge', bbox: [-rb + (l.dx || 0), cy - rb + (l.dy || 0), 2 * rb, 2 * rb] });
+    top = Math.min(top, cy - rb + (l.dy || 0)); halfWExtra = Math.max(halfWExtra, rb + Math.abs(l.dx || 0));
   }
 
   // the badge frame: a fixed frame was fitted already; a hugging one is drawn round the words (and medallion) now
@@ -980,6 +986,8 @@ export function render(docIn, env = {}) {
   if (ribbonF.length) {
     const r = roleOf('arc'), s = ribbonF.map((l) => caseOf(l.s || '', r.case)).join(L.joinSep);
     const size = Math.max(MS, H * r.ratio * 1.45), hh = size * 0.92;
+    // L02: the ribbon carries its fields' ids and moves, band and words together, with the first field's nudge
+    const mv = nudge(ribbonF[0]), ids = ` data-ids="${ribbonF.flatMap((l) => l.ids).join(' ')}"`, dxR = ribbonF[0].dx || 0, dyR = ribbonF[0].dy || 0;
     const tw = measure(s, r.font, r.weight, r.italic, size) + r.track * size * [...s].length;
     const halfW = Math.max(tw / 2 + hh * 1.6, Math.min(B.halfW * 0.86, 100) * L.ribbonW);
     const Rc = Math.max(100 * br.spine.ry * 2.4, halfW * 2.6), rise = (x) => Rc - Math.sqrt(Math.max(0, Rc * Rc - x * x)); // big circle, center above: a soft smile
@@ -998,14 +1006,16 @@ export function render(docIn, env = {}) {
       const a = sg < 0 ? A0 : A1, [ex, ey] = P(Rc, a), ox = sg * hh * 2.6, oy = hh * 0.9;
       const tail = [[ex - sg * hh * 0.2, ey - hh * 0.9 + oy], [ex + ox, ey - hh * 0.9 + oy], [ex + ox - sg * hh * 0.9, ey + oy], [ex + ox, ey + hh * 0.9 + oy], [ex - sg * hh * 0.2, ey + hh * 0.9 + oy]];
       const fold = [[ex, ey + hh], [ex - sg * hh * 0.2, ey + hh * 0.9 + oy], [ex - sg * hh * 0.2, ey + hh * 0.9 + oy - hh * 0.6]];
-      shapes.push(`<path data-part="ribbon" d="${polyD(tail)}" fill="${rfill}" opacity="0.82"/><path d="${polyD(fold)}" fill="#000" opacity="0.35"/>`);
+      shapes.push(`<path data-part="ribbon" d="${polyD(tail)}" fill="${rfill}" opacity="0.82"${mv}${ids}/><path d="${polyD(fold)}" fill="#000" opacity="0.35"${mv}/>`);
     }
-    shapes.push(`<path data-part="ribbon" d="${band}" fill="${rfill}"/>`);
-    const pid = 'rp' + ++PID, rm = Rc - size * 0.36;
+    shapes.push(`<path data-part="ribbon" d="${band}" fill="${rfill}"${mv}${ids}/>`);
+    // L01: the words sit in the middle of the band. Glyphs stand toward the circle's center (up), so the baseline goes
+    // below the band's middle line by half a cap height; the trailing letter-space is left out of the centering
+    const pid = 'rp' + ++PID, rm = Rc + size * 0.36, tr = r.track * size;
     defs.push(`<path id="${pid}" d="M${f(P(rm, A0 + 0.2)[0])} ${f(P(rm, A0 + 0.2)[1])}${arc(rm, A0 + 0.2, A1 - 0.2, 0)}"/>`);
-    texts.push(`<text font-family="${esc(r.font)}" font-weight="${r.weight}" font-size="${f(size)}" letter-spacing="${f(r.track * size)}" fill="${paintRef(ribbonInk, defs, [0, 0, 1, 1])}" text-anchor="middle"><textPath href="#${pid}" startOffset="50%">${esc(s)}</textPath></text>`);
-    items.push({ ids: ribbonF.flatMap((l) => l.ids), slot: 'ribbon', bbox: [-halfW, y0 - hh, 2 * halfW, 2 * hh] });
-    bottom = Math.max(bottom, y0 + hh * 2.2); halfWExtra = Math.max(halfWExtra, halfW + hh * 2.8);
+    texts.push(`<text font-family="${esc(r.font)}" font-weight="${r.weight}"${r.italic ? ' font-style="italic"' : ''} font-size="${f(size)}" letter-spacing="${f(tr)}" fill="${paintRef(ribbonInk, defs, [0, 0, 1, 1])}" text-anchor="middle"${mv}${ids}><textPath href="#${pid}" startOffset="${f(rm * (A0 - A1 + 0.4) / 2 + tr / 2)}">${esc(s)}</textPath></text>`);
+    items.push({ ids: ribbonF.flatMap((l) => l.ids), slot: 'ribbon', bbox: [-halfW + dxR, y0 - hh + dyR, 2 * halfW, 2 * hh] });
+    bottom = Math.max(bottom, y0 + hh * 2.2 + dyR); halfWExtra = Math.max(halfWExtra, halfW + hh * 2.8 + Math.abs(dxR));
   }
 
   // arcs: text on a circle — top (outside, reading over the wreath), bottom (inside, reading along the base) and
@@ -1018,10 +1028,13 @@ export function render(docIn, env = {}) {
       let size = FG.bt * 0.5; const len = () => measure(s, r.font, r.weight, r.italic, size) + r.track * size * n;
       const room = Math.PI * Math.sqrt((ma * ma + mb * mb) / 2) * (under ? 0.58 : 0.84);
       while (len() > room && size > MS * 0.6) size *= 0.95;
-      const d = 0.36 * size, A = under ? ma + d : ma - d, Bv = under ? mb + d : mb - d, pid = 'ap' + ++PID;
+      const tooLong = () => report.warnings.push(`"${s.length > 40 ? s.slice(0, 39) + '…' : s}" is too long to curve round the seal: its ends would be cut off. Shorten it, or move it inside.`);
+      const d = 0.36 * size, A = under ? ma + d : ma - d, Bv = under ? mb + d : mb - d, pid = 'ap' + ++PID, tr = r.track * size, mv = nudge(ls[0]), ids = ls.flatMap((l) => l.ids).join(' ');
+      const half = (Math.PI * (3 * (A + Bv) - Math.sqrt((3 * A + Bv) * (A + 3 * Bv)))) / 2; // half the ellipse (Ramanujan)
+      if (len() > half * 0.98) tooLong(); // C01
       defs.push(`<path id="${pid}" d="M${f(-A)} 0A${f(A)} ${f(Bv)} 0 0 ${under ? 0 : 1} ${f(A)} 0"/>`);
-      texts.push(`<text data-part="${slot}" font-family="${esc(r.font)}" font-weight="${r.weight}"${r.italic ? ' font-style="italic"' : ''} font-size="${f(size)}" letter-spacing="${f(r.track * size)}" fill="${paintRef(frameInk || textPaint('arc'), defs, [-A, -Bv, 2 * A, 2 * Bv])}" text-anchor="middle"><textPath href="#${pid}" startOffset="50%">${esc(s)}</textPath></text>`);
-      items.push({ ids: ls.flatMap((l) => l.ids), slot, bbox: [-A, under ? Bv - size : -Bv, 2 * A, size], band: true });
+      texts.push(`<text data-part="${slot}" font-family="${esc(r.font)}" font-weight="${r.weight}"${r.italic ? ' font-style="italic"' : ''} font-size="${f(size)}" letter-spacing="${f(tr)}" fill="${paintRef(frameInk || textPaint('arc'), defs, [-A, -Bv, 2 * A, 2 * Bv])}" text-anchor="middle"${mv} data-ids="${ids}"><textPath href="#${pid}" startOffset="${f(half / 2 + tr / 2)}">${esc(s)}</textPath></text>`);
+      items.push({ ids: ls.flatMap((l) => l.ids), slot, bbox: [-A + (ls[0].dx || 0), (under ? Bv - size : -Bv) + (ls[0].dy || 0), 2 * A, size], band: true });
       continue;
     }
     let size = Math.max(MS, H * r.ratio);
@@ -1049,11 +1062,14 @@ export function render(docIn, env = {}) {
     }
     const span = slot === 'arc-top' ? Math.PI * 0.9 : Math.PI * 0.62, len = () => measure(s, r.font, r.weight, r.italic, size) + r.track * size * [...s].length;
     while (len() > Rr * span && size > MS * 0.7) size *= 0.95;
-    const pid = 'ap' + ++PID;
+    if (len() > Math.PI * Rr * 0.98) report.warnings.push(`"${s.length > 40 ? s.slice(0, 39) + '…' : s}" is too long to curve round the wreath: its ends would be cut off. Shorten it, or move it inside.`); // C01
+    const pid = 'ap' + ++PID, tr = r.track * size, mv = nudge(ls[0]), ndx = ls[0].dx || 0, ndy = ls[0].dy || 0;
     defs.push(`<path id="${pid}" d="M${f(-Rr)} 0A${f(Rr)} ${f(Rr)} 0 0 ${sweep} ${f(Rr)} 0"/>`);
-    texts.push(`<text data-part="${slot}" font-family="${esc(r.font)}" font-weight="${r.weight}"${r.italic ? ' font-style="italic"' : ''} font-size="${f(size)}" letter-spacing="${f(r.track * size)}" fill="${paintRef(textPaint('arc'), defs, [-Rr, -Rr, 2 * Rr, 2 * Rr])}" text-anchor="middle"><textPath href="#${pid}" startOffset="50%">${esc(s)}</textPath></text>`);
-    items.push({ ids: ls.flatMap((l) => l.ids), slot, bbox: [-Rr, slot === 'arc-top' ? -Rr - size : Rr - size, 2 * Rr, size] });
-    if (slot === 'arc-top') top = Math.min(top, -Rr - size * 1.1); else bottom = Math.max(bottom, Rr + size * 0.4);
+    // L01: centered on the arc without the trailing letter-space; L02: its fields' ids and nudge, like any line
+    texts.push(`<text data-part="${slot}" font-family="${esc(r.font)}" font-weight="${r.weight}"${r.italic ? ' font-style="italic"' : ''} font-size="${f(size)}" letter-spacing="${f(tr)}" fill="${paintRef(textPaint('arc'), defs, [-Rr, -Rr, 2 * Rr, 2 * Rr])}" text-anchor="middle"${mv} data-ids="${ls.flatMap((l) => l.ids).join(' ')}"><textPath href="#${pid}" startOffset="${f((Math.PI * Rr) / 2 + tr / 2)}">${esc(s)}</textPath></text>`);
+    items.push({ ids: ls.flatMap((l) => l.ids), slot, bbox: [-Rr + ndx, (slot === 'arc-top' ? -Rr - size : Rr - size) + ndy, 2 * Rr, size] });
+    if (slot === 'arc-top') top = Math.min(top, -Rr - size * 1.1 + ndy); else bottom = Math.max(bottom, Rr + size * 0.4 + ndy);
+    if (ndx) halfWExtra = Math.max(halfWExtra, Rr + Math.abs(ndx));
   }
 
   // above / below: stacks outside the wreath

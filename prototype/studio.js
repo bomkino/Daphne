@@ -4,11 +4,11 @@
 import { holdFocus, keepFocus } from './modal.js';
 import { checkLaurel, accoladesOf } from './rules.js';
 import { STATUS_COMMON } from './words.js';
-import { smallestText, caseOf } from './engine.mjs';
+import { smallestText, caseOf, xmlSafe } from './engine.mjs';
 
 const AWARD_LAYOUTS = ['winner', 'award-detail', 'award-festival-hero', 'star-winner'];
 
-const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const esc = (s) => xmlSafe(String(s ?? '')).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const r2 = (n) => Math.round(n * 100) / 100;
 const hex = (c) => (typeof c === 'string' && /^#[0-9a-f]{6}$/i.test(c) ? c : null);
 const lum = (c) => { const x = hex(c); if (!x) return 0; const [r, g, b] = [1, 3, 5].map((i) => { const v = parseInt(x.slice(i, i + 2), 16) / 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; }); return 0.2126 * r + 0.7152 * g + 0.0722 * b; };
@@ -92,6 +92,9 @@ export function packVariants(ctx, d, o) {
   const out = [];
   for (const st of o.statuses) { const v = ctx.clone(sel); setText(v, 'status', st); out.push({ label: st, slug: ctx.slug(st), doc: v }); }
   for (const a of o.awards) { const v = ctx.clone(aw); setText(v, 'award', a); setText(v, 'status', o.winner); out.push({ label: a, slug: ctx.slug(a), doc: v, award: true }); }
+  // C03: "Best Film" and "Best-Film" slug alike; each laurel gets its own folder and files (the README maps them back)
+  const used = new Set();
+  for (const v of out) { const b = v.slug || 'laurel'; let s = b, n = 1; while (used.has(s)) s = `${b}-${++n}`; used.add(s); v.slug = s; }
   return out;
 }
 
@@ -361,7 +364,7 @@ export function openStudio(ctx) {
       const r = rendered(P.way), vb = r.viewBox, sm = smallest(r);
       if (D === 'png') { const w = P.pngW, hh = Math.round(w * vb[3] / vb[2]); pv.append(cap(`${w} × ${hh} px${bgOn() ? '' : ', transparent'}`)); }
       if (D === 'print') { const wi = printIn(); pv.append(cap(`${fmtLen(wi)} × ${fmtLen(wi * vb[3] / vb[2])}${isFinite(sm) ? ` · smallest words ${(sm * wi * 72 / vb[2]).toFixed(1)} pt` : ' · no words to size'}`)); }
-      if (D === 'web') pv.append(cap(`Shown ${P.web.w} px wide on the page; sharp at any size, on any screen.`));
+      if (D === 'web') pv.append(cap(`Enlarged to fit here. On your page it shows ${P.web.w} px wide, sharp at any size, on any screen.`)); // A12: the preview is fitted, the setting is the page's
     }
     preview.append(pv);
   }
@@ -484,8 +487,9 @@ export function openStudio(ctx) {
       const a = accolades(ctx), forms = { list: ['List', a.lines.join('\n')], sentence: ['Sentence', a.sentence], html: ['HTML', a.html] };
       const cur = forms[P.words] ? P.words : 'list';
       put(seg(Object.entries(forms).map(([k, v]) => [k, v[0]]), cur, (v) => set('words', v), 'Format'),
-        h('pre', {}, forms[cur][1] || (a.list.length ? NO_SENTENCE : 'Nothing yet: fill in the festival first.')),
-        go(h('button', { class: 'btn primary', onclick: () => copy(forms[cur][1], 'Copied') }, 'Copy')),
+        // A05: the list and the sentence wrap like prose; only the HTML is code. Nothing to copy means no Copy
+        h(cur === 'html' ? 'pre' : 'div', { class: cur === 'html' ? '' : 'prose' }, forms[cur][1] || (a.list.length ? NO_SENTENCE : 'Nothing yet: fill in the festival first.')),
+        go(h('button', { class: 'btn primary', disabled: !forms[cur][1], onclick: () => forms[cur][1] && copy(forms[cur][1], `${forms[cur][0]} copied`) }, `Copy ${forms[cur][0] === 'HTML' ? 'HTML' : forms[cur][0].toLowerCase()}`)),
         h('div', { class: 'hint' }, a.list.length > 1 ? `${a.count} laurels, ordered by what carries furthest: wins, then premieres, then selections. Laurels hidden in the row are left out.` : 'Add laurels to the row (Row, in the top bar) and they all appear here, in order.'),
         altBlock());
     } else if (D.id === 'pack') {
