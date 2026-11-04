@@ -66,13 +66,13 @@ All work goes on the branch `claude/project-thread-tx7lhm` with one draft PR. Me
 | D20 | 1 | todo | |
 | D21 | 1 | fixed | Each row laurel's own words go in before its layout is chosen, so an inherited award no longer takes the festival's line; tests/browser/row.test.mjs (4 of 5 layouts fail on main) |
 | D22 | 1 | fixed | Outcome read from qualifiers before award words; ranking is order only; no status, a submission or artwork metadata is never a selection; hidden row laurels left out; tests/unit/accolades.test.mjs (10 of 11 fail on main) |
-| D32 | 1 | todo | |
+| D32 | 1 | fixed | The card follows the name as it reads now; Every line and email edits drop a stale festival id; tests/browser/festival.test.mjs (fails on main) |
 | D33 | 1 | todo | |
 | D34 | 1 | todo | |
 | J01 | 1 | fixed | Layouts and added lines arrive empty with a placeholder and a prompt; a status that qualifies an award stays shown; old untouched examples flagged; thumbnails keep examples as demos; tests/unit/layouts.test.mjs (6 of 8 fail on main), tests/browser/layouts.test.mjs (fails on main: "Best Documentary" in stage and alt text) |
 | J06 | 1 | todo | |
 | J07 | 1 | todo | |
-| J08 | 1 | todo | |
+| J08 | 1 | fixed | Festivals that moved (Sundance, Slamdance) carry dated cities; the city offered follows the year (2026, MMXXVI, ’26), an unread year offers none, and a city from another year gets a note; tests/unit/festivals.test.mjs, tests/browser/festival.test.mjs (fails on main) |
 | L04 | 1 | fixed | The medallion shows every line assigned to it, joined like a ribbon; warns when the text is too long to read or a star and words compete; the slot picker names who is already in it; tests/unit/engine.test.mjs (2 of 3 new fail on main) |
 | V03 | 1 | todo | |
 | D05 | 2 | todo | |

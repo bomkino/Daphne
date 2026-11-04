@@ -287,7 +287,7 @@ function fieldRow(f, i) {
   el.addEventListener('dragover', (e) => { e.preventDefault(); el.classList.add('drag-over'); });
   el.addEventListener('dragleave', () => el.classList.remove('drag-over'));
   el.addEventListener('drop', (e) => { e.preventDefault(); el.classList.remove('drag-over'); const from = +e.dataTransfer.getData('text/plain'); if (from === i) return; const fs = clone(doc.fields); const [m] = fs.splice(from, 1); fs.splice(i, 0, m); change('fields', fs, true); });
-  const upd = (k, v, rebuild = false) => { const fs = clone(doc.fields); fs[i][k] = v; if (k === 'text') delete fs[i].added; if (k === 'kind' && v === 'logo' && !LOGO_SLOTS.includes(fs[i].slot || 'inside')) fs[i].slot = 'inside'; change('fields', fs, rebuild); };
+  const upd = (k, v, rebuild = false) => { const fs = clone(doc.fields); fs[i][k] = v; if (k === 'text') { delete fs[i].added; if (fs[i].kind === 'festival') delete fs[i].fid; } if (k === 'kind' && v === 'logo' && !LOGO_SLOTS.includes(fs[i].slot || 'inside')) fs[i].slot = 'inside'; change('fields', fs, rebuild); };
   const logoInput = () => {
     const file = h('input', { type: 'file', accept: 'image/svg+xml,image/png,image/webp,image/jpeg', style: 'display:none', onchange: async (e) => { const fl = e.target.files[0]; const a = fl && (await readLogo(fl)); if (a) { const fs = clone(doc.fields); Object.assign(fs[i], a); delete fs[i].added; change('fields', fs, true); } } });
     const has = !!(f.src && ASSETS[f.src]);
