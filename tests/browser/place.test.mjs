@@ -149,22 +149,40 @@ test('a drag snaps to the center line; Alt places freely', async () => {
 
 test('arrow keys move the picked words, Shift by ten, a held key is one undo step; Esc lets go', async () => {
   const { page, errors, context } = await openApp();
-  await page.evaluate(() => { window.__keys = []; addEventListener('keydown', (e) => window.__keys.push((e.ctrlKey ? 'C-' : '') + e.key), true); });
-  const state = () => page.evaluate(() => JSON.stringify({ undo: document.getElementById('undo').disabled, redo: document.getElementById('redo').disabled, keys: window.__keys.join(' '), active: document.activeElement.tagName + '.' + document.activeElement.className, scrim: !!document.querySelector('.scrim'), toasts: [...document.querySelectorAll('.toast')].map((t) => t.textContent) }));
   await yearOnStage(page).click(); await settle(page, 300);
   await page.keyboard.press('ArrowRight'); await page.keyboard.press('ArrowRight'); await page.keyboard.press('Shift+ArrowDown'); await settle(page, 300);
   assert.deepEqual(Object.values(await yearField(page)).slice(1, 3), [2, 10]);
   await page.locator('#undo').click(); await settle(page, 300);
-  assert.deepEqual(Object.values(await yearField(page)).slice(1, 3), [0, 0], 'one quick run of nudges, one undo ' + (await state()));
+  assert.deepEqual(Object.values(await yearField(page)).slice(1, 3), [0, 0], 'one quick run of nudges, one undo');
   await page.locator('#redo').click(); await settle(page, 300);
   assert.deepEqual(Object.values(await yearField(page)).slice(1, 3), [2, 10], 'and one redo');
   await page.keyboard.press('Control+z'); await settle(page, 300);
-  assert.deepEqual(Object.values(await yearField(page)).slice(1, 3), [0, 0], 'Ctrl+Z undoes it too ' + (await state()));
+  assert.deepEqual(Object.values(await yearField(page)).slice(1, 3), [0, 0], 'Ctrl+Z undoes it too');
+  // a nudge right after Undo is a step of its own, not part of the one undone
+  await page.keyboard.press('ArrowUp'); await settle(page, 200);
+  await page.keyboard.press('Control+z'); await settle(page, 300);
+  assert.deepEqual(Object.values(await yearField(page)).slice(1, 3), [0, 0], 'the new nudge undoes on its own');
   await yearOnStage(page).click(); await settle(page, 200);
   await page.keyboard.press('Escape'); await settle(page, 200);
   assert.ok(!(await page.getByRole('toolbar', { name: 'Place the selected words' }).isVisible()), 'Esc closes the strip');
   await page.keyboard.press('ArrowLeft'); await settle(page, 200);
   assert.equal((await yearField(page)).dx, 0, 'with nothing picked, arrows move nothing');
+  assert.deepEqual(errors, []);
+  await context.close();
+});
+
+// in the page's first moments (the page clock under 0.7 s) the first arrow press is still an undo step; CI found this
+test('the first arrow press is an undo step even in the page’s first moments', async () => {
+  const { browser } = await setup();
+  const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+  await context.addInitScript(() => { performance.now = () => 50; });
+  const { page, errors } = await openApp({ context });
+  await yearOnStage(page).click(); await settle(page, 200);
+  await page.keyboard.press('ArrowRight'); await settle(page, 200);
+  assert.equal((await yearField(page)).dx, 1);
+  assert.ok(await page.locator('#undo').isEnabled(), 'Undo is offered');
+  await page.locator('#undo').click(); await settle(page, 300);
+  assert.equal((await yearField(page)).dx, 0);
   assert.deepEqual(errors, []);
   await context.close();
 });

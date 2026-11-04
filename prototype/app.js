@@ -200,7 +200,7 @@ function showNotes(list) {
 // ── placement (L03 and wave 5): pick words on the stage, move them by hand or by key, snap them home. The selection,
 // the strip, the guides and the grid live only on the stage: none of it ever reaches a file.
 const SNAP_PX = 7, GRID = 10, NS_SVG = 'http://www.w3.org/2000/svg';
-let guide = null, lastNudge = 0, dragging = false;
+let guide = null, nudgeMark = null, dragging = false;
 const fieldOf = (id) => doc.fields.find((f) => f.id === id);
 const r1 = (v) => Math.round(v * 10) / 10;
 function decorateStage() {
@@ -255,10 +255,15 @@ function placing() {
   return !a || a === document.body || document.getElementById('stagearea').contains(a);
 }
 // one placement change, undoable as one step; arrow keys held down make one step, not dozens
+// (a run of arrow presses on the same words, with nothing else in between, joins the step it started; the first press
+// always starts one, even in the page's first moments)
 function place(f, dx, dy, o = {}) {
   if ((f.dx || 0) === dx && (f.dy || 0) === dy) return;
-  if (!o.held || performance.now() - lastNudge > 700) remember();
-  lastNudge = performance.now(); f.dx = r1(dx); f.dy = r1(dy); lastSnap = JSON.stringify(doc); schedule(); saveHash(); placed();
+  const now = performance.now(), joins = o.held && nudgeMark && nudgeMark.snap === lastSnap && nudgeMark.id === f.id && now - nudgeMark.t <= 700;
+  if (!joins) remember();
+  f.dx = r1(dx); f.dy = r1(dy); lastSnap = JSON.stringify(doc);
+  nudgeMark = o.held ? { snap: lastSnap, id: f.id, t: now } : null;
+  schedule(); saveHash(); placed();
 }
 // after a move, Reset and Center are there at once, in the strip and on the line's row (L03), focus kept
 function placed() { drawPlacebar(); if (state.tab === 'words' && document.querySelector('.field')) buildPanel(); }
