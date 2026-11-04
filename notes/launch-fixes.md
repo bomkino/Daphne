@@ -76,9 +76,9 @@ All work goes on the branch `claude/project-thread-tx7lhm` with one draft PR. Me
 | L04 | 1 | fixed | The medallion shows every line assigned to it, joined like a ribbon; warns when the text is too long to read or a star and words compete; the slot picker names who is already in it; tests/unit/engine.test.mjs (2 of 3 new fail on main) |
 | V03 | 1 | fixed | Social card uses the laurel's casing (Title Case included) and italics for title and detail; tests/browser/social.test.mjs (fails on main) |
 | D05 | 2 | todo | |
-| D12 | 2 | todo | |
-| D13 | 2 | todo | |
-| D18 | 2 | todo | |
+| D12 | 2 | fixed | Saved images are only added to (another tab's upload and Undo's logo stay); unused ones go after 30 days, oldest first when storage is full; tests/browser/saving.test.mjs (fails on main) |
+| D13 | 2 | fixed | Saves carry a number and a late older one is dropped; an edit made as the page closes is kept and restored; a 'Not saved' badge and one toast when storage refuses; tests/browser/saving.test.mjs (fails on main). Reverse-order completion is guarded in code, not reproduced in a test |
+| D18 | 2 | fixed | Row edits work on a fresh copy, so every edit redraws, saves to the link and undoes; tests/browser/history.test.mjs (fails on main) |
 | D19 | 2 | todo | |
 | D26 | 2 | todo | |
 | D31 | 2 | todo | |
@@ -89,7 +89,7 @@ All work goes on the branch `claude/project-thread-tx7lhm` with one draft PR. Me
 | J02 | 2 | todo | |
 | J03 | 2 | todo | |
 | J04 | 2 | todo | |
-| L05 | 2 | todo | |
+| L05 | 2 | fixed | Lines and Row entries reorder only from their own drag, by id; dropped text (numbers, words, empty, out of range) never moves or empties a list; tests/browser/history.test.mjs (fails on main) |
 | D02 | 3 | todo | |
 | D03 | 3 | todo | |
 | D04 | 3 | todo | |

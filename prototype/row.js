@@ -55,7 +55,8 @@ function splitRow(l, sep) {
 export function rowMode(ctx) {
   const { h, clone } = ctx;
   let uid = 100, lastScene = null, tableEl = null, cache = new Map();
-  const R = () => ({ ...clone(ROW_DEFAULT), ...(ctx.doc.row || {}) });
+  // a fresh copy every time: edits change the copy, and change() sees the difference, so they redraw, save and undo
+  const R = () => clone({ ...ROW_DEFAULT, ...(ctx.doc.row || {}) });
   const setRow = (r, rebuild = false) => { ctx.change('row', r); if (rebuild) buildPanel(); };
 
   // one laurel of the row: the current look with this row's words. Award rows use an award layout (the user's, if the
@@ -166,6 +167,7 @@ export function rowMode(ctx) {
         h('button', { class: 'btn small', title: 'Every laurel as its own SVG and PNG, drawn at the same scale so the type matches when placed', onclick: zipAll }, 'ZIP of separate files'), fileInput),
       pasteBox);
   }
+  let rowDrag = null;
   function table(row) {
     const order = row.order === 'prestige' ? new Map([...row.items].sort((a, b) => prestige(b) - prestige(a)).map((it, i) => [it.id, i + 1])) : null;
     const tb = h('tbody');
@@ -181,10 +183,17 @@ export function rowMode(ctx) {
         h('td', {}, h('label', { title: 'Lead laurel: first in the row, and on top when tiered' }, h('input', { type: 'checkbox', checked: !!it.lead, onchange: (e) => upd('lead', e.target.checked, true) }), ' lead')),
         h('td', {}, h('input', { type: 'checkbox', title: 'Show', checked: it.show !== false, onchange: (e) => upd('show', e.target.checked, true) })),
         h('td', {}, h('button', { class: 'btn small', title: 'Remove', onclick: () => { const r = R(); r.items.splice(i, 1); setRow(r, true); } }, '×')));
-      tr.addEventListener('dragstart', (e) => e.dataTransfer.setData('text/plain', String(i)));
-      tr.addEventListener('dragover', (e) => { e.preventDefault(); tr.classList.add('drag-over'); });
+      // only a row's own drag reorders: text dropped from anywhere stays text
+      tr.addEventListener('dragstart', (e) => { if (e.target !== tr) return; rowDrag = it.id; e.dataTransfer.setData('application/x-daphne-row', it.id); e.dataTransfer.effectAllowed = 'move'; });
+      tr.addEventListener('dragend', () => { rowDrag = null; });
+      tr.addEventListener('dragover', (e) => { if (!rowDrag) return; e.preventDefault(); tr.classList.add('drag-over'); });
       tr.addEventListener('dragleave', () => tr.classList.remove('drag-over'));
-      tr.addEventListener('drop', (e) => { e.preventDefault(); tr.classList.remove('drag-over'); const from = +e.dataTransfer.getData('text/plain'); if (from === i) return; const r = R(); const [m] = r.items.splice(from, 1); r.items.splice(i, 0, m); r.order = 'manual'; setRow(r, true); });
+      tr.addEventListener('drop', (e) => {
+        tr.classList.remove('drag-over'); if (!rowDrag) return; e.preventDefault();
+        const r = R(), from = r.items.findIndex((x) => x.id === rowDrag), to = r.items.findIndex((x) => x.id === it.id); rowDrag = null;
+        if (from < 0 || to < 0 || from === to) return;
+        const [m] = r.items.splice(from, 1); r.items.splice(to, 0, m); r.order = 'manual'; setRow(r, true);
+      });
       tb.append(tr);
     });
     return h('table', { class: 'rowtable' }, h('thead', {}, h('tr', {}, h('th', {}), h('th', {}, 'Status'), h('th', {}, 'Festival'), h('th', {}, 'Award'), h('th', {}, 'Year'), h('th', {}), h('th', {}), h('th', {}))), tb,

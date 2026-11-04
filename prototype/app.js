@@ -72,7 +72,34 @@ function replaceDoc(d, rebuild = true) { undoStack.push(lastSnap); future.length
 // ── logos: official artwork the user uploads. The image lives in ASSETS (and this browser's storage); the field keeps
 // only its key and aspect ratio, so undo and share links stay small. A shared link's logo has to be uploaded again.
 try { Object.assign(ASSETS, JSON.parse(localStorage.getItem('daphne.assets') || '{}')); } catch (e) { /* storage is a convenience */ }
-const saveAssets = () => { const used = new Set([...doc.fields.filter((f) => f.kind === 'logo').map((f) => f.src), doc.poster && doc.poster.src, ...((doc.row && doc.row.items) || []).map((it) => it.src)].filter(Boolean)); try { localStorage.setItem('daphne.assets', JSON.stringify(Object.fromEntries(Object.entries(ASSETS).filter(([k]) => used.has(k))))); } catch (e) { /* too big for storage: it still works this session */ } };
+// Saved images are only ever added to, never swapped for this tab's view: another tab's upload, or a logo that Undo
+// can bring back, stays. One that no open laurel has used for 30 days is let go; when storage is full, the oldest
+// unused ones go first, and if even the current laurel's images don't fit, the person is told.
+const ASSET_KEY = 'daphne.assets', SEEN_KEY = 'daphne.assets.seen', KEEP_MS = 30 * 864e5, sessionRefs = new Set();
+const refsOf = (d) => [...(d.fields || []).filter((f) => f.kind === 'logo').map((f) => f.src), d.poster && d.poster.src, ...((d.row && d.row.items) || []).map((it) => it.src)].filter((k) => k && /^asset:/.test(k));
+const saveAssets = () => {
+  for (const k of refsOf(doc)) sessionRefs.add(k);
+  let stored = {}, seen = {};
+  try { stored = JSON.parse(localStorage.getItem(ASSET_KEY) || '{}'); seen = JSON.parse(localStorage.getItem(SEEN_KEY) || '{}'); } catch (e) { /* unreadable: start from this tab's */ }
+  const now = Date.now(), out = { ...stored };
+  for (const k of Object.keys(out)) if (!(k in seen)) seen[k] = now; // saved before dates were kept: start the clock today
+  for (const k of sessionRefs) { seen[k] = now; if (ASSETS[k]) out[k] = ASSETS[k]; }
+  for (const k of Object.keys(out)) if (!sessionRefs.has(k) && now - seen[k] > KEEP_MS) { delete out[k]; delete seen[k]; }
+  const cur = new Set(refsOf(doc)), spare = Object.keys(out).filter((k) => !cur.has(k)).sort((x, y) => seen[x] - seen[y]);
+  for (;;) {
+    try { localStorage.setItem(ASSET_KEY, JSON.stringify(out)); localStorage.setItem(SEEN_KEY, JSON.stringify(seen)); return saveState(true, 'images'); }
+    catch (e) { if (!spare.length) return saveState(false, cur.size ? 'images' : 'laurel'); const k = spare.shift(); delete out[k]; delete seen[k]; }
+  }
+};
+// whether this browser is keeping the work: quiet when it is, said once and shown in the bar when it isn't
+const saveFailed = { laurel: false, images: false };
+function saveState(ok, what = 'laurel') {
+  const el = document.getElementById('savestate');
+  if (ok) { saveFailed[what] = false; if (el && !saveFailed.laurel && !saveFailed.images) el.hidden = true; return true; }
+  if (!saveFailed[what]) toast(what === 'images' ? 'This browser has no room to keep your uploaded images: they stay until you close the tab. Keep the files to add them again.' : 'This browser isn’t saving your laurel (storage is full or blocked). Use Share link to keep it.', 6000);
+  saveFailed[what] = true; if (el) el.hidden = false;
+  return false;
+}
 async function readLogo(file) {
   if (file.size > 3 * 1024 * 1024) { toast('That file is over 3 MB: export it smaller (an SVG, or a PNG about 1500 px wide)'); return null; }
   const url = await new Promise((ok, no) => { const r = new FileReader(); r.onload = () => ok(r.result); r.onerror = no; r.readAsDataURL(file); });
@@ -280,13 +307,20 @@ function addField(k) {
   change('fields', fs, true);
   setTimeout(() => { const el = document.querySelector(`.field[data-id="${f.id}"] input[type=text]`); if (el) { el.focus(); el.select(); } }, 30);
 }
+// the line being dragged to a new place: set only by a line's own drag, so text dropped from anywhere never moves one
+let lineDrag = null;
 function fieldRow(f, i) {
   const el = h('div', { class: 'field' + (selected === f.id ? ' sel' : '') + (f.show === false ? ' off' : ''), 'data-id': f.id, draggable: 'true' });
-  el.addEventListener('dragstart', (e) => { e.dataTransfer.setData('text/plain', String(i)); el.style.opacity = 0.5; });
-  el.addEventListener('dragend', () => (el.style.opacity = 1));
-  el.addEventListener('dragover', (e) => { e.preventDefault(); el.classList.add('drag-over'); });
+  el.addEventListener('dragstart', (e) => { if (e.target !== el) return; lineDrag = f.id; e.dataTransfer.setData('application/x-daphne-line', f.id); e.dataTransfer.effectAllowed = 'move'; el.style.opacity = 0.5; });
+  el.addEventListener('dragend', () => { lineDrag = null; el.style.opacity = 1; });
+  el.addEventListener('dragover', (e) => { if (!lineDrag) return; e.preventDefault(); el.classList.add('drag-over'); });
   el.addEventListener('dragleave', () => el.classList.remove('drag-over'));
-  el.addEventListener('drop', (e) => { e.preventDefault(); el.classList.remove('drag-over'); const from = +e.dataTransfer.getData('text/plain'); if (from === i) return; const fs = clone(doc.fields); const [m] = fs.splice(from, 1); fs.splice(i, 0, m); change('fields', fs, true); });
+  el.addEventListener('drop', (e) => {
+    el.classList.remove('drag-over'); if (!lineDrag) return; e.preventDefault();
+    const from = doc.fields.findIndex((x) => x.id === lineDrag), to = doc.fields.findIndex((x) => x.id === f.id); lineDrag = null;
+    if (from < 0 || to < 0 || from === to) return;
+    const fs = clone(doc.fields); const [m] = fs.splice(from, 1); fs.splice(to, 0, m); change('fields', fs, true);
+  });
   const upd = (k, v, rebuild = false) => { const fs = clone(doc.fields); fs[i][k] = v; if (k === 'text') { delete fs[i].added; if (fs[i].kind === 'festival') delete fs[i].fid; } if (k === 'kind' && v === 'logo' && !LOGO_SLOTS.includes(fs[i].slot || 'inside')) fs[i].slot = 'inside'; change('fields', fs, rebuild); };
   const logoInput = () => {
     const file = h('input', { type: 'file', accept: 'image/svg+xml,image/png,image/webp,image/jpeg', style: 'display:none', onchange: async (e) => { const fl = e.target.files[0]; const a = fl && (await readLogo(fl)); if (a) { const fs = clone(doc.fields); Object.assign(fs[i], a); delete fs[i].added; change('fields', fs, true); } } });
@@ -663,7 +697,27 @@ const unb64u = (s) => Uint8Array.from(atob(s.replace(/-/g, '+').replace(/_/g, '/
 async function pack(o) { const cs = new CompressionStream('deflate-raw'); const w = cs.writable.getWriter(); w.write(new TextEncoder().encode(JSON.stringify(o))); w.close(); return b64u(await new Response(cs.readable).arrayBuffer()); }
 async function unpack(s) { const ds = new DecompressionStream('deflate-raw'); const w = ds.writable.getWriter(); w.write(unb64u(s)); w.close(); return JSON.parse(await new Response(ds.readable).text()); }
 let hashTimer = 0;
-function saveHash() { clearTimeout(hashTimer); hashTimer = setTimeout(async () => { try { const p = await pack(doc); window.history.replaceState(null, '', '#l=' + p); try { localStorage.setItem('daphne.autosave', p); } catch (e) { /* storage is a convenience */ } } catch (e) { /* hash is a convenience */ } }, 500); }
+// The link and the autosave follow the laurel half a second after an edit. Each save carries a number, and one that
+// finishes after a newer one started is dropped, so an older laurel never overwrites a newer one. If the page is
+// closed before a save finishes, the laurel is kept as plain JSON and picked up next time.
+let saveRev = 0, lastPacked = null;
+function saveHash() {
+  clearTimeout(hashTimer); const my = ++saveRev;
+  hashTimer = setTimeout(async () => {
+    hashTimer = 0;
+    let p; try { p = await pack(doc); } catch (e) { return; }
+    if (my !== saveRev) return; // a newer save is on its way
+    try { window.history.replaceState(null, '', '#l=' + p); } catch (e) { /* the link is a convenience */ }
+    lastPacked = p;
+    try { localStorage.setItem('daphne.autosave', p); localStorage.removeItem('daphne.pending'); saveState(true); } catch (e) { saveState(false); }
+  }, 500);
+}
+function flushSave() {
+  if (!hashTimer) return;
+  try { localStorage.setItem('daphne.pending', JSON.stringify({ from: lastPacked, doc })); } catch (e) { /* nothing more can be done as the page closes */ }
+}
+addEventListener('pagehide', flushSave);
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') flushSave(); });
 document.getElementById('copy-link').onclick = async () => { const url = location.href.split('#')[0] + '#l=' + (await pack(doc)); try { await navigator.clipboard.writeText(url); toast(JSON.stringify([doc.fields, doc.row && doc.row.items, doc.poster]).includes('"asset:') ? 'Link copied: it holds the words and the look. Uploaded logos and artwork stay on this device.' : 'Link copied: it holds the whole laurel', 3600); } catch { prompt('Copy this link', url); } };
 function toast(msg, ms = 2200) { const t = h('div', { class: 'toast', role: 'status' }, msg); document.getElementById('toasts').append(t); setTimeout(() => { t.style.transition = 'opacity .3s'; t.style.opacity = 0; setTimeout(() => t.remove(), 320); }, ms); }
 
@@ -772,12 +826,14 @@ function drawSmallSizes() {
 (async () => {
   const m = location.hash.match(/#l=([\w-]+)/);
   let restored = false;
+  let saved = null, pending = null;
+  try { saved = localStorage.getItem('daphne.autosave'); pending = JSON.parse(localStorage.getItem('daphne.pending') || 'null'); } catch (e) { /* a convenience */ }
   if (m) { try { doc = merge(clone(DEFAULT_DOC), await unpack(m[1])); } catch { doc = applyPreset(PRESETS[0]); } }
-  else {
-    let saved = null; try { saved = localStorage.getItem('daphne.autosave'); } catch (e) { /* a convenience */ }
-    if (saved) { try { doc = merge(clone(DEFAULT_DOC), await unpack(saved)); restored = true; } catch { doc = applyPreset(PRESETS[0]); } }
-    else doc = applyPreset(PRESETS[0]);
-  }
+  else if (saved) { try { doc = merge(clone(DEFAULT_DOC), await unpack(saved)); restored = true; } catch { doc = applyPreset(PRESETS[0]); } }
+  else doc = applyPreset(PRESETS[0]);
+  lastPacked = m ? m[1] : saved;
+  // an edit made just before the page closed, on top of this same laurel: bring it back
+  if (pending && pending.doc && pending.from === lastPacked) { try { doc = merge(clone(DEFAULT_DOC), pending.doc); restored = true; } catch (e) { /* keep the saved one */ } }
   for (const f of doc.fields) { const n = +String(f.id).replace(/\D/g, ''); if (n >= uid) uid = n + 1; }
   lastSnap = JSON.stringify(doc);
   buildRail(); buildPanel();

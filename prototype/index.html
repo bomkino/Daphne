@@ -72,6 +72,8 @@
   /* just above the phone layout, the bar is a little too wide for its row: Share link keeps its icon and drops its word */
   @media (max-width: 960px) { .top-actions .btn.ghost .lbl { display: none; } }
   .top-actions { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+  .savestate { font-size: 12px; font-weight: 600; color: #ffb4a2; border: 1px solid currentColor; border-radius: 999px; padding: 3px 9px; white-space: nowrap; }
+  .savestate[hidden] { display: none; }
   .modes { display: flex; gap: 2px; background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 3px; }
   .modes button { background: none; border: 0; border-radius: 7px; padding: 6px 12px; cursor: pointer; color: var(--mute); font-weight: 600; transition: color .15s, background .15s; }
   .modes button:hover { color: var(--text); }
@@ -557,6 +559,7 @@
     <button data-mode="motion" role="tab" title="An animated end card: the leaves grow in, then a shimmer">Motion</button>
   </div>
   <div class="top-actions">
+    <span id="savestate" class="savestate" role="status" hidden title="Storage is full or blocked in this browser. Use Share link to keep this laurel.">Not saved</span>
     <button class="icon-btn" id="undo" title="Undo (⌘Z)" aria-label="Undo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg></button>
     <button class="icon-btn" id="redo" title="Redo (⇧⌘Z)" aria-label="Redo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m15 14 5-5-5-5"/><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13"/></svg></button>
     <button class="btn ghost" id="copy-link" aria-label="Copy a share link" title="A link that holds the whole laurel. Nothing is stored on a server."><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></svg><span class="lbl">Share link</span></button>
