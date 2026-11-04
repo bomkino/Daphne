@@ -65,16 +65,20 @@ export function rowMode(ctx) {
     let k = 0; const nid = () => 'rw' + k++;
     const lay = (id) => ctx.layoutById(id);
     const inAward = AWARD_LAYOUTS.includes(base.userLayoutId || base.layoutId), logoIsName = base.fields.some((f) => f.kind === 'logo' && f.src && f.show !== false && f.role === 'hero');
-    let fields = d.fields;
-    if (it.award && !fields.some((f) => f.kind === 'award' && f.show !== false)) fields = ctx.layoutFields(fields, lay(inAward ? base.userLayoutId || base.layoutId : 'winner'), nid);
-    if (!it.award && fields.some((f) => f.kind === 'award' && f.show !== false)) fields = ctx.layoutFields(fields, lay(!inAward && base.userLayoutId ? base.userLayoutId : 'year-below'), nid);
+    // this laurel's own words go in first, so a layout chooses from them: an award the base had and this laurel
+    // doesn't must not take the name line from the festival
     const vals = { status: it.status, festival: it.festival, award: it.award, year: it.year };
-    d.fields = fields.map((f) => {
+    const fill = (fs) => fs.map((f) => {
       // a row has no logos, so a name the look hid behind a logo comes back
       if (f.kind in vals) { const v = String(vals[f.kind] || '').trim(), { added, ...g } = f; return { ...g, text: v, show: (f.show !== false || added || (logoIsName && f.kind === 'festival')) && !!v }; }
       if (f.kind === 'icon') return f;
       return { ...f, show: false };
     });
+    const baseAward = d.fields.some((f) => f.kind === 'award' && f.show !== false);
+    let fields = fill(d.fields);
+    if (it.award && !baseAward) fields = ctx.layoutFields(fields, lay(inAward ? base.userLayoutId || base.layoutId : 'winner'), nid);
+    if (!it.award && baseAward) fields = ctx.layoutFields(fields, lay(!inAward && base.userLayoutId ? base.userLayoutId : 'year-below'), nid);
+    d.fields = fill(fields);
     return d;
   }
   const renderCached = (d) => { const key = JSON.stringify(d); let r = cache.get(key); if (!r) { r = ctx.render(d, 1); cache.set(key, r); if (cache.size > 64) cache.delete(cache.keys().next().value); } return r; };
