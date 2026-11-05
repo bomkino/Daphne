@@ -1,0 +1,128 @@
+<!doctype html><meta charset="utf-8"><title>Daphne launch laurels</title>
+<!-- Draws every laurel the launch carousels show, with Daphne's own engine, presets, layouts and colorways, and
+     outlines the words so the slides need no laurel fonts. tools/laurels.mjs serves the app at /app/ and this page
+     at /gen/, and saves what it finds in window.__out. The words are placeholders nobody could mistake for a real
+     selection ("Your Festival", "Another Festival"): brand material never shows a real festival's name or artwork.
+     Adapted from video/explainer/scripts/laurels/gen.html. -->
+<body style="margin:0;background:#fff">
+<script type="module">
+import { render, DEFAULT_DOC, clone, merge, applyForm } from '/app/engine.mjs';
+import { PRESETS } from '/app/presets.js';
+import { LAYOUTS, layoutFields } from '/app/layouts.js';
+import { loadFont } from '/app/fonts.js';
+import { outlineSvg } from '/app/outline.js';
+import { colorway, packVariants } from '/app/studio.js';
+
+const mctx = document.createElement('canvas').getContext('2d');
+const measure = (s, font, weight, italic, size) => { mctx.font = `${italic ? 'italic ' : ''}${weight} ${size}px "${font}", sans-serif`; return mctx.measureText(s).width; };
+async function ensureFonts(d) { const need = new Map(); for (const r of Object.values(d.roles)) { if (!r || !r.font) continue; if (!need.has(r.font)) need.set(r.font, new Set()); need.get(r.font).add(r.weight || 400); } await Promise.all([...need].map(([f, ws]) => loadFont(f, [...ws]).catch(() => null))); await document.fonts.ready; }
+const layoutById = (id) => LAYOUTS.find((L) => L.id === id);
+let uid = 0; const newId = () => 'g' + ++uid;
+const WORDS = ['Official Selection', 'Your Festival', '2026'];
+
+// the app's applyPreset: the look changes, the words stay
+function fromPreset(p, words = WORDS, layout) {
+  let d = clone(DEFAULT_DOC);
+  if (p.doc.form) d = applyForm(d, p.doc.form);
+  d = merge(d, p.doc);
+  for (const k of Object.keys(d.roles)) if (!(p.doc.roles && p.doc.roles[k] && 'paint' in p.doc.roles[k])) d.roles[k].paint = null;
+  d.fields = d.fields.map((f, i) => ({ ...f, text: words[i] ?? f.text, show: i < words.length && !!words[i] }));
+  const lid = layout || p.layout;
+  if (lid) { d.fields = layoutFields(d.fields, layoutById(lid), newId); d.layoutId = lid; }
+  d.layout = { ...d.layout, targetPx: 300 };
+  d.presetName = p.name;
+  return d;
+}
+// an award laurel, laid out the app's way: the status over the award, the festival and year below
+function award(p, status, awardName, fest, year) {
+  const d = fromPreset(p, [status, fest, year], 'winner');
+  const f = d.fields.find((x) => x.kind === 'award'); if (f) { f.text = awardName; f.show = true; }
+  return d;
+}
+async function draw(d, bg = true) {
+  await ensureFonts(d);
+  if (!bg) d = { ...d, canvas: { ...d.canvas, bg: null } };
+  const r = render(d, { measure, scale: 2 });
+  const o = await outlineSvg(r.svg);
+  return { svg: o.svg, viewBox: r.viewBox, notes: o.notes, warnings: r.report.warnings, words: d.fields.filter((f) => f.show !== false && f.text).map((f) => f.text) };
+}
+const out = { named: {}, looks: [], pack: [], errors: [] };
+const ctx = { clone, layoutById, layoutFields, slug: (s) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') };
+const P = (n) => { const p = PRESETS.find((x) => x.name === n); if (!p) throw new Error('no preset ' + n); return p; };
+const add = async (key, look, d, bg = false, tight = false) => { try { const o = await draw(d, bg); out.named[key] = { name: look, ...(tight ? tighten(o) : o) }; } catch (e) { out.errors.push(key + ': ' + e.message); } };
+// a lone branch sits in a box drawn for a whole laurel: trim the box to what's drawn, so a specimen fills its sheet
+function tighten(o, pad = 3) {
+  const host = document.createElement('div'); host.innerHTML = o.svg; document.body.appendChild(host);
+  const b = host.querySelector('svg').getBBox(); host.remove();
+  const vb = [b.x - pad, b.y - pad, b.width + 2 * pad, b.height + 2 * pad].map((v) => +v.toFixed(2));
+  return { ...o, svg: o.svg.replace(/viewBox="[^"]*"/, `viewBox="${vb.join(' ')}"`), viewBox: vb };
+}
+try {
+  await add('hero', 'Classic Gold', fromPreset(P('Classic Gold')));
+  await add('heroWhite', 'Classic Gold, white', colorway(fromPreset(P('Classic Gold')), 'white', clone));
+  await add('semi', 'Classic Gold', fromPreset(P('Classic Gold'), ['Semi-Finalist', 'Your Festival', '2026']));
+  await add('premiere', 'Black Tie', fromPreset(P('Black Tie'), ['World Premiere', 'Your Festival', '2026']));
+  // the clutter: a poster's worth of mismatched laurels, every one a placeholder
+  const clutter = [
+    ['Rose Gold', ['Honorable Mention', 'Another Festival', '2025']], ['Neon Midnight', ['Semi-Finalist', 'Some Monthly Awards', '2026']],
+    ['Platinum', ['Finalist', 'Another Festival', '2026']], ['Hot Foil', ['Official Selection', 'Some Online Awards', '2026']],
+    ['Victory', ['Nominee', 'Yet Another Festival', '2025']], ['Holo', ['Quarter-Finalist', 'Some Monthly Awards', '2026']],
+    ['Bronze Jury', ['Special Mention', 'Some Online Awards', '2025']], ['Chrome', ['Semi-Finalist', 'A Festival Somewhere', '2026']],
+  ];
+  for (const [i, [look, w]] of clutter.entries()) await add('clutter' + i, look, fromPreset(P(look), w));
+  // a strong row: a win, a premiere, a selection
+  await add('rowWin', 'Laureate', award(P('Laureate'), 'Winner', 'Best Short Film', 'Your Festival', '2026'));
+  await add('rowPremiere', 'Black Tie', fromPreset(P('Black Tie'), ['World Premiere', 'Another Festival', '2026']));
+  await add('rowSelection', 'Classic Gold', fromPreset(P('Classic Gold'), ['Official Selection', 'A Third Festival', '2026']));
+  // the poster's title, set by the same engine as a branchless laurel in a condensed face, so it outlines too
+  const title = (text, font, weight, track) => { let d = clone(DEFAULT_DOC); d = applyForm(d, 'text'); d.fields = [{ id: 't', kind: 'festival', text, role: 'hero', slot: 'inside', show: true }]; d.roles.hero = { ...d.roles.hero, font, weight, case: 'upper', track }; d.text = { paint: '#f3f6ef', sub: '#f3f6ef' }; d.canvas = { ...d.canvas, bg: null, pad: 2 }; return d; };
+  await add('posterTitle', 'Poster title', title('Your Film', 'Bebas Neue', 400, 0.06));
+  // ── for the ten carousels after the launch (06 to 15) ──
+  const noWords = (d) => { d.fields = d.fields.map((f) => ({ ...f, show: false })); return d; };
+  const inked = (d, c) => { d.paint = { ...d.paint, branch: c, inner: null, ornament: null, depth: 0, shade: null, effects: { ...(d.paint.effects || {}), shadow: null, glow: null, foil: null, press: null, grain: null, misreg: null } }; d.text = { paint: c, sub: c }; for (const k of Object.keys(d.roles)) if (d.roles[k]) d.roles[k].paint = null; return d; };
+  // the white box: a stand-in for a festival's own file, dark gold on white, the way festivals often send them
+  const official = fromPreset(P('Classic Gold')); official.text = { paint: '#6f5314', sub: '#8a6a1f' }; official.canvas = { ...official.canvas, bg: '#ffffff', pad: 14 };
+  await add('officialOnWhite', 'Classic Gold, as a festival file', official, true);
+  // not gold: six films, six looks, each without its background so it sits on the film's poster
+  for (const [key, look] of [['gPeriod', 'Engraved'], ['gSea', 'Ocean'], ['gNight', 'Neon Midnight'], ['gSpring', 'Cherry Blossom'], ['gSpace', 'Chrome'], ['gSummer', 'Sorbet']]) await add(key, look, fromPreset(P(look)));
+  // the six posters' titles, outlined by the same engine in faces that suit each film
+  const titled = (text, font, weight, track, paint, kase = 'upper', italic = false) => { let d = clone(DEFAULT_DOC); d = applyForm(d, 'text'); d.fields = [{ id: 't', kind: 'festival', text, role: 'hero', slot: 'inside', show: true }]; d.roles.hero = { ...d.roles.hero, font, weight, case: kase, track, italic }; d.text = { paint, sub: paint }; d.canvas = { ...d.canvas, bg: null, pad: 2 }; return d; };
+  await add('tPeriod', 'Poster title', titled('Your Film', 'IM Fell English', 400, 0.02, '#2a2016', 'asis', true));
+  await add('tSea', 'Poster title', titled('Your Film', 'Outfit', 300, 0.14, '#e6fffb'));
+  await add('tNight', 'Poster title', titled('Your Film', 'Syne', 800, 0.04, '#fff1f6'));
+  await add('tSpring', 'Poster title', titled('Your Film', 'DM Serif Display', 400, 0, '#ffe3ea', 'asis', true));
+  await add('tSpace', 'Poster title', titled('Your Film', 'Big Shoulders Display', 800, 0.08, '#ffffff'));
+  await add('tSummer', 'Poster title', titled('Your Film', 'Fraunces', 800, -0.01, '#d6336c', 'asis'));
+  await add('tGold', 'Poster title', titled('Your Film', 'Cormorant Garamond', 600, 0.1, '#fff3d6'));
+  // no leaves: the big seal for the cover
+  await add('seal', 'Gala Seal', fromPreset(P('Gala Seal')));
+  // herbarium: one branch of each leaf, in Bay ink, with no words: specimens on a plate
+  const SPECIMENS = ['Classic Gold', 'Black Tie', 'Olive Grove', 'Herbarium', 'Old World', 'Ivy', 'Eucalyptus', 'Ginkgo', 'Fern Silver', 'Riviera Palm', 'Harvest', 'Lavender', 'Rosemary', 'Cherry Blossom', 'Pearl', 'Gatsby', 'Deco', 'Ember', 'Documentary', 'Chrome', 'Stepped Oak', 'Botanical', 'Wildflower', 'Myrtle'];
+  for (const look of SPECIMENS) {
+    let d = applyForm(fromPreset(P(look)), 'single');
+    d.branch = { ...d.branch, rows: 1, right: null, spine: { ...d.branch.spine, rx: 0.8, ry: 1.2, a0: 150, a1: 252, curl: 0, spiral: 0 }, orn: { ...d.branch.orn, tie: 'none' } };
+    noWords(inked(d, '#1F5C3B'));
+    await add('spec' + ctx.slug(look).replace(/-/g, ''), look, d, false, true);
+  }
+  // and the whole laurel in the same ink, words and all
+  await add('bayHero', 'Classic Gold, in Bay', inked(fromPreset(P('Classic Gold')), '#1F5C3B'));
+  // anatomy and the end card: the hero laurel again, plus an award laurel where the award takes the stage
+  await add('award', 'Classic Gold', award(P('Classic Gold'), 'Winner', 'Best Short Film', 'Your Festival', '2026'));
+
+  // the looks the launch shows, out of all 78
+  const SHOW = ['Classic Gold', 'Black Tie', 'Herbarium', 'Neon Midnight', 'Rose Gold', 'Letterpress', 'Gala Seal', 'Cherry Blossom', 'Engraved', 'Riso', 'Deco', 'Eucalyptus',
+    // and the badges in no leaves
+    'Gold Medal', 'Notary', 'Wax Seal', 'Cartouche', 'Première', 'Marquee', 'Admit One', 'Film Strip', 'Viewfinder'];
+  for (const [i, p] of PRESETS.entries()) {
+    if (!SHOW.includes(p.name)) continue;
+    try { out.looks.push({ i, name: p.name, group: p.group, ...(await draw(fromPreset(p), true)) }); }
+    catch (e) { out.errors.push(p.name + ': ' + e.message); }
+  }
+  // the festival pack, with the app's own defaults: four statuses and three awards, in three colorways
+  const base = fromPreset(P('Classic Gold'));
+  base.layoutId = base.layoutId || 'year-below';
+  const vs = packVariants(ctx, base, { statuses: ['Official Selection', 'Finalist', 'Semi-Finalist', 'Honorable Mention'], awards: ['Best Feature Film', 'Best Short Film', 'Audience Award'], winner: 'Winner' });
+  for (const v of vs) for (const way of ['color', 'black', 'white']) out.pack.push({ label: v.label, way, ...(await draw(colorway(v.doc, way, clone), false)) });
+} catch (e) { out.errors.push(String(e && e.stack || e)); }
+window.__out = out;
+</script>

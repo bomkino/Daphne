@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 600" width="400" height="600">
+  <!-- A summer comedy nobody made: a big sun, a pool, a float. Its laurel is Sorbet. -->
+  <defs>
+    <linearGradient id="pool" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7FD8E0"/><stop offset="1" stop-color="#2EA6C2"/></linearGradient>
+  </defs>
+  <rect width="400" height="600" fill="#FFF6EF"/>
+  <!-- the sun, in rings -->
+  <circle cx="200" cy="300" r="150" fill="#FFE2B8"/>
+  <circle cx="200" cy="300" r="118" fill="#FFCF8E"/>
+  <circle cx="200" cy="300" r="86" fill="#FFB27D"/>
+  <circle cx="200" cy="300" r="54" fill="#FF8F86"/>
+  <!-- the pool, cutting across the sun -->
+  <path d="M0 352 C70 340 130 364 200 354 C270 344 330 364 400 354 L400 450 C330 460 270 444 200 454 C130 464 70 446 0 456 Z" fill="url(#pool)"/>
+  <g stroke="#E8FBFF" stroke-width="2.4" stroke-linecap="round" fill="none" opacity=".75">
+    <path d="M24 386 c14 -6 28 6 42 0 M40 428 c14 -6 28 6 42 0 M300 380 c14 -6 28 6 42 0 M318 426 c14 -6 28 6 42 0 M150 440 c14 -6 28 6 42 0"/>
+  </g>
+  <!-- the float, a ring, pink and white -->
+  <g transform="translate(200 402) rotate(-14) scale(.82)">
+    <ellipse rx="66" ry="30" fill="#FF6A88"/>
+    <ellipse rx="30" ry="12" fill="#3DB3CC"/>
+    <path d="M-60 -12 A66 30 0 0 1 -30 -27 L-14 -11 A30 12 0 0 0 -28 -6 Z M20 -29 A66 30 0 0 1 56 -16 L28 -6 A30 12 0 0 0 12 -11 Z M40 22 A66 30 0 0 1 4 30 L4 12 A30 12 0 0 0 22 9 Z M-36 25 A66 30 0 0 1 -64 6 L-30 2 A30 12 0 0 0 -18 10 Z" fill="#FFF6EF"/>
+    <ellipse rx="66" ry="30" fill="none" stroke="#D6336C" stroke-width="1.2" opacity=".5"/>
+  </g>
+  <g fill="#D6336C" opacity=".45"><rect x="90" y="566" width="220" height="2.2"/><rect x="115" y="572" width="170" height="2.2"/><rect x="140" y="578" width="120" height="2.2"/></g>
+</svg>

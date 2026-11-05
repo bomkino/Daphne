@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 600" width="400" height="600">
+  <!-- A science fiction film nobody made: a ringed planet's edge, one small figure standing on a moon. Its laurel is Chrome. -->
+  <defs>
+    <linearGradient id="s" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#05060A"/><stop offset=".6" stop-color="#0D1428"/><stop offset="1" stop-color="#1B2A4A"/></linearGradient>
+    <radialGradient id="pl" cx="200" cy="700" r="380" gradientUnits="userSpaceOnUse"><stop offset=".6" stop-color="#2C3E66"/><stop offset=".86" stop-color="#7C92BE"/><stop offset=".93" stop-color="#C9D6EE"/><stop offset=".95" stop-color="#C9D6EE" stop-opacity="0"/></radialGradient>
+    <linearGradient id="ring" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#C2CAD4" stop-opacity="0"/><stop offset=".3" stop-color="#E9EEF5" stop-opacity=".9"/><stop offset=".7" stop-color="#9AA6B8" stop-opacity=".8"/><stop offset="1" stop-color="#C2CAD4" stop-opacity="0"/></linearGradient>
+  </defs>
+  <rect width="400" height="600" fill="url(#s)"/>
+  <g fill="#E8EEF6">
+    <circle cx="30" cy="30" r=".9"/><circle cx="74" cy="90" r=".6"/><circle cx="120" cy="40" r="1.2"/><circle cx="180" cy="120" r=".7"/><circle cx="246" cy="60" r=".9"/><circle cx="300" cy="24" r=".6"/>
+    <circle cx="350" cy="96" r="1.1"/><circle cx="380" cy="180" r=".6"/><circle cx="20" cy="170" r=".7"/><circle cx="90" cy="220" r=".5"/><circle cx="160" cy="260" r=".8"/><circle cx="280" cy="210" r=".6"/>
+    <circle cx="330" cy="280" r=".9"/><circle cx="50" cy="300" r=".6"/><circle cx="220" cy="300" r=".5"/><circle cx="370" cy="350" r=".7"/><circle cx="110" cy="360" r=".5"/>
+  </g>
+  <!-- the planet rising from the bottom, and its ring -->
+  <circle cx="200" cy="700" r="380" fill="url(#pl)"/>
+  <ellipse cx="200" cy="372" rx="300" ry="34" fill="none" stroke="url(#ring)" stroke-width="5" transform="rotate(-8 200 372)"/>
+  <ellipse cx="200" cy="372" rx="320" ry="40" fill="none" stroke="url(#ring)" stroke-width="1.4" opacity=".6" transform="rotate(-8 200 372)"/>
+  <!-- a small moon in front, with someone on it -->
+  <circle cx="320" cy="436" r="36" fill="#0A0F1C"/>
+  <path d="M285.3 426.7 A36 36 0 0 1 354.7 426.7" fill="none" stroke="#C9D6EE" stroke-width="1.4" opacity=".6"/>
+  <g transform="translate(20 -66)">
+    <g fill="#0A0F1C"><circle cx="300" cy="458" r="5.4"/><path d="M294 464 h12 l1 14 h-14 z M295 478 h4 v10 h-4 z M301 478 h4 v10 h-4 z"/></g>
+    <path d="M296 457 a4.6 4.6 0 0 1 8 -1" fill="none" stroke="#C9D6EE" stroke-width="1"/>
+  </g>
+  <g fill="#FFFFFF" opacity=".34"><rect x="90" y="566" width="220" height="2.2"/><rect x="115" y="572" width="170" height="2.2"/><rect x="140" y="578" width="120" height="2.2"/></g>
+</svg>

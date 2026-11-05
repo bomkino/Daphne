@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 600" width="400" height="600">
+  <!-- A film poster nobody made: a wheat field at the last of the light, a sun on the horizon, one figure walking.
+       The sky is the color of a gold laurel on purpose: in the carousel "Can you read this laurel?" its words disappear. -->
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#F1D48E"/><stop offset=".3" stop-color="#F2D088"/><stop offset=".5" stop-color="#EDB862"/><stop offset=".62" stop-color="#E59A45"/>
+    </linearGradient>
+    <radialGradient id="sun" cx="200" cy="372" r="190" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFF6DD"/><stop offset=".12" stop-color="#FFE9B0" stop-opacity=".95"/><stop offset=".4" stop-color="#F6C46E" stop-opacity=".45"/><stop offset="1" stop-color="#F6C46E" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="field" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#D99A3E"/><stop offset=".35" stop-color="#B9772A"/><stop offset=".75" stop-color="#7A4416"/><stop offset="1" stop-color="#3E200A"/>
+    </linearGradient>
+    <linearGradient id="haze" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FBE3A6" stop-opacity=".7"/><stop offset="1" stop-color="#FBE3A6" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="foot" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2A1405" stop-opacity="0"/><stop offset="1" stop-color="#2A1405" stop-opacity=".85"/>
+    </linearGradient>
+  </defs>
+  <rect width="400" height="600" fill="url(#sky)"/>
+  <rect width="400" height="600" fill="url(#sun)"/>
+  <circle cx="200" cy="372" r="34" fill="#FFF4D6"/>
+  <!-- far hills -->
+  <path d="M0 378 C60 368 110 374 160 366 C220 357 270 370 320 362 C350 358 380 364 400 360 L400 400 L0 400Z" fill="#E7A24E" opacity=".7"/>
+  <!-- the field -->
+  <path d="M0 386 C80 380 150 388 210 383 C280 378 340 386 400 382 L400 600 L0 600Z" fill="url(#field)"/>
+  <rect x="0" y="380" width="400" height="40" fill="url(#haze)"/>
+  <!-- wheat: rows of stalks, finer toward the horizon -->
+  <g stroke="#F3C674" stroke-linecap="round" fill="none" opacity=".55">
+    <path d="M14 600 C16 560 12 530 18 498 M30 600 C34 556 30 524 38 490 M52 600 C50 560 56 530 52 502 M70 600 C74 566 70 536 78 506 M88 600 C86 562 92 534 90 512"/>
+    <path d="M318 600 C316 566 322 534 316 508 M336 600 C340 562 336 530 344 498 M356 600 C354 560 360 528 356 494 M376 600 C380 566 374 532 382 504 M394 600 C392 560 398 532 394 506"/>
+  </g>
+  <g fill="#F7D488" opacity=".7">
+    <ellipse cx="18" cy="494" rx="3" ry="9" transform="rotate(8 18 494)"/><ellipse cx="38" cy="486" rx="3" ry="9" transform="rotate(14 38 486)"/><ellipse cx="52" cy="498" rx="3" ry="9" transform="rotate(-6 52 498)"/>
+    <ellipse cx="78" cy="502" rx="3" ry="9" transform="rotate(12 78 502)"/><ellipse cx="90" cy="508" rx="3" ry="9" transform="rotate(-4 90 508)"/>
+    <ellipse cx="316" cy="504" rx="3" ry="9" transform="rotate(-8 316 504)"/><ellipse cx="344" cy="494" rx="3" ry="9" transform="rotate(10 344 494)"/><ellipse cx="356" cy="490" rx="3" ry="9" transform="rotate(-4 356 490)"/>
+    <ellipse cx="382" cy="500" rx="3" ry="9" transform="rotate(12 382 500)"/><ellipse cx="394" cy="502" rx="3" ry="9" transform="rotate(-6 394 502)"/>
+  </g>
+  <g stroke="#E8B25E" stroke-width=".8" opacity=".5">
+    <path d="M110 430 l2 -14 M124 432 l-1 -15 M140 428 l2 -13 M258 430 l-2 -14 M272 428 l1 -13 M290 432 l2 -15 M60 444 l1 -16 M340 446 l-1 -16"/>
+  </g>
+  <!-- a path through the wheat, and someone walking it -->
+  <path d="M196 386 C200 420 186 470 168 600 L232 600 C214 470 204 420 204 386Z" fill="#E5A855" opacity=".55"/>
+  <g fill="#3A1F08">
+    <ellipse cx="201" cy="368" rx="3.2" ry="3.6"/>
+    <path d="M197.6 372.5 C197 378 197.4 383 198 388 L199.3 388 L200.4 380.5 L201.4 388 L202.8 388 C203.6 383 204 378 203.6 372.5 Z"/>
+  </g>
+  <rect y="430" width="400" height="170" fill="url(#foot)"/>
+  <g fill="#FFF3D6" opacity=".42"><rect x="90" y="566" width="220" height="2.2"/><rect x="115" y="572" width="170" height="2.2"/><rect x="140" y="578" width="120" height="2.2"/></g>
+</svg>

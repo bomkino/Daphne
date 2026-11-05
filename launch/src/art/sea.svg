@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 600" width="400" height="600">
+  <!-- A documentary nobody made, about the sea: dawn on open water, one small boat. Its laurel is Ocean. -->
+  <defs>
+    <linearGradient id="s" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#031A20"/><stop offset=".38" stop-color="#0B4650"/><stop offset=".6" stop-color="#3F9C99"/><stop offset=".66" stop-color="#A9E4D6"/></linearGradient>
+    <linearGradient id="w" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1E6C70"/><stop offset=".5" stop-color="#083740"/><stop offset="1" stop-color="#021317"/></linearGradient>
+    <radialGradient id="g" cx="250" cy="396" r="150" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#E6FFF6" stop-opacity=".9"/><stop offset=".25" stop-color="#B8F0E2" stop-opacity=".45"/><stop offset="1" stop-color="#B8F0E2" stop-opacity="0"/></radialGradient>
+  </defs>
+  <rect width="400" height="600" fill="url(#s)"/>
+  <rect width="400" height="600" fill="url(#g)"/>
+  <circle cx="250" cy="396" r="14" fill="#F1FFFA"/>
+  <rect y="398" width="400" height="202" fill="url(#w)"/>
+  <!-- the sun's road on the water -->
+  <g stroke="#DDFBF2" stroke-linecap="round">
+    <path d="M232 406 h36 M226 414 h48 M236 422 h30 M218 432 h62 M240 442 h22 M212 454 h70 M228 468 h44 M206 484 h82 M222 502 h50 M200 524 h96" stroke-width="2" opacity=".5"/>
+  </g>
+  <g stroke="#7FE3D6" stroke-linecap="round" opacity=".22" stroke-width="1.2">
+    <path d="M20 420 h40 M80 446 h30 M30 476 h56 M120 500 h40 M40 540 h70 M330 430 h40 M320 470 h60 M300 520 h70 M340 560 h40"/>
+  </g>
+  <!-- the boat -->
+  <g fill="#021317">
+    <path d="M128 404 L170 404 L164 412 L134 412 Z"/>
+    <path d="M150 404 L150 372 L151.5 372 L151.5 404 Z"/>
+    <path d="M151.5 374 L166 402 L151.5 402 Z" opacity=".9"/>
+  </g>
+  <g fill="#E6FFFB" opacity=".4"><rect x="90" y="566" width="220" height="2.2"/><rect x="115" y="572" width="170" height="2.2"/><rect x="140" y="578" width="120" height="2.2"/></g>
+</svg>
